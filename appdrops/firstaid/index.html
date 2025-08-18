@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🆘 First Aid Guide — AppDrop</title>
+  <style>
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #0f1b2d, #06080e);
+      color: #f1f5f9;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      width: 90%;
+      padding: 24px;
+      border: 1px solid #2a3356;
+      border-radius: 20px;
+      background: rgba(18, 24, 42, 0.95);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 0 45px rgba(255, 71, 87, 0.3);
+      text-align: center;
+    }
+    h1 {
+      margin: 0 0 16px;
+      font-size: 1.9em;
+      background: linear-gradient(90deg, #ff4757, #ffa502);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.small {
+      color: #94a3b8;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 60%;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #f1f5f9;
+      padding: 10px;
+      border-radius: 12px;
+      outline: none;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 14px;
+      margin: 8px 4px;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #1f2937, #111827);
+      color: #f1f5f9;
+      text-decoration: none;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn:hover {
+      background: #2c3a4b;
+      box-shadow: 0 0 10px #ff6b81;
+    }
+    #out {
+      margin-top: 20px;
+      white-space: pre-wrap;
+      background: #0c1c2c;
+      border: 1px solid #1e293b;
+      padding: 14px;
+      border-radius: 14px;
+      text-align: left;
+      line-height: 1.5;
+      min-height: 80px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🆘 First Aid Guide</h1>
+    <p class="small">Offline emergency and medical reference app. Enter a condition or tap Random.</p>
+    <div>
+      <input id="q" placeholder="Search (e.g., CPR, burn)" onkeydown="if(event.key==='Enter')searchAid()" />
+      <button class="btn" onclick="searchAid()">Search</button>
+      <button class="btn" onclick="randomAid()">Random</button>
+    </div>
+    <pre id="out"></pre>
+  </div>
+
+  <script>
+    const aid = {
+      "cpr": "⛑️ CPR (Cardiopulmonary Resuscitation):\n1. Check responsiveness and breathing.\n2. Call emergency services.\n3. Start chest compressions (100–120/min, 2 inches deep).\n4. If trained, provide rescue breaths (30:2 ratio).",
+      "burn": "🔥 Burn Treatment:\n1. Remove source of heat.\n2. Cool burn with water (not ice) for 10–20 mins.\n3. Cover with sterile cloth.\n4. Do not apply ointments. Seek help for severe burns.",
+      "choking": "😤 Choking:\n1. Ask if they can cough/speak.\n2. If not, perform Heimlich (abdominal thrusts).\n3. For infants, use back slaps + chest thrusts.\n4. Call 911 if unresolved.",
+      "bleeding": "🩸 Bleeding:\n1. Apply direct pressure with cloth.\n2. Elevate if possible.\n3. Do not remove embedded objects — pad around them.\n4. Use tourniquet for severe limb bleeding only.",
+      "shock": "⚠️ Shock:\n1. Lay person down, elevate legs.\n2. Keep warm, monitor breathing.\n3. Do not give food/water.\n4. Treat visible injuries.",
+      "asthma": "🌬️ Asthma Attack:\n1. Help them use inhaler (spacer if available).\n2. Sit upright; loosen tight clothing.\n3. If no relief after 2–3 puffs, call emergency.",
+      "allergic reaction": "🌰 Severe Allergic Reaction:\n1. Use epinephrine auto-injector (EpiPen) immediately.\n2. Call 911.\n3. Lay person flat unless they are vomiting or struggling to breathe.",
+      "fracture": "🦴 Suspected Fracture:\n1. Immobilize area; do not straighten.\n2. Apply cold pack to reduce swelling.\n3. Elevate if possible.\n4. Seek medical help.",
+      "heart attack": "❤️ Heart Attack:\n1. Call emergency immediately.\n2. Help them sit down and stay calm.\n3. Loosen clothing.\n4. Offer aspirin if not allergic.",
+      "stroke": "🧠 Stroke (FAST):\nF – Face drooping\nA – Arm weakness\nS – Speech slurred\nT – Time to call 911\nStay with the person and keep calm.",
+      "anaphylaxis": "🩸 Severe allergic reaction—administer epi‑pen, call EMS immediately.",
+  "animal bite": "🐾 Clean wound, control bleeding, consider rabies/tetanus risk.",
+  "black eye": "👁 Apply cold pack, avoid pressure on orbit; watch for vision changes.",
+  "blister": "🩹 Clean, pad area; avoid popping unless urgent—use sterile technique.",
+  "bruise": "💥 Ice briefly, elevate, monitor for deep hematoma/swelling.",
+  "chemical burn": "☣ Flush with water for 20 min, remove contaminated clothing, seek help.",
+  "chemical eye splash": "👁 Rinse continuously for 15 min, protect eye, seek immediate care.",
+  "chest pain": "💔 Call EMS; help them sit, loosen clothing, give aspirin if not allergic.",
+  "corneal abrasion": "🔍 Flush eye, cover with patch, avoid rubbing; see doctor if persists.",
+  "cut/scrape": "✂ Clean, apply antibiotic, cover with sterile dressing.",
+  "dislocation": "🦴 Immobilize joint, don’t force return, reduce swelling and seek help.",
+  "electrical burn": "⚡ Cut power, check for entry/exit burns, cover and monitor for arrhythmia.",
+  "electrical shock": "⚡ Do not touch victim; cut power, call EMS, start CPR if needed.",
+  "fainting": "😵 Lay flat, elevate legs, loosen tight clothing, monitor breathing.",
+  "fever": "🌡 Monitor temp, hydrate, give fever‑reducers appropriate to age.",
+  "foodborne illness": "🤢 Hydrate with ORS; monitor for dehydration or persistent vomiting.",
+  "foreign object ear": "👂 Do not probe; seek medical removal if blockage causes pain/hearing loss.",
+  "nosebleed": "👃 Lean forward, pinch nostrils for 10 minutes; ice bridge; seek help if persistent.",
+  "poisoning": "☠ Call poison control; don’t induce vomiting unless instructed.",
+  "frostbite": "❄ Warm gently with body heat; avoid rubbing; seek care for blisters.",
+
+  "heat cramps": "🥵 Move to shade, hydrate with electrolytes, massage muscle gently.",
+  "heat exhaustion": "🥵 Cool environment, hydrate, lay flat, monitor vitals; seek help if worsens.",
+  "heatstroke": "🔥 Call EMS; cool aggressively (water, fans), pack ice to groin/neck.",
+  "hypothermia": "🥶 Warm slowly, remove wet clothes, use blanket, offer warm fluids if conscious.",
+  "sunburn": "☀ Apply cool compress, aloe, hydrate; treat pain, avoid more sun.",
+  "drowning": "🌊 Call EMS; start CPR immediately if unresponsive after rescue.",
+  "snakebite": "🐍 Keep still, lower bite, immobilize; get to ER—no tourniquet.",
+  "spider bite": "🕷 Clean, apply cold pack, watch for systemic symptoms (seek care if severe).",
+  "tick bite": "🕷 Remove with tweezers, clean area, monitor for rash/fever.",
+  "severe bleeding": "💉 Apply pressure, use tourniquet only as last resort and mark time.",
+  "head trauma": "🧠 Monitor consciousness, nausea, pupil changes; seek immediate care.",
+  "spinal injury": "🛑 Do not move; stabilize neck/back, call EMS, monitor breathing.",
+  "amputation": "🖐 Wrap severed part in moist cloth, place in sealed bag on ice, hurry to ER.",
+  "arthropod sting": "🐝 Remove stinger, ice area, monitor for allergic signs.",
+  "appendicitis": "🚨 Rigid stomach, pain in right lower quadrant—seek ER, do not apply heat.",
+  "malaria": "🦟 Take prophylaxis; treat fevers urgently—seek medical attention.",
+  "rabies": "🦇 Clean wound thoroughly, start post‑exposure prophylaxis ASAP.",
+  "ulcer bleeding": "🩸 Keep calm, rest; treat shock, get to hospital quickly.",
+  "altitude sickness": "⛰ Descend to lower altitude, rest, hydrate; use O2 if available.",
+  "pneumothorax": "💨 Rapid breathing/chest pain—call EMS and cover open chest wounds.",
+  
+  "infection risk": "🦠 Clean wound daily, change dressing, look for redness/fever.",
+  "eye debris": "👁 Blink gently or flush with water; cover eye and seek help if pain persists.",
+  "lip/tongue injury": "👄 Clean with water, apply ice, seek care if bleeding can’t be controlled.",
+  "tooth loss": "🦷 Save tooth in milk/saline, don't scrub, seek dentist ASAP.",
+  "toothache": "🦷 Rinse mouth, use cold compress, take pain‑reliever as needed.",
+  "abscess": "🦠 Warm compress, don’t lance; seek medical drainage if painful/swollen.",
+  "sepsis warning": "⚠ Fever, confusion, fast breathing—seek immediate hospital care.",
+  "rabid bite": "🦠 Clean thoroughly, start post‑exposure prophylaxis immediately.",
+  "necrotizing infection": "🔥 Rapid spreading pain/swelling—call EMS urgently.",
+  "head laceration": "🩹 Clean, pressure, cover; get stitches if deep/bleeding heavily.",
+
+  "sprain": "🦶 RICE: Rest, Ice, Compression, Elevation; seek care if severe.",
+  "strain": "💪 Rest muscles, ice, compress, gentle stretch after pain reduces.",
+  "cramp": "🦵 Stretch gently, hydrate, massage area to relieve spasm.",
+  "bruise deep": "🩵 Ice early, rest, monitor for compartment syndrome (pain with pressure).",
+  "pneumonia signs": "🌬 Fever, cough, labored breathing—seek care promptly.",
+  "gastric rupture": "🚨 Severe abdominal pain/swelling—call ambulance immediately.",
+  "gastroenteritis": "🤢 Hydrate with ORS, rest, seek care if dehydrated or persistent vomiting.",
+  "dehydration": "💧 Offer sips of water/ORS, rest in shade; seek care if dizzy/confused.",
+  "seizure": "⚡ Clear area, cushion head, don’t restrain; roll to side after.",
+  "migraine acute": "🌙 Dark, quiet rest; hydration and OTC pain relievers help.",
+  "poison ivy": "🌿 Apply cool compress, calamine lotion, antihistamine for itching.",
+  "cellulitis": "🦠 Red, warm, swollen area; elevate limb, seek antibiotics quickly.",
+  "heat rash": "☀ Keep area cool/dry; use talc or calamine; change clothing often.",
+  "motion sickness": "🚗 Sit forward, look at horizon, sip water; use acupressure bands.",
+  "frozen finger/toe": "❄ Warm with body heat or warm water; avoid direct heat.",
+  "ultraviolet eye burn": "😎 Wear cool compress, sunglasses, avoid bright light.",
+  "hypoglycemia": "🍬 Give 15‑g fast sugar (juice, candy); recheck in 15 mins.",
+  "hyperglycemia": "🍭 Frequent urination, thirsty—seek insulin or ER if ketones present."
+  
+  "mental distress": "🧠 Stay calm, listen, reassure, and call for professional help if needed.",
+  "panic attack": "😰 Encourage deep breathing, reassure, avoid crowding, call help if needed.",
+  "psychological first aid": "❤️ Provide calm presence, assess needs, connect to support.",
+  "grim mnemonic": "🔑 Use DRSABCD (Danger, Response, Send for help, Airway, Breathing, CPR, Defibrillation) :contentReference[oaicite:9]{index=9}.",
+  "safety check": "🔍 Always assess danger before aiding—ensure safety first.",
+  "universal precautions": "🧤 Use gloves, wash hands after aid to prevent infections :contentReference[oaicite:10]{index=10}.",
+  "retraining": "⏱ Refresh CPR/AED skills every 6–12 months for effectiveness :contentReference[oaicite:11]{index=11}.",
+  "wilderness injury": "🏕 Handle spinal, head trauma carefully; avoid moving unless necessary :contentReference[oaicite:12]{index=12}.",
+  "conflict first aid": "🕊 Focus on preserving social well‑being and psychological safety :contentReference[oaicite:13]{index=13}.",
+  "use of oxygen": "🆘 Oxygen not typical first aid; only trained providers in specific settings :contentReference[oaicite:14]{index=14}."
+
+    };
+
+    function searchAid() {
+      const q = document.getElementById('q').value.trim().toLowerCase();
+      const out = document.getElementById('out');
+      out.style.opacity = 0;
+      setTimeout(() => {
+        out.textContent = aid[q] || "❓ No entry found. Try terms like CPR, burn, choking, etc.";
+        out.style.opacity = 1;
+      }, 150);
+    }
+
+    function randomAid() {
+      const keys = Object.keys(aid);
+      const rand = keys[Math.floor(Math.random() * keys.length)];
+      document.getElementById('q').value = rand;
+      searchAid();
+    }
+  </script>
+</body>
+</html>
