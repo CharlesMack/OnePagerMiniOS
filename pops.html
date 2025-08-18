@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>One-Pager Mini OS</title>
+  <style>
+    /* Desktop and window styles */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #4e8ef7; /* Desktop background color (e.g., a blue shade) */
+    }
+    #desktop {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      /* Additional styling for desktop (if any background image or pattern can be added here) */
+    }
+    .window {
+      position: absolute;
+      min-width: 200px;
+      min-height: 100px;
+      border: 1px solid #000;
+      background: #fff;
+      box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+    }
+    .title-bar {
+      background: #333;
+      color: #fff;
+      padding: 4px;
+      cursor: move;
+      font-size: 14px;
+      font-family: sans-serif;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .title-bar button {
+      background: #555;
+      color: #fff;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      padding: 0 6px;
+    }
+    .window-content {
+      font-family: sans-serif;
+      font-size: 13px;
+      padding: 8px;
+      overflow: auto;
+    }
+    .taskbar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 30px;
+      background: #222;
+      color: #fff;
+      line-height: 30px;
+      font-family: sans-serif;
+      font-size: 14px;
+      padding: 0 10px;
+      box-sizing: border-box;
+    }
+    .icon {
+      display: inline-block;
+      text-align: center;
+      width: 60px;
+      margin: 10px;
+      cursor: pointer;
+      color: #fff;
+      font-family: sans-serif;
+      font-size: 12px;
+    }
+    .icon span {
+      display: block;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="desktop">
+    <!-- Example desktop icon to open the About window -->
+    <div class="icon" onclick="openAbout()">
+      📄<br><span>About</span>
+    </div>
+    <!-- Windows will be dynamically added here -->
+  </div>
+  <div id="taskbar" class="taskbar">One-Pager Mini OS</div>
+  
+  <script>
+    // Z-index management for windows
+    let topZIndex = 1;
+    
+    function createWindow(title, content) {
+      // Create window element
+      const win = document.createElement('div');
+      win.className = 'window';
+      // Position new windows at a fixed offset (for demo purposes)
+      win.style.top = '50px';
+      win.style.left = '50px';
+      win.style.zIndex = ++topZIndex;
+      // Window inner HTML structure
+      win.innerHTML = '<div class="title-bar">' + title + '<button onclick="closeWindow(this)">x</button></div>'
+                    + '<div class="window-content">' + content + '</div>';
+      document.getElementById('desktop').appendChild(win);
+      // Make the window draggable
+      makeDraggable(win);
+    }
+    
+    function closeWindow(button) {
+      const win = button.closest('.window');
+      if (win) {
+        win.remove();
+      }
+    }
+    
+    function makeDraggable(windowElem) {
+      const titleBar = windowElem.querySelector('.title-bar');
+      let offsetX = 0, offsetY = 0, startX = 0, startY = 0;
+      titleBar.onmousedown = function(e) {
+        e.preventDefault();
+        // Bring window to front
+        windowElem.style.zIndex = ++topZIndex;
+        startX = e.clientX;
+        startY = e.clientY;
+        document.onmousemove = dragWindow;
+        document.onmouseup = stopDrag;
+      };
+      function dragWindow(e) {
+        e.preventDefault();
+        offsetX = e.clientX - startX;
+        offsetY = e.clientY - startY;
+        startX = e.clientX;
+        startY = e.clientY;
+        // Move the window by the offset
+        windowElem.style.top = (windowElem.offsetTop + offsetY) + 'px';
+        windowElem.style.left = (windowElem.offsetLeft + offsetX) + 'px';
+      }
+      function stopDrag() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
+    }
+    
+    // Example AppDrop: About dialog
+    function openAbout() {
+      const content = "<p><strong>One-Pager Mini OS</strong><br>This is a mini OS running in a single HTML page.<br>Use this environment to experiment with windows and apps.</p>";
+      createWindow("About", content);
+    }
+    
+    // Initialize default state (open About window on load)
+    window.onload = function() {
+      openAbout();
+    };
+  </script>
+</body>
+</html>
