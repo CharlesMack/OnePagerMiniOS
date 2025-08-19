@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hearsay — MP3 Soundbite Recorder </title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Tailwind (optional aesthetic) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- MP3 encoder -->
+  <script src="https://unpkg.com/lamejs@1.2.0/lame.min.js"></script>
+  <style>
+    body { background:#0a0b0f; color:#f5f7fb; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .btn { transition:.15s transform ease; }
+    .btn:hover { transform: translateY(-1px); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-6 gap-6">
+  <header class="w-full max-w-3xl">
+    <h1 class="text-2xl md:text-3xl font-semibold">🎙️ Hearsay — MP3 Soundbite Recorder</h1>
+    <p class="text-sm text-gray-300 mt-1">Record → Encode to MP3 → Replay → Save/Share</p>
+  </header>
+
+  <main class="w-full max-w-3xl bg-[#131827] border border-[#1f294b] rounded-2xl p-4 md:p-6">
+    <!-- Controls -->
+    <div class="flex flex-wrap items-center gap-3">
+      <button id="recordBtn" class="btn px-5 py-3 rounded-xl bg-red-600 disabled:opacity-50">⏺️ Record</button>
+      <button id="stopBtn" class="btn px-5 py-3 rounded-xl bg-gray-700 disabled:opacity-50" disabled>⏹️ Stop</button>
+      <button id="playBtn" class="btn px-5 py-3 rounded-xl bg-green-600 disabled:opacity-50" disabled>▶️ Play</button>
+      <button id="downloadBtn" class="btn px-5 py-3 rounded-xl bg-blue-600 disabled:opacity-50" disabled>💾 Download MP3</button>
+      <button id="saveLocalBtn" class="btn px-5 py-3 rounded-xl bg-purple-600 disabled:opacity-50" disabled>📁 Save to Gallery</button>
+    </div>
+
+    <!-- Name & bitrate -->
+    <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+      <input id="titleInput" class="px-3 py-2 rounded-lg bg-[#0f1424] border border-[#253158] outline-none"
+             placeholder="Optional title (e.g., 'Idea note')" />
+      <select id="bitrate" class="px-3 py-2 rounded-lg bg-[#0f1424] border border-[#253158] outline-none">
+        <option value="96">MP3 bitrate: 96 kbps (small)</option>
+        <option value="128" selected>MP3 bitrate: 128 kbps (balanced)</option>
+        <option value="192">MP3 bitrate: 192 kbps (higher)</option>
+      </select>
+      <label class="inline-flex items-center gap-2 text-sm text-gray-300 px-2">
+        <input id="monoToggle" type="checkbox" class="scale-125 accent-green-500" checked />
+        Force mono (smaller files)
+      </label>
+    </div>
+
+    <!-- Player + status -->
+    <div class="mt-4">
+      <audio id="player" controls class="w-full"></audio>
+      <div id="status" class="text-xs text-gray-400 mt-2 h-5"></div>
+    </div>
+
+    <!-- Gallery -->
+    <section class="mt-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">📚 Local Gallery</h2>
+        <button id="clearGallery" class="btn px-3 py-2 rounded-lg bg-[#2b344f] text-xs">Clear Gallery</button>
+      </div>
+      <div id="gallery" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+    </section>
+  </main>
+
+  <footer class="text-xs text-gray-400">
+    Works offline. For full offline MP3 encoding, bundle <code>lame.min.js</code> with this AppDrop.
+  </footer>
+
+<script>
+(() => {
+  // --- Elements ---
+  const recordBtn = document.getElementById('recordBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const playBtn = document.getElementById('playBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const saveLocalBtn = document.getElementById('saveLocalBtn');
+  const player = document.getElementById('player');
+  const bitrateSel = document.getElementById('bitrate');
+  const monoToggle = document.getElementById('monoToggle');
+  const titleInput = document.getElementById('titleInput');
+  const statusEl = document.getElementById('status');
+  const galleryEl = document.getElementById('gallery');
+  const clearGalleryBtn = document.getElementById('clearGallery');
+
+  // --- Recording / encoding state ---
+  let audioCtx, sourceNode, processorNode, mediaStream;
+  let mp3encoder;            // lamejs.Mp3Encoder
+  let mp3Chunks = [];        // Uint8Array chunks
+  let collecting = false;
+  let mp3BlobUrl = null;
+  let mp3Blob = null;
+
+  // Utility: float32 [-1,1] -> Int16
+  function floatTo16BitPCM(float32) {
+    const out = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+      let s = Math.max(-1, Math.min(1, float32[i]));
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return out;
+  }
+
+  function writeStatus(msg) {
+    statusEl.textContent = msg || '';
+  }
+
+  function resetEncoder(sampleRate, kbps, channels) {
+    mp3Chunks = [];
+    mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, kbps);
+  }
+
+  function pushMp3Chunk(int16buffer, channels) {
+    // If mono, encode one channel (int16buffer). If stereo, int16buffer should be interleaved L/R split here.
+    let mp3buf;
+    if (channels === 1) {
+      mp3buf = mp3encoder.encodeBuffer(int16buffer);
+    } else {
+      // Split interleaved into L and R Int16
+      const left = new Int16Array(int16buffer.length / 2);
+      const right = new Int16Array(int16buffer.length / 2);
+      for (let i = 0, j = 0; i < int16buffer.length; i += 2, j++) {
+        left[j] = int16buffer[i];
+        right[j] = int16buffer[i + 1];
+      }
+      mp3buf = mp3encoder.encodeBuffer(left, right);
+    }
+    if (mp3buf && mp3buf.length > 0) {
+      mp3Chunks.push(mp3buf);
+    }
+  }
+
+  async function startRecording() {
+    // Ask mic
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Web Audio pipeline
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    sourceNode = audioCtx.createMediaStreamSource(mediaStream);
+
+    // Processor (ScriptProcessorNode is deprecated but widely supported; good enough for an MVP)
+    const bufferSize = 4096;
+    const useMono = monoToggle.checked;
+    const channels = useMono ? 1 : Math.min(sourceNode.channelCount || 2, 2);
+
+    processorNode = audioCtx.createScriptProcessor(bufferSize, sourceNode.channelCount, channels);
+    sourceNode.connect(processorNode);
+    processorNode.connect(audioCtx.destination); // or audioCtx.createGain() to mute
+
+    const sampleRate = audioCtx.sampleRate; // often 44100 or 48000
+    const kbps = parseInt(bitrateSel.value, 10);
+    resetEncoder(sampleRate, kbps, channels);
+
+    collecting = true;
+    writeStatus(`Recording… SR=${sampleRate}Hz, ${kbps}kbps, ${channels === 1 ? 'mono' : 'stereo'}`);
+
+    processorNode.onaudioprocess = (e) => {
+      if (!collecting) return;
+      // Gather PCM
+      if (channels === 1) {
+        const input = e.inputBuffer.getChannelData(0); // Float32
+        const int16 = floatTo16BitPCM(input);
+        pushMp3Chunk(int16, 1);
+      } else {
+        // Stereo: interleave L/R
+        const L = e.inputBuffer.getChannelData(0);
+        const R = e.inputBuffer.getChannelData(1);
+        const interleaved = new Int16Array(L.length * 2);
+        for (let i = 0, j = 0; i < L.length; i++, j += 2) {
+          // Interleave after convert
+          let l = Math.max(-1, Math.min(1, L[i]));
+          let r = Math.max(-1, Math.min(1, R[i]));
+          interleaved[j]   = l < 0 ? l * 0x8000 : l * 0x7FFF;
+          interleaved[j+1] = r < 0 ? r * 0x8000 : r * 0x7FFF;
+        }
+        pushMp3Chunk(interleaved, 2);
+      }
+    };
+
+    // UI
+    recordBtn.disabled = true;
+    stopBtn.disabled = false;
+    playBtn.disabled = true;
+    downloadBtn.disabled = true;
+    saveLocalBtn.disabled = true;
+  }
+
+  function stopRecording() {
+    collecting = false;
+
+    // Flush encoder
+    const end = mp3encoder.flush();
+    if (end && end.length > 0) mp3Chunks.push(end);
+
+    // Build Blob
+    const mp3BlobParts = [];
+    for (const chunk of mp3Chunks) mp3BlobParts.push(new Uint8Array(chunk));
+    mp3Blob = new Blob(mp3BlobParts, { type: 'audio/mpeg' });
+
+    // Revoke previous URL if any
+    if (mp3BlobUrl) URL.revokeObjectURL(mp3BlobUrl);
+    mp3BlobUrl = URL.createObjectURL(mp3Blob);
+    player.src = mp3BlobUrl;
+
+    // Cleanup audio graph & stream
+    if (processorNode) { processorNode.disconnect(); processorNode.onaudioprocess = null; }
+    if (sourceNode) sourceNode.disconnect();
+    if (audioCtx) audioCtx.close();
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+
+    writeStatus(`Encoded ${Math.round(mp3Blob.size / 1024)} KB MP3`);
+    // UI
+    recordBtn.disabled = false;
+    stopBtn.disabled = true;
+    playBtn.disabled = false;
+    downloadBtn.disabled = false;
+    saveLocalBtn.disabled = false;
+  }
+
+  function downloadMP3() {
+    if (!mp3BlobUrl) return;
+    const title = (titleInput.value || 'soundbite').replace(/[^\w\-]+/g, '_');
+    const a = document.createElement('a');
+    a.href = mp3BlobUrl;
+    a.download = `${title}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function saveToGallery() {
+    if (!mp3Blob) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result; // data:audio/mpeg;base64,....
+      const entry = {
+        id: `sb_${Date.now()}`,
+        title: titleInput.value || 'Untitled',
+        date: new Date().toISOString(),
+        dataUrl: base64
+      };
+      const all = JSON.parse(localStorage.getItem('hearsay_gallery') || '[]');
+      all.unshift(entry);
+      localStorage.setItem('hearsay_gallery', JSON.stringify(all));
+      renderGallery();
+      writeStatus('Saved to gallery.');
+    };
+    reader.readAsDataURL(mp3Blob);
+  }
+
+  function renderGallery() {
+    const all = JSON.parse(localStorage.getItem('hearsay_gallery') || '[]');
+    galleryEl.innerHTML = '';
+    if (!all.length) {
+      galleryEl.innerHTML = '<div class="text-xs text-gray-400">No saved bites yet.</div>';
+      return;
+    }
+    for (const item of all) {
+      const card = document.createElement('div');
+      card.className = 'p-3 rounded-lg bg-[#0f1424] border border-[#253158] flex flex-col gap-2';
+      card.innerHTML = `
+        <div class="text-sm font-medium">${escapeHtml(item.title)}</div>
+        <div class="text-[11px] text-gray-400">${new Date(item.date).toLocaleString()}</div>
+        <audio controls src="${item.dataUrl}" class="w-full"></audio>
+        <div class="flex gap-2">
+          <a href="${item.dataUrl}" download="${sanitizeFilename(item.title)}.mp3"
+             class="btn px-3 py-2 rounded-md bg-blue-600 text-xs">Download</a>
+          <button data-id="${item.id}" class="share btn px-3 py-2 rounded-md bg-green-600 text-xs">Share (copy link)</button>
+          <button data-id="${item.id}" class="delete btn px-3 py-2 rounded-md bg-[#2b344f] text-xs">Delete</button>
+        </div>
+      `;
+      galleryEl.appendChild(card);
+    }
+
+    // Wire buttons
+    galleryEl.querySelectorAll('button.share').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-id');
+        shareItem(id);
+      };
+    });
+    galleryEl.querySelectorAll('button.delete').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-id');
+        deleteItem(id);
+      };
+    });
+  }
+
+  function shareItem(id) {
+    // For local-first sharing, we encode the blob in the URL as a fragment (works for short bites).
+    // For bigger files, prefer download/export then upload elsewhere.
+    const all = JSON.parse(localStorage.getItem('hearsay_gallery') || '[]');
+    const item = all.find(x => x.id === id);
+    if (!item) return;
+    const shareUrl = `${location.origin}${location.pathname}#sb=${encodeURIComponent(item.dataUrl)}`;
+    navigator.clipboard.writeText(shareUrl).then(() => writeStatus('Share link copied to clipboard.'));
+  }
+
+  function deleteItem(id) {
+    const all = JSON.parse(localStorage.getItem('hearsay_gallery') || '[]');
+    const next = all.filter(x => x.id !== id);
+    localStorage.setItem('hearsay_gallery', JSON.stringify(next));
+    renderGallery();
+  }
+
+  function sanitizeFilename(name) {
+    return (name || 'soundbite').replace(/[^\w\-]+/g, '_');
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
+  // If a share fragment is present, auto-load it into the player
+  function hydrateFromHash() {
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const dataUrl = hash.get('sb');
+    if (dataUrl) {
+      player.src = dataUrl;
+      writeStatus('Loaded shared soundbite from link.');
+      playBtn.disabled = false;
+      downloadBtn.disabled = false;
+      saveLocalBtn.disabled = false;
+      // Build a Blob to enable download/save buttons seamlessly
+      fetch(dataUrl).then(r => r.blob()).then(b => { mp3Blob = b; mp3BlobUrl = URL.createObjectURL(b); });
+    }
+  }
+
+  // UI wiring
+  recordBtn.onclick = () => startRecording().catch(err => writeStatus('Mic error: ' + err.message));
+  stopBtn.onclick = () => stopRecording();
+  playBtn.onclick = () => player.play();
+  downloadBtn.onclick = () => downloadMP3();
+  saveLocalBtn.onclick = () => saveToGallery();
+  clearGalleryBtn.onclick = () => { localStorage.removeItem('hearsay_gallery'); renderGallery(); };
+
+  // Init
+  renderGallery();
+  hydrateFromHash();
+})();
+</script>
+</body>
+</html>
