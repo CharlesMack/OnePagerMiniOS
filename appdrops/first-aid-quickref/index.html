@@ -1,0 +1,201 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>First Aid Quick-Reference</title>
+<meta name="description" content="Offline first-aid quick reference. Informational only; not a substitute for professional medical advice.">
+<style>
+body{margin:0;background:#0a0b0f;color:#e6e8ee;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
+a{color:#9ec8ff}
+.wrap{max-width:1200px;margin:24px auto;padding:0 14px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px 0}
+.btn{appearance:none;border:1px solid #2a3356;background:linear-gradient(180deg,#1b2034,#14182a);
+  color:#e6e8ee;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+.btn:hover{border-color:#2d3a63}
+.btn.hl{background:linear-gradient(180deg,#753550,#4a1c2f);border-color:#91415e}
+input,select{background:#0f1426;border:1px solid #242d50;color:#e6e8ee;padding:9px 10px;border-radius:10px}
+.grid{display:grid;grid-template-columns:360px 1fr;gap:14px}
+@media (max-width:980px){.grid{grid-template-columns:1fr}}
+.panel{border:1px solid #1f294b;border-radius:14px;background:linear-gradient(180deg,#13182a,#0e1322);
+  box-shadow:0 10px 32px rgba(0,0,0,.35)}
+.panel h2{margin:0;padding:12px 14px;border-bottom:1px solid #223059;color:#dfe6ff;font-size:13px;letter-spacing:.2px}
+.panel .body{padding:12px}
+.list{display:grid;gap:8px}
+.item{border:1px solid #27325a;border-radius:12px;background:linear-gradient(180deg,#12182a,#0f1426);padding:10px;cursor:pointer}
+.item:hover{border-color:#2f3b67}
+.item .t{font-weight:800}
+.item .s{color:#9db0ff;font-size:12px}
+.badge{padding:4px 8px;border:1px solid #253056;border-radius:999px;color:#b5c0de;font-weight:600;font-size:12px}
+.pill{padding:4px 8px;border:1px solid #2a3356;border-radius:999px;font-size:11px;color:#9db0ff}
+.row{display:flex;gap:8px;align-items:center}
+.grow{flex:1}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:8px;align-items:flex-start}
+ul,ol{margin:6px 0 8px 18px}
+.warn{color:#ffd166}
+.danger{color:#ff7b7b}
+.ok{color:#6be675}
+.kbd{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;border:1px solid #2a3356;padding:2px 6px;border-radius:6px;background:#0f1426;color:#cbd5ff}
+hr{border:0;border-top:1px dashed #2a3356;margin:10px 0}
+.sos{position:fixed;bottom:16px;right:16px;z-index:1000}
+.sos .btn{font-size:16px}
+.overlay{position:fixed;inset:0;background:rgba(10,11,15,.9);backdrop-filter:blur(4px);display:none;z-index:2000}
+.overlay .card{max-width:760px;margin:8vh auto;padding:16px;border:1px solid #3b1f2a;border-radius:16px;background:linear-gradient(180deg,#21121a,#140c11)}
+.overlay h2{margin:0 0 6px 0}
+.tag{display:inline-block;padding:2px 6px;border:1px solid #2a3356;border-radius:6px;margin-right:6px;color:#b5c0de}
+small.mut{color:#a2a8b5}
+</style>
+</head><body>
+<div class="wrap">
+  <div class="row" style="justify-content:space-between;margin-bottom:10px">
+    <div class="row" style="gap:10px;align-items:center">
+      <span class="badge">🩹 First Aid Quick-Reference</span>
+      <small class="mut">offline • educational • not medical advice</small>
+    </div>
+    <div class="row sos">
+      <button class="btn hl" id="btnSOS">SOS</button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input id="q" type="text" class="grow" placeholder="Search conditions or steps (e.g., bleeding, burns, CPR)" />
+    <select id="filterTag">
+      <option value="">All tags</option>
+    </select>
+    <button class="btn" id="btnSearch">Search</button>
+    <button class="btn" id="btnRandom">Random</button>
+    <button class="btn" id="btnClear">Clear</button>
+    <button class="btn" id="btnPrint">Print</button>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Conditions <span class="pill" id="count">(0)</span></h2>
+      <div class="body">
+        <div class="list" id="results"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Guide</h2>
+      <div class="body" id="guide">
+        <div class="row" style="justify-content:space-between">
+          <div><strong>Select a condition</strong></div>
+          <div class="row"><span class="kbd">/</span><small class="mut"> to focus search</small></div>
+        </div>
+        <hr>
+        <p class="mut">This is an offline educational reference. In an emergency, seek professional help if available. Follow local training and protocols.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="sosOverlay">
+  <div class="card">
+    <h2>🚨 SOS Mode — Primary Actions</h2>
+    <p class="warn">Informational only; if possible call emergency services.</p>
+    <ol>
+      <li>Check <strong>scene safety</strong>. Protect yourself.</li>
+      <li>Wear <strong>gloves/face covering</strong> if available.</li>
+      <li>Check <strong>responsiveness</strong> (tap/shout).</li>
+      <li><strong>Airway</strong>, <strong>Breathing</strong>, <strong>Circulation</strong> (control severe bleeding).</li>
+      <li><strong>Call for help</strong> when available; send a bystander.</li>
+      <li>If not breathing normally, begin <strong>CPR</strong> (hands-only if untrained).</li>
+      <li>Place breathing but unresponsive person in <strong>recovery position</strong>.</li>
+    </ol>
+    <div class="row" style="justify-content:flex-end;margin-top:8px">
+      <button class="btn" id="btnCloseSOS">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA = [{"id": "primary-survey", "title": "Primary Survey — ABCs", "tags": ["Universal", "First steps"], "summary": "Scene safety → PPE → Check responsiveness → Airway → Breathing → Circulation → Call for help", "danger": ["Unconscious or not breathing normally", "Severe bleeding", "Chest pain or signs of stroke", "Major trauma (fall, head, spine)"], "do": ["Ensure scene is safe for you and the person.", "Put on gloves/face covering if available.", "Check responsiveness: tap and shout.", "Airway: open gently; look for obstructions.", "Breathing: look/listen/feel for normal breathing.", "Circulation: check severe bleeding; control with direct pressure.", "Call or send for emergency help when available."], "dont": ["Do not move the person unless they’re in danger (fire/traffic)."], "seek": ["Always seek professional medical help for life-threatening conditions."]}, {"id": "bleeding-severe", "title": "Severe Bleeding", "tags": ["Bleeding", "Trauma"], "summary": "Direct pressure, dress, elevate if safe, pressure bandage, hemostatic if trained", "danger": ["Blood spurting or soaking through dressings", "Signs of shock: pale, clammy, fast pulse"], "do": ["Apply firm direct pressure with a clean cloth or dressing.", "Maintain pressure continuously; add more cloths on top if soaked.", "Elevate the bleeding part if no fracture suspected and it doesn’t cause pain.", "Use a pressure bandage to secure. If trained and available, consider hemostatic dressing.", "Keep the person warm and still."], "dont": ["Do not remove soaked dressings; add more on top.", "Avoid tourniquets unless life-threatening and you are trained."], "seek": ["Seek emergency help for uncontrolled bleeding."]}, {"id": "burns", "title": "Burns (Thermal/Chemical)", "tags": ["Burns"], "summary": "Cool water 10–20 min, remove tight items, cover loosely, avoid popping blisters", "danger": ["Large/deep burns, face/hands/genitals, chemical/electrical burns", "Breathing difficulty or burns to airway"], "do": ["Cool the burn with clean, cool (not icy) running water for 10–20 minutes.", "Remove rings, watches, or tight clothing near the area before swelling starts.", "Cover loosely with sterile, non‑stick dressing or clean cloth.", "For chemical burns, brush off dry chemical then flush with water for at least 20 minutes."], "dont": ["Do not pop blisters or apply creams/grease.", "Do not remove stuck-on fabric."], "seek": ["Seek medical help for large, deep, facial, hands/genitals, or inhalation burns."]}, {"id": "choking-adult-child", "title": "Choking — Adult/Child (Conscious)", "tags": ["Airway"], "summary": "Back blows then abdominal thrusts if airway blocked", "danger": ["Inability to speak or breathe, high‑pitched/noisy breathing, cyanosis"], "do": ["Ask “Are you choking?” If they nod and cannot speak, act.", "Give up to 5 back blows between shoulder blades.", "If ineffective, give up to 5 abdominal thrusts (Heimlich).", "Alternate 5 back blows and 5 thrusts until the object is expelled or they become unresponsive."], "dont": ["Do not perform blind finger sweeps; risk pushing object deeper."], "seek": ["If the person becomes unresponsive, begin CPR and call for help."]}, {"id": "choking-infant", "title": "Choking — Infant (<1 year)", "tags": ["Airway", "Infant"], "summary": "5 back slaps + 5 chest thrusts", "danger": ["Weak cry, ineffective cough, cyanosis"], "do": ["Support the head and neck; place infant face down on forearm.", "Deliver 5 back slaps between shoulder blades.", "Turn infant face up; give 5 chest thrusts (2 fingers, ~1.5 inches/4 cm depth).", "Repeat cycles until object comes out or infant becomes unresponsive."], "dont": ["Do not use abdominal thrusts on infants."], "seek": ["If unresponsive, start CPR and call for help."]}, {"id": "cpr-adult", "title": "CPR — Adult (Basic Overview)", "tags": ["Resuscitation"], "summary": "Hands‑only if untrained: 100–120/min, depth ~5 cm", "danger": ["No normal breathing, unresponsive"], "do": ["Call or send for emergency help if available.", "Place hands center of chest; push hard and fast at 100–120/min, depth about 2 inches (5 cm).", "Allow full chest recoil. Minimize interruptions.", "If trained, use 30 compressions : 2 rescue breaths."], "dont": ["Do not stop compressions unless the person shows signs of life or a responder takes over."], "seek": ["Use an AED as soon as available; follow voice prompts."]}, {"id": "shock-general", "title": "Shock (General)", "tags": ["Circulation"], "summary": "Lay flat, elevate legs if safe, keep warm, control bleeding", "danger": ["Pale clammy skin, rapid pulse, confusion, weak or shallow breathing"], "do": ["Lay the person on their back; elevate legs 6–12 inches if no injury is suspected.", "Keep them warm and calm. Loosen tight clothing.", "Control any bleeding and monitor breathing."], "dont": ["Do not give food or drink if unconscious or at risk of vomiting."], "seek": ["Seek emergency help; shock can be life‑threatening."]}, {"id": "fracture-sprain", "title": "Fracture/Sprain (Suspected)", "tags": ["Musculoskeletal"], "summary": "Immobilize, pad/splint, do not straighten, seek evaluation", "danger": ["Deformity, severe pain, loss of function, bone through skin"], "do": ["Immobilize the area above and below the injury using a padded splint.", "Apply cold packs wrapped in cloth for 15–20 minutes to reduce swelling.", "Check circulation beyond the injury (color, warmth, sensation)."], "dont": ["Do not attempt to straighten a suspected fracture."], "seek": ["Seek medical evaluation, especially for open fractures or severe pain."]}, {"id": "head-injury", "title": "Head Injury (Mild–Moderate)", "tags": ["Trauma"], "summary": "Monitor, rest, seek help for red flags", "danger": ["Worsening headache, repeated vomiting, confusion, seizure, unequal pupils, drowsiness"], "do": ["Rest, limit activity, apply brief cold packs for swelling.", "Monitor for 24–48 hours for red flags."], "dont": ["Do not allow risky activities or alcohol; avoid strong pain meds unless advised."], "seek": ["Seek urgent care if red flags appear or symptoms worsen."]}, {"id": "heat-illness", "title": "Heat Illness — Exhaustion vs Heatstroke", "tags": ["Environment"], "summary": "Cool, hydrate for exhaustion; heatstroke is emergency—rapid cooling", "danger": ["Very high body temperature, confusion, hot dry skin, seizures (heatstroke)"], "do": ["Move to shade/cool place; loosen clothing.", "Cool with water, fanning, and cool packs at neck/armpits/groin.", "Sip fluids with salts if conscious (exhaustion)."], "dont": ["Do not give fluids if unconscious; avoid ice‑cold immersion if it causes distress without monitoring."], "seek": ["Heatstroke is an emergency—seek immediate help while cooling rapidly."]}, {"id": "hypothermia-frostbite", "title": "Cold Injury — Hypothermia/Frostbite", "tags": ["Environment"], "summary": "Warm core first, handle gently; rewarm frostbite in warm water 20–30 min", "danger": ["Shivering stops, slurred speech, drowsiness, rigid or numb tissue"], "do": ["Move to warmth; change wet clothes; insulate head/neck.", "Warm the core with blankets, warm drinks if conscious.", "For frostbite: rewarm in warm (not hot) water 20–30 minutes; protect from refreezing."], "dont": ["Do not rub frostbitten tissue. Do not use direct heat or open flames."], "seek": ["Seek medical help for moderate–severe hypothermia or significant frostbite."]}, {"id": "anaphylaxis", "title": "Severe Allergy (Anaphylaxis)", "tags": ["Breathing", "Circulation"], "summary": "Epinephrine auto‑injector if prescribed; help arrives", "danger": ["Trouble breathing, swelling of face/tongue, hives, dizziness"], "do": ["If the person has a prescribed epinephrine auto‑injector, assist them in using it.", "Lay flat; raise legs unless breathing is difficult (then sit up).", "If symptoms persist and medical advice suggests, a second dose may be used after several minutes."], "dont": ["Do not delay seeking help; symptoms can return."], "seek": ["Seek emergency help even if symptoms improve after epinephrine."]}, {"id": "asthma-attack", "title": "Asthma Flare", "tags": ["Breathing"], "summary": "Use reliever inhaler (if prescribed), sit upright, slow breathing", "danger": ["Inability to speak full sentences, blue lips, exhaustion"], "do": ["Help the person sit upright and stay calm.", "Use their reliever inhaler/spacer per their action plan if available.", "Monitor and seek help if not improving."], "dont": ["Do not have them lie down; avoid triggers (smoke, dust)."], "seek": ["Seek emergency help if no improvement or worsening."]}, {"id": "diabetic-low", "title": "Low Blood Sugar (Hypoglycemia)", "tags": ["Medical"], "summary": "If conscious and able: give fast sugar, then slow carbs", "danger": ["Confusion, seizure, unconsciousness"], "do": ["If the person is conscious and can swallow, give 15–20g fast‑acting sugar (glucose tablets, juice).", "Recheck after 15 minutes; repeat if needed. Follow with longer‑acting carbs."], "dont": ["Do not give food/drink if unconscious."], "seek": ["Seek help if not improving or if unconscious."]}, {"id": "seizure", "title": "Seizure (Convulsions)", "tags": ["Neurological"], "summary": "Protect head, clear area, time seizure, recovery position", "danger": ["Seizure >5 minutes, repeated seizures, breathing problems, injury"], "do": ["Protect the head with soft padding; clear nearby hazards.", "Time the seizure; loosen tight clothing.", "After seizure, place in recovery position and monitor breathing."], "dont": ["Do not restrain or put anything in the mouth."], "seek": ["Seek help if seizure lasts >5 minutes or first known seizure."]}, {"id": "poisoning", "title": "Poisoning (General)", "tags": ["Medical"], "summary": "Do not induce vomiting; seek expert advice", "danger": ["Breathing difficulty, seizures, unconsciousness"], "do": ["Identify substance and time/amount if possible.", "Rinse mouth/skin/eyes with water if exposed externally.", "Call local poison information center if available."], "dont": ["Do not induce vomiting unless instructed by professionals."], "seek": ["Seek urgent help for dangerous substances or severe symptoms."]}, {"id": "snakebite", "title": "Snakebite (General)", "tags": ["Bites"], "summary": "Keep calm, immobilize limb at heart level; seek help", "danger": ["Progressive swelling, breathing trouble, altered consciousness"], "do": ["Keep person calm and still; limit movement.", "Immobilize the limb at heart level with a splint/bandage.", "Remove rings/watches near swelling; mark swelling edge/time."], "dont": ["Do not cut, suck, or apply ice/tourniquet."], "seek": ["Seek medical help promptly; antivenom may be required."]}, {"id": "eye-injury", "title": "Eye Injury (Irritant/Foreign Body)", "tags": ["Eye"], "summary": "Irrigation with clean water; shield if embedded", "danger": ["Chemical exposure, high‑speed impact, penetration"], "do": ["Flush eye with clean water for 15+ minutes for chemicals.", "For small particles, blink/flush; do not rub.", "If embedded object: stabilize with a loose shield; do not remove."], "dont": ["Do not apply pressure to the eyeball."], "seek": ["Seek care for chemical burns or penetrating injuries."]}, {"id": "tooth-knocked-out", "title": "Tooth Knocked Out (Adult)", "tags": ["Dental"], "summary": "Handle by crown, rinse gently, reinsert or store in milk/saline", "danger": ["Severe bleeding, other facial injuries"], "do": ["Handle tooth by the crown (white part), not the root.", "Rinse gently with clean water; do not scrub.", "If possible, reinsert into socket and bite on cloth to hold.", "If not, store in milk/saline or saliva (inside cheek if safe)."], "dont": ["Do not let tooth dry out."], "seek": ["See a dentist/medical professional promptly."]}, {"id": "heart-attack", "title": "Possible Heart Attack", "tags": ["Cardiac"], "summary": "Chest discomfort, shortness of breath—rest, call for help", "danger": ["Crushing chest pain, sweating, nausea, radiating pain"], "do": ["Help the person rest in a comfortable position.", "Call emergency services if available.", "If advised by emergency services and no allergy/contraindication, they may recommend chewing aspirin."], "dont": ["Do not leave the person alone; avoid exertion."], "seek": ["Urgent medical help is essential."]}, {"id": "stroke", "title": "Possible Stroke (FAST)", "tags": ["Neurological"], "summary": "Face droop, Arm weakness, Speech difficulty—Time to call for help", "danger": ["Sudden confusion, severe headache, one‑sided weakness"], "do": ["Use FAST: Face drooping? Arm drift? Speech slurred? Time to seek help immediately.", "Note the time symptoms started; keep person safe and comfortable."], "dont": ["Do not give food/drink; risk of aspiration."], "seek": ["Immediate medical evaluation is critical."]}, {"id": "spinal-injury", "title": "Suspected Spinal Injury", "tags": ["Trauma"], "summary": "Stabilize head/neck; avoid movement", "danger": ["Neck/back pain after trauma, numbness/weakness"], "do": ["Advise the person to remain still; support head/neck in neutral alignment if trained.", "Monitor breathing and responsiveness."], "dont": ["Do not move unless there is immediate danger."], "seek": ["Seek professional assessment."]}, {"id": "drowning", "title": "Water Rescue (Safety First)", "tags": ["Breathing"], "summary": "Reach/throw—don’t go; rescue breathing if trained", "danger": ["Risk to rescuer; hypothermia"], "do": ["Use ‘reach or throw, don’t go’ to avoid becoming a victim.", "If trained and safe, provide rescue breaths and CPR as needed.", "Warm and monitor after removal from water."], "dont": ["Do not enter water without training/equipment if dangerous."], "seek": ["Seek medical evaluation; complications can appear later."]}];
+
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+let VIEW = DATA.slice();
+let TAGS = Array.from(new Set(DATA.flatMap(d => d.tags))).sort();
+
+function renderTags(){
+  const sel = $("#filterTag");
+  TAGS.forEach(t => {
+    const o = document.createElement('option'); o.value=t; o.textContent=t; sel.appendChild(o);
+  });
+}
+
+function renderList(){
+  const host = $("#results"); host.innerHTML = "";
+  $("#count").textContent = `(${VIEW.length})`;
+  VIEW.forEach(d => {
+    const div = document.createElement('div'); div.className="item";
+    div.innerHTML = `<div class="t">${d.title}</div><div class="s">${d.summary}</div>`;
+    div.onclick = () => show(d.id);
+    host.appendChild(div);
+  });
+  if(!VIEW.length){
+    const el = document.createElement('div'); el.className="s"; el.textContent="No matches."; host.appendChild(el);
+  }
+}
+
+function show(id){
+  const d = DATA.find(x=>x.id===id); if(!d) return;
+  const g = $("#guide");
+  g.innerHTML = `
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div class="row" style="gap:8px;align-items:center">
+        <strong style="font-size:18px">${d.title}</strong>
+        ${d.tags.map(t=>`<span class="tag">${t}</span>`).join('')}
+      </div>
+      <button class="btn" id="btnPrint2">Print</button>
+    </div>
+    <div style="margin-top:6px">${d.summary}</div>
+    <hr>
+    <div class="kv">
+      <div><strong class="danger">Danger signs</strong></div>
+      <div><ul>${d.danger.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+      <div><strong class="ok">Do</strong></div>
+      <div><ol>${d.do.map(x=>`<li>${x}</li>`).join('')}</ol></div>
+      <div><strong class="warn">Avoid</strong></div>
+      <div><ul>${d.dont.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+      <div><strong>Seek help</strong></div>
+      <div><ul>${d.seek.map(x=>`<li>${x}</li>`).join('')}</ul></div>
+    </div>
+    <hr>
+    <small class="mut">This guide is informational only and not a substitute for professional medical advice. Follow your training and local protocols.</small>
+  `;
+  $("#btnPrint2").onclick = () => window.print();
+}
+
+function runSearch(){
+  const q = $("#q").value.trim().toLowerCase();
+  const tag = $("#filterTag").value;
+  VIEW = DATA.filter(d => {
+    const inTag = !tag || d.tags.includes(tag);
+    if(!q) return inTag;
+    const hay = (d.title + " " + d.summary + " " + d.danger.join(" ") + " " + d.do.join(" ") + " " + d.dont.join(" ")).toLowerCase();
+    return inTag && hay.includes(q);
+  });
+  renderList();
+}
+
+function randomOne(){
+  if(!DATA.length) return;
+  const d = DATA[Math.floor(Math.random()*DATA.length)];
+  show(d.id);
+}
+
+function init(){
+  renderTags();
+  renderList();
+  $("#btnSearch").onclick = runSearch;
+  $("#filterTag").onchange = runSearch;
+  $("#btnRandom").onclick = randomOne;
+  $("#btnClear").onclick = () => { $("#q").value=""; $("#filterTag").value=""; VIEW = DATA.slice(); renderList(); };
+  $("#btnPrint").onclick = () => window.print();
+  $("#q").addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(); });
+  window.addEventListener('keydown', e=>{ if(e.key==='/'){ e.preventDefault(); $("#q").focus(); } });
+  $("#btnSOS").onclick = () => { $("#sosOverlay").style.display='block'; };
+  $("#btnCloseSOS").onclick = () => { $("#sosOverlay").style.display='none'; };
+}
+init();
+</script>
+</body></html>
