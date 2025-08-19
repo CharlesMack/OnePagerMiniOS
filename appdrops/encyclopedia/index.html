@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pocket Encyclopedia — Offline Index</title>
+  <meta name="description" content="Offline encyclopedia: search, A–Z filter, bookmarks, notes, and JSON import/export." />
+  <style>
+:root{ --bg:#0a0b0f;--fg:#e6e8ee;--mut:#a2a8b5;--accent:#6be675;--hi:#9ec8ff; --card:#12182a;--rim:#1f294b;--panel:#0e1322;--ink:#dfe6ff;--hot:#ff4d6d } *{box-sizing:border-box} html,body{height:100%} body{ margin:0;background:radial-gradient(1100px 800px at 20% -10%, #131728 0%, #0a0b0f 70%); color:var(--fg);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Inter,Arial,sans-serif } a{color:var(--hi)} .wrap{max-width:1200px;margin:20px auto;padding:0 14px} .toolbar{ display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 14px 0 } .btn{appearance:none;border:1px solid var(--rim);background:linear-gradient(180deg,#1b2034,#14182a); color:var(--fg);padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer } .btn:hover{border-color:#2a3356} .btn.hl{background:linear-gradient(180deg,#2b3c5f,#1a2542);border-color:#2d3a63} input[type="text"],textarea,select{ background:#0f1426;border:1px solid #242d50;color:var(--fg);padding:9px 10px;border-radius:10px } .grid{display:grid;grid-template-columns: 360px 1fr; gap:14px} @media (max-width: 980px){ .grid{grid-template-columns:1fr} } .panel{ border:1px solid var(--rim);border-radius:14px;background:linear-gradient(180deg,#13182a,#0e1322); box-shadow:0 10px 40px rgba(0,0,0,.35) } .panel h2{margin:0;padding:12px 14px;border-bottom:1px solid #223059;color:#dfe6ff;font-size:13px;letter-spacing:.2px} .panel .body{padding:12px} .row{display:flex;gap:8px;align-items:center} .grow{flex:1} .list{display:grid;gap:8px} .item{ border:1px solid #27325a;border-radius:12px;background:linear-gradient(180deg,#12182a,#0f1426); padding:10px;cursor:pointer } .item:hover{border-color:#2f3b67} .item .t{font-weight:800} .item .s{color:#9db0ff;font-size:12px} .pill{padding:4px 8px;border:1px solid #2a3356;border-radius:999px;font-size:11px;color:#9db0ff} .status{display:flex;gap:6px;align-items:center} .barAZ{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px 0} .az{border:1px solid #2a3356;border-radius:8px;padding:6px 8px;cursor:pointer;color:#cbd5ff} .az.active,.az:hover{background:#141a2c;border-color:#2f3b67} .article h1{margin:0 0 6px 0;font-size:22px;letter-spacing:.2px} .article .meta{color:var(--mut);font-size:12px;margin-bottom:8px} .article .content{white-space:pre-wrap;font-size:15px} mark{background:rgba(255,230,0,.25);color:inherit;padding:0 2px;border-radius:3px} .noteBox{margin-top:10px;border-top:1px dashed #2a3356;padding-top:10px} .mut{color:var(--mut)} .kbd{font:600 12px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;border:1px solid #2a3356;padding:2px 6px;border-radius:6px;background:#0f1426;color:#cbd5ff} .badge{padding:4px 8px;border:1px solid #253056;border-radius:999px;color:#b5c0de;font-weight:600;font-size:12px} .title{display:flex;align-items:center;gap:10px}  </style>
+</head>
+<body>
+<div class="wrap"> <div class="title"> <span class="badge">📚 Pocket Encyclopedia</span> <span class="mut">offline • local JSON • extendable</span> </div> <div class="toolbar"> <input id="q" type="text" class="grow" placeholder="Search titles & text (try: Water, First Aid…)" /> <button class="btn" id="btnSearch">Search</button> <button class="btn" id="btnRandom">Random</button> <button class="btn" id="btnClear">Clear</button> <label class="btn"> Import JSON <input id="fileImport" type="file" accept="application/json" style="display:none"> </label> <button class="btn" id="btnExport">Export JSON</button> <button class="btn" id="btnPrint">Print</button> </div> <div class="barAZ" id="barAZ"></div> <div class="grid"> <div class="panel"> <h2>Results <span class="mut" id="count">(0)</span></h2> <div class="body"> <div class="row" style="margin-bottom:8px"> <span class="pill" id="scope">Scope: All</span> <span class="pill">Bookmarks: <span id="bmCount">0</span></span> <span class="pill">History: <span id="histCount">0</span></span> </div> <div class="list" id="results"></div> </div> </div> <div class="panel"> <h2>Article</h2> <div class="body article" id="article"> <h1 class="mut">Select an entry</h1> <div class="meta">Tip: <span class="kbd">/</span> to focus search • <span class="kbd">Enter</span> to run</div> <div class="content mut">Use the search bar or the A–Z filter to find an article. You can bookmark entries, leave local notes, and export/import the dataset as JSON.</div> </div> </div> </div> </div>
+  <script>
+  const EMBEDDED_DATA = {
+  "First Aid \u2014 ABCs": "Check Airway, Breathing, Circulation. Call emergency services if available. Prioritize safety; use gloves if possible.",
+  "CPR Basics (Adult)": "30 chest compressions at ~100\u2013120/min, depth ~2 inches (5 cm), followed by 2 rescue breaths. Only attempt if trained; otherwise perform hands-only CPR.",
+  "Bleeding Control": "Apply direct pressure with clean cloth, elevate limb if safe, and consider a pressure bandage. Avoid tourniquets unless life-threatening and trained.",
+  "Burn Care (Minor)": "Cool with clean, cool (not ice) water for 10\u201320 minutes. Do not pop blisters. Cover loosely with sterile dressing.",
+  "Shock (Signs & Care)": "Pale, clammy skin, rapid pulse, confusion. Lay person down, elevate legs if no injury, keep warm, seek help.",
+  "Broken Bone (Suspected)": "Immobilize with splint padding both sides of joint. Do not straighten. Seek medical help.",
+  "Sprain vs Strain": "Sprain affects ligaments; strain affects muscle/tendon. Use RICE: Rest, Ice, Compression, Elevation.",
+  "Heat Exhaustion": "Symptoms: heavy sweating, weakness. Move to shade, cool with water, sip fluids with salts.",
+  "Heatstroke (Emergency)": "High body temp, confusion, no sweating. Cool rapidly (shade, wet cloths, fan). Seek emergency help.",
+  "Hypothermia": "Shivering, slurred speech, clumsiness. Move to warmth, remove wet clothes, warm core first, give warm drinks if conscious.",
+  "Frostbite": "Numb, waxy skin. Rewarm in warm (not hot) water 20\u201330 min. Do not rub. Protect from refreezing.",
+  "Dehydration": "Thirst, dark urine, fatigue. Sip clean water; add oral rehydration salts if available (see ORS recipe).",
+  "Oral Rehydration Solution": "Mix 1 liter clean water + 6 level tsp sugar + 1/2 level tsp salt. Stir until dissolved. Use cautiously for adults; seek medical advice when possible.",
+  "Safe Water Sources": "Rain catchment, clear streams above settlements, snow (melt first). Always purify.",
+  "Water Purification \u2014 Boil": "Bring to a rolling boil for 1 minute (3 minutes above 2,000 m). Let cool covered.",
+  "Water Purification \u2014 Filter": "Use 0.1\u20130.2 micron filter for protozoa/bacteria. Viruses require disinfection (boil, chemical, UV).",
+  "Water Purification \u2014 Chemical": "Use chlorine dioxide or household bleach (unscented): 2 drops/L of 8.25% bleach; wait 30 min.",
+  "Solar Disinfection (SODIS)": "Clear PET bottles filled with clear water, sun exposure 6 hours full sun or 2 consecutive days cloudy.",
+  "Fire Triangle": "Heat, fuel, oxygen. Remove one to extinguish.",
+  "Fire Starting \u2014 Basics": "Use tinder (dry fibers), kindling (small sticks), then fuel. Feather sticks, spark with ferro rod or flint.",
+  "Fire Safety": "Clear area of debris, keep water/sand nearby, never leave unattended, fully extinguish (douse, stir, douse).",
+  "Cooking Without Power": "Rocket stove, solar oven, alcohol stove, wood fire with pot support.",
+  "Food Safety Temps": "Keep hot foods >60\u00b0C (140\u00b0F), cold foods <5\u00b0C (41\u00b0F). Avoid danger zone 5\u201360\u00b0C.",
+  "Foraging Safety": "If unsure, do not eat. Many plants have toxic lookalikes. Prefer known staples (acorns leached, cattail rhizomes, berries you know).",
+  "Fishing Basics": "Hooks, line, improvised rod. Quiet approach, dawn/dusk. Follow local laws when applicable.",
+  "Small Game Traps (Intro)": "Figure-4 deadfall, snare (legal restrictions apply). Practice ethically; check frequently.",
+  "Knot \u2014 Square Knot": "Join ends of same diameter rope: right over left, left over right. Not for loads.",
+  "Knot \u2014 Bowline": "Fixed loop that won\u2019t slip. \u2018Rabbit comes out of hole, around tree, back in hole.\u2019 Useful for rescue.",
+  "Knot \u2014 Clove Hitch": "Quick attachment to a post; may slip\u2014secure with half hitch.",
+  "Knot \u2014 Taut-Line Hitch": "Adjustable loop for tensioning guy-lines on shelters.",
+  "Shelter Priorities": "Dry ground, windbreak, away from hazards (dead branches, flood zones). Insulate from ground heat loss.",
+  "Improvised Shelter": "Tarp lean-to, debris hut, snow cave (ventilation!). Keep entrance small, line floor with insulation.",
+  "Hypothermia Prevention": "Stay dry, layer clothing, cover head/neck, avoid sweating; vent layers during activity.",
+  "Cold-Weather Layering": "Base (moisture-wicking), mid (insulation), outer (wind/water resistant). Avoid cotton.",
+  "Navigation \u2014 Handrails": "Use rivers, ridgelines, roads as guiding features parallel to route.",
+  "Navigation \u2014 Bearings": "Use compass to set bearing; correct for local declination when referencing maps.",
+  "Sun Navigation": "In N hemisphere, sun is due south at local solar noon; shadows shortest then.",
+  "Night Sky \u2014 Polaris": "Find Big Dipper \u2018pointer\u2019 stars to Polaris; Polaris \u2248 north in N hemisphere.",
+  "Signal for Rescue": "Three of anything (whistles, fires, flashes) = distress signal internationally recognized.",
+  "Emergency Whistle Codes": "3 short blasts: distress; respond with 3 blasts back if you heard.",
+  "Mirror Signaling": "Aim reflected sunlight at aircraft/observers using sighting hole; sweep slowly.",
+  "Hygiene Off-Grid": "Wash hands with soap, especially after toilet and before food. Keep nails short; boil cloths.",
+  "Toilet \u2014 Cat Hole": "Dig 6\u20138 inches deep, 200 ft from water, trail, and camp. Cover after use.",
+  "Water Storage": "Use food-grade containers. Label and rotate every 6 months. Keep in cool, dark place.",
+  "Fuel Storage Safety": "Store in approved containers, ventilated area, away from flames. Observe local laws.",
+  "Solar Charging Basics": "Panel \u2192 charge controller \u2192 battery \u2192 devices. Match voltages; use fuses.",
+  "Battery Types": "LiFePO4: stable, long cycle life; Lead-acid: cheaper, heavier; keep within safe charge ranges.",
+  "Inverter vs DC": "Inverters waste energy as heat. Prefer DC-DC charging when possible.",
+  "Multimeter Basics": "Measure voltage (parallel), current (series), resistance (device unpowered). Start on higher ranges.",
+  "Wire Gauge": "Thicker (lower AWG) handles more current. Avoid voltage drop on long runs.",
+  "Fuses & Breakers": "Protect wires, not devices. Size slightly above expected max current.",
+  "Hand Tools \u2014 Essentials": "Multi-tool, fixed-blade knife, saw, file, screwdriver set, adjustable wrench, duct tape, cordage.",
+  "Bike Maintenance \u2014 Chain": "Clean and lube periodically. Replace when stretched (>0.75% wear).",
+  "Sewing Repair": "Needle, thread, patch. Backstitch for strength; melt synthetic rope ends to prevent fray.",
+  "Clothing Care": "Air dry when possible; UV sanitizes. Avoid open flames near synthetics.",
+  "Food Preservation \u2014 Drying": "Thin slices, airflow, low heat (<60\u00b0C). Store airtight with desiccant.",
+  "Food Preservation \u2014 Pickling": "Brine + acid lowers pH to inhibit bacteria. Use clean jars; refrigerate if unsealed.",
+  "Food Preservation \u2014 Fermenting": "Salted vegetables submerged to exclude oxygen. Use airlocks; watch temperature.",
+  "Canning (Safety Note)": "Requires pressure canner for low-acid foods to avoid botulism. Follow tested recipes.",
+  "Grains & Beans Storage": "Airtight containers, cool/dry, oxygen absorbers. Rotate FIFO (first in, first out).",
+  "Sprouting Seeds": "Rinse, soak, drain daily; eat when sprouts appear. Boosts vitamins, easy off-grid.",
+  "Nutrition Basics": "Balance carbs, proteins, fats; include fiber and micronutrients. Hydrate adequately.",
+  "Wild Edibles \u2014 Caution": "Universal edibility test is slow and risky. Better to learn a few species well from reliable guides.",
+  "Poison Ivy/Oak": "Leaves of three; let it be. Wash skin within minutes of exposure with soap.",
+  "Insect Bites \u2014 Relief": "Clean area, cold compress, avoid scratching. Watch for allergic reactions.",
+  "Allergy Emergency (Anaphylaxis)": "Trouble breathing, swelling, hives. Use epinephrine auto-injector if prescribed; seek emergency care.",
+  "Snakebite (General)": "Keep victim calm, immobilize limb at heart level, no cutting or sucking, seek medical care.",
+  "Tetanus Risk": "Deep dirty wounds\u2014get vaccinated per medical advice when possible.",
+  "Wound Cleaning": "Irrigate with clean water. Remove visible debris gently. Cover with sterile dressing.",
+  "Blister Care": "Protect with moleskin; drain only if necessary with sterile needle, keep roof intact, cover.",
+  "Foot Care (Trekking)": "Keep feet dry, change socks, air out at breaks, treat hotspots early.",
+  "Sun Protection": "Shade, hat, long sleeves, sunscreen SPF 30+, reapply every 2 hours.",
+  "Eye Safety": "Wear UV-protective sunglasses in snow/sand/water reflections to prevent snow blindness.",
+  "Weather Signs \u2014 Clouds": "High thin cirrus may precede fronts; towering cumulonimbus implies thunderstorms.",
+  "Barometer Basics": "Falling pressure suggests worsening weather; rising pressure clears.",
+  "Wind Chill": "Wind increases heat loss; add layers and windproof outer shells.",
+  "Lightning Safety": "Avoid high ground, solitary trees, metal fences. Spread out, crouch on insulating material.",
+  "Flood Safety": "Avoid crossing moving water; 6 inches can knock you down. Seek higher ground.",
+  "Earthquake Safety": "Drop, cover, hold on. Stay away from windows. After shocks likely.",
+  "Wildfire Safety": "Stay low to avoid smoke, move away from uphill fire spread, watch wind changes.",
+  "Basic Radio (FRS/GMRS)": "Short-range comms. Keep spare batteries, learn channel/privacy codes.",
+  "Amateur Radio (HAM)": "License typically required. Off-grid comms via HF/VHF/UHF; emergency nets exist.",
+  "Morse Code (Intro)": "Simple tone-based signaling. SOS = \u2022\u2022\u2022 \u2014\u2014\u2014 \u2022\u2022\u2022",
+  "Message Relay": "Repeaters extend range; know local frequencies if permitted.",
+  "Map Reading \u2014 Legend": "Learn symbols, scale, contour intervals. Index contour every 5th line is bold.",
+  "Pace Count": "Measure your steps per 100 m for rough distance on foot.",
+  "Triangulation": "Take bearings to two landmarks; plot lines to find position on map.",
+  "Timekeeping Without Watch": "Shadow stick method estimates direction and approximate time.",
+  "Astronomy \u2014 Phases of Moon": "New \u2192 Waxing \u2192 Full \u2192 Waning. Moon rises ~50 minutes later each day.",
+  "Constellations (Orion)": "Find belt stars; Betelgeuse (red), Rigel (blue). Seasonal visibility varies.",
+  "Northern Lights": "Aurora from solar activity; best at high latitudes, dark skies.",
+  "Planting Calendar": "Cool-season crops early spring/fall; warm-season after frost danger.",
+  "Soil Basics": "Loam (mix of sand, silt, clay) is ideal; add compost for structure and nutrients.",
+  "Composting": "Brown (carbon) + green (nitrogen) + moisture + air. Turn pile for faster breakdown.",
+  "Seed Saving": "Choose open-pollinated varieties; store dry, cool, dark in labeled envelopes.",
+  "Container Gardening": "Use well-draining mix; water consistently; larger containers buffer moisture.",
+  "Irrigation \u2014 Drip": "Efficient water use; slow delivery to roots reduces evaporation.",
+  "Pest Control \u2014 IPM": "Combine cultural, mechanical, biological methods; minimize chemicals.",
+  "Beekeeping (Intro)": "Pollination benefits; requires seasonal management and protective gear.",
+  "Chickens (Backyard)": "Eggs, compost contribution. Provide secure coop, predator protection, clean water.",
+  "Food Forest Concept": "Layered perennials: canopy, understory, shrubs, herbs, groundcovers, roots, vines.",
+  "Wood Processing \u2014 Baton": "Use fixed-blade and baton to split small logs; mind blade safety.",
+  "Axe Safety": "Clear swing zone, stable stance, sharp tool safer than dull.",
+  "Sawing Efficiency": "Long strokes, let teeth do work; keep blade straight.",
+  "Metalwork (Cold Bending)": "Use vise and pipe for leverage; avoid brittle bends in hardened steel.",
+  "Basic Sewing Stitches": "Running, backstitch, whip stitch; backstitch strongest for seams.",
+  "Leather Care": "Clean, condition with appropriate oil/wax; avoid soaking.",
+  "Cordage from Plants": "Twist fibers in reverse-wrap; experiment with inner bark (basswood, nettle).",
+  "Paper Fire Starter": "Dip twisted paper in wax for slow-burning starters.",
+  "Char Cloth": "Cotton fabric charred in sealed tin over coals ignites easily from sparks.",
+  "Signal Fire": "Green boughs produce smoke; arrange in triangles for distress.",
+  "Reflective Heat Wall": "Wall behind fire reflects heat toward shelter entrance.",
+  "Emergency Blanket Uses": "Windbreak, heat reflector, improvised tarp; avoid contact with fire.",
+  "Pack Weight Rule": "Aim for <20\u201325% body weight on multi-day treks; ultralight principles reduce fatigue.",
+  "Gaiters Purpose": "Keep debris/snow out of boots; protect lower legs.",
+  "Waterproofing Gear": "Seam-seal tents; DWR re-treatment on shells; dry bags for critical items.",
+  "Checklists (Go-Bag)": "Water purifier, first aid kit, food, shelter, fire-starting, light, tools, comms, maps, cash.",
+  "Power Outage Prep": "LED headlamps, spare batteries, charged power banks, freezer bottled water (ice packs).",
+  "Refrigeration Without Grid": "Zeer pot (clay evaporative cooler) in dry climates; minimize opening fridge.",
+  "Ventilation & CO Safety": "Never run combustion devices indoors without proper ventilation; CO is deadly.",
+  "Candles Safety": "Keep away from fabric, children, pets; never leave unattended.",
+  "Fuel Priorities": "Stagger sources: wood, alcohol stove, propane (follow storage rules).",
+  "Rainwater Harvesting": "Use clean roof, first-flush diverter, covered barrels, screen inlets/outlets.",
+  "Greywater (Caution)": "Use biodegradable soaps; route to non-edible plants; follow local codes.",
+  "Waste Sorting": "Separate organics, recyclables, and hazardous materials; prevents contamination.",
+  "Basic Math \u2014 Fractions": "a/b + c/d = (ad+bc)/bd; multiply across numerators & denominators.",
+  "Estimation": "Round numbers to gauge reasonableness before precise calculation.",
+  "Unit Conversion": "Know key anchors: 1 inch = 2.54 cm; 1 liter \u2248 1.06 qt; 1 kg \u2248 2.2 lb.",
+  "Area & Volume": "Rectangle A=lw; Circle A=\u03c0r\u00b2; Box V=lwh; Cylinder V=\u03c0r\u00b2h.",
+  "Mechanical Advantage": "Pulleys and levers reduce required force at cost of distance moved.",
+  "Friction & Lubrication": "Reduce friction to save energy and wear; use appropriate lubricants sparingly.",
+  "Ohm\u2019s Law": "V=IR. Power P=VI. Respect voltage/current limits to avoid hazards.",
+  "Series vs Parallel": "Series adds voltages; parallel adds capacities (currents). Match battery types.",
+  "Diodes & Polarity": "Diodes pass current one way; observe +/- on devices.",
+  "LED Basics": "Require current limiting (resistor or driver). Observe polarity.",
+  "Soldering Tips": "Clean tip, tin wires, heat joint not solder, avoid cold joints, use ventilation.",
+  "Microcontrollers (Offline)": "Preload firmware sketches so devices can operate without internet.",
+  "Data Backup (Offline)": "Multiple copies: USB, SD, printed QR codes. Verify hashes to ensure integrity.",
+  "Hashing Files": "SHA-256 fingerprints validate file integrity; store hashes with files.",
+  "Paper Maps & Contacts": "Keep printed maps, phone numbers, and addresses for critical services.",
+  "Record Keeping": "Log maintenance, supplies, and incidents; timestamps help future decisions.",
+  "Community Bulletin": "Analog boards coordinate skills, swaps, needs; fosters resilience.",
+  "Conflict De-escalation": "Calm tone, listen actively, clarify needs, seek common ground; step away if unsafe.",
+  "Mental Health First Aid": "Encourage rest, hydration, routine, and supportive conversation; seek professional help when possible.",
+  "Sleep Hygiene": "Dark, cool, quiet; consistent schedule; limit caffeine late in day.",
+  "Exercise Without Gear": "Bodyweight circuits: push-ups, squats, planks, walking. Start slow, stay consistent.",
+  "Stretching Basics": "Gentle dynamic warm-up; static stretches post-activity; avoid pain.",
+  "Clean Cooking Surfaces": "Hot soapy water; rinse; sanitize with diluted bleach (1 tbsp per gallon) when needed.",
+  "Rodent Control": "Seal food, remove crumbs, set snap traps safely; avoid poison near children/pets.",
+  "Water Leak Check": "Meter test: record reading, avoid water use for hours, re-check for changes.",
+  "Tool Maintenance": "Clean, dry, lightly oil metal surfaces; store away from moisture.",
+  "Rust Removal": "Mechanical (wire brush), chemical (vinegar soak), then neutralize and protect.",
+  "Glass Cleanup Safety": "Wear gloves, sweep, use damp towel for shards; dispose in rigid container.",
+  "Personal Identification Cache": "Keep copies of IDs, medical info, contacts in waterproof pouch.",
+  "Cash on Hand": "Small bills for emergencies; avoid keeping large sums in one location.",
+  "Local Resources Mapping": "List water points, clinics, libraries, repair shops, markets; update quarterly.",
+  "Skill Swaps": "Trade time and skills; track hours fairly.",
+  "Tick Removal": "Use fine tweezers close to skin, pull steadily. Clean site. Monitor for rash/fever.",
+  "Handwashing Recipe": "20 seconds with soap, scrub nails and thumbs; rinse; air or clean towel dry.",
+  "Mask Basics": "Use when dust, smoke, or illness risk. Fit snugly; replace if damp/dirty.",
+  "Smoke Inhalation": "Get to fresh air, loosen tight clothing, seek care if persistent cough or confusion.",
+  "Wild Plant Guide (Create)": "Build local guide with photos and notes; confirm ID with multiple sources.",
+  "Tool Library Idea": "Community shares infrequently used tools; track checkouts; maintain inventory.",
+  "Emergency Contacts": "Post numbers for fire, medical, neighbors, and meeting points.",
+  "Meeting Point Plan": "Primary and secondary locations; practice routes.",
+  "Document Your System": "Label switches, valves, storage; maintain diagrams for quick reference.",
+  "Photosynthesis": "Plants convert light, water, and CO2 into sugars and oxygen using chlorophyll.",
+  "Newton's Three Laws": "Inertia; F=ma; equal and opposite reactions govern motion.",
+  "Plate Tectonics": "Earth\u2019s lithosphere moves on the asthenosphere, forming mountains and quakes.",
+  "Water Cycle": "Evaporation, condensation, precipitation, collection\u2014drives climate and freshwater.",
+  "Simple Machines": "Lever, wheel and axle, pulley, wedge, screw, inclined plane\u2014trade force for distance.",
+  "Vaccination (Concept)": "Trains immune system with antigens to prevent severe disease; follow medical guidance.",
+  "Antibiotic Resistance": "Overuse breeds resistant bacteria; use only with medical advice.",
+  "Currency Inflation": "General price rise; manage by budgeting, reducing waste, and diversifying stores of value.",
+  "Comets vs Asteroids": "Comets are icy with tails; asteroids rocky/metallic\u2014both orbit the Sun.",
+  "Seasons": "Tilt of Earth\u2019s axis causes seasonal sunlight changes, not distance from Sun.",
+  "Human Body Temperature": "Normal ~36.1\u201337.2\u00b0C (97\u201399\u00b0F); variations occur\u2014context matters.",
+  "Calories & Energy": "Food energy measured in kilocalories; 1 kcal \u2248 energy to heat 1 kg water by 1\u00b0C.",
+  "pH Scale": "0\u201314; 7 neutral; lower is acidic, higher is basic. Logarithmic scale.",
+  "Probability Basics": "Odds of independent events multiply; expected value guides decisions.",
+  "Solar Eclipse Safety": "Use certified eclipse glasses or pinhole viewers; never look at Sun unprotected.",
+  "Wind Power Basics": "Power ~ cube of wind speed; small increases in wind greatly increase output.",
+  "Hydropower": "Falling water turns turbines; micro-hydro possible with head and flow.",
+  "Biochar": "Charred biomass improves soil and sequesters carbon; charge with compost teas first.",
+  "Rain Shadow": "Mountains block moist air, creating dry regions leeward.",
+  "Dew Point": "Temperature where air becomes saturated; governs fog and condensation.",
+  "Heat Transfer": "Conduction, convection, radiation\u2014understand for insulation and cooking.",
+  "Thermosiphon": "Passive fluid circulation due to density differences; used in solar water heaters.",
+  "Arch Strength": "Arches transfer loads to supports; used in bridges and doorways.",
+  "Triangle Rigidity": "Triangles resist deformation; common in trusses.",
+  "Redundancy": "Multiple pathways increase reliability; avoid single points of failure.",
+  "Feedback Loops": "Positive amplifies changes; negative stabilizes systems.",
+  "Median vs Mean": "Median resists outliers; mean includes all values.",
+  "Quartiles & IQR": "IQR = Q3\u2212Q1; robust spread measure for skewed data.",
+  "Maps \u2014 Scale": "1:24,000 means 1 unit on map equals 24,000 units on ground.",
+  "Magnetic Declination": "Angle difference between true and magnetic north; varies by location/time.",
+  "Tides": "Caused by Moon and Sun gravity; local geography modulates height and timing.",
+  "River Meanders": "Erode outer banks, deposit on inner banks; oxbow lakes can form.",
+  "Desert Survival": "Travel early/late, rest midday, cover skin, conserve water, signal for help.",
+  "Forest Survival": "Stay oriented with handrails, mark your path, avoid overexertion.",
+  "Mountain Altitude Illness": "Ascend gradually; hydrate; descend if severe headache, nausea, confusion.",
+  "Snow Shelter Venting": "Always provide ventilation to avoid CO buildup and suffocation hazards.",
+  "Boat Safety PFD": "Wear personal flotation device; hypothermia risk in cold water.",
+  "Triage (Simple)": "START method: Simple Triage and Rapid Treatment\u2014assess breathing, circulation, mental status.",
+  "Duct Tape Uses": "Repairs, blisters, splints, sealing. Keep a roll in go-bag.",
+  "Paracord Uses": "Shelter lines, repairs, lashing; inner strands for sewing or fishing.",
+  "Zip Tie Uses": "Quick fastening, cable management, temporary repairs.",
+  "Magnesium Fire Starter": "Shave magnesium, spark onto shavings; burns hot even when damp.",
+  "Ferrocerium Rod": "Produces sparks ~3000\u00b0C; scrape with spine of knife or striker.",
+  "Alcohol Stove": "Lightweight, simple; use in ventilated area; cool before refueling.",
+  "Rocket Stove": "Efficient wood combustion using insulated chimney. Build from cans/bricks.",
+  "Solar Oven": "Reflectors + dark pot + insulation. Works best mid-day, clear sky.",
+  "Handwashing Station (Tippy Tap)": "Foot-pedal tipped container saves water and improves hygiene.",
+  "Bucket Filter (DIY)": "Layer gravel, sand, charcoal; slow flow clarifies, but disinfect afterward.",
+  "Bleach Dilution (Sanitize)": "1 tablespoon per 1 gallon clean water for surfaces. Never mix with ammonia.",
+  "Vinegar Uses": "Descaling, glass cleaning, mild food preservation helper.",
+  "Baking Soda Uses": "Mild abrasive cleaner, deodorizer, fire extinguisher for small grease spill (smother).",
+  "Grease Fire Safety": "Cover pan with lid; turn off heat. Do not use water; use Class K or baking soda cautiously.",
+  "Class of Fire Extinguishers": "A: solids; B: liquids; C: electrical; K: kitchen oils. Use correct class.",
+  "Headlamp vs Flashlight": "Headlamps free hands and align light with gaze; keep spare batteries.",
+  "Lithium Battery Fire": "Do not use water on large Li fires; use Class D if available, or isolate and call professionals.",
+  "Faraday Basics": "Metal enclosure can reduce EM interference; not a guaranteed EMP shield.",
+  "USB OTG Uses": "Connect keyboards, storage, or radios to phones supporting OTG for offline utility.",
+  "QR Codes Offline": "Encode text/contacts/maps; print for sharing. Verify readability.",
+  "Paper Encryption (One-Time Pad)": "Truly secure if pad is random, single-use, kept secret; impractical for most needs.",
+  "Password Hygiene": "Use long passphrases; avoid reuse; store offline backups securely.",
+  "Two-Person Integrity": "Critical actions require two people to reduce errors and abuse.",
+  "Incident Postmortem": "Blameless review: what happened, why, what to improve; document learnings.",
+  "After-Action Log": "Capture timeline, decisions, outcomes; supports training and accountability.",
+  "Drills & Practice": "Regular small exercises build confidence and uncover gaps.",
+  "Mutual Aid": "Neighbors supporting each other with skills and resources increases resilience."}
+  const KEY_BM = 'ENC_BOOKMARKS';
+  const KEY_HI = 'ENC_HISTORY';
+  const KEY_NOTES = 'ENC_NOTES';
+  const MAX_HISTORY = 50;
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const store = {
+    get(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch{ return d }},
+    set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch{} }
+  };
+
+  let DATA = [], VIEW = [], LAST_QUERY = '', AZ = '';
+  const slug = s => (s||'').toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g,'').replace(/\s+/g,' ').trim();
+  const escapeReg = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const highlight = (text, term) => term ? text.replace(new RegExp(escapeReg(term), 'ig'), m => `<mark>${m}</mark>`) : text;
+  const snippet = (text, term, len=140) => {
+    if(!text) return '';
+    if(!term) return (text.slice(0, len) + (text.length>len?'…':'')); 
+    const i = text.toLowerCase().indexOf(term.toLowerCase());
+    if(i === -1) return (text.slice(0,len) + (text.length>len?'…':''));
+    const start = Math.max(0, i - Math.floor(len/3));
+    const end = Math.min(text.length, start + len);
+    let chunk = text.slice(start, end);
+    if(start>0) chunk = '…' + chunk;
+    if(end<text.length) chunk = chunk + '…';
+    return highlight(chunk, term);
+  };
+
+  function renderAZ(){
+    const bar = $('#barAZ'); bar.innerHTML = '';
+    const letters = ['#'].concat(Array.from({length:26}, (_,i)=> String.fromCharCode(65+i)));
+    letters.forEach(L=>{
+      const el = document.createElement('div');
+      el.className = 'az' + (AZ===L?' active':'');
+      el.textContent = L;
+      el.onclick = ()=>{ AZ = (AZ===L ? '' : L); $('#scope').textContent = 'Scope: ' + (AZ||'All'); renderAZ(); runSearch(); };
+      bar.appendChild(el);
+    });
+  }
+
+  function updateCounters(){
+    $('#bmCount').textContent = (store.get(KEY_BM, []) || []).length;
+    $('#histCount').textContent = store.get(KEY_HI, []).length;
+  }
+
+  function addToHistory(title){
+    const h = store.get(KEY_HI, []);
+    const i = h.indexOf(title); if(i !== -1) h.splice(i, 1);
+    h.push(title); while(h.length > MAX_HISTORY) h.shift();
+    store.set(KEY_HI, h); updateCounters();
+  }
+
+  const isBookmarked = title => new Set(store.get(KEY_BM, [])).has(title);
+  function toggleBookmark(title){
+    const b = new Set(store.get(KEY_BM, []));
+    b.has(title) ? b.delete(title) : b.add(title);
+    store.set(KEY_BM, Array.from(b)); updateCounters(); renderResults();
+    const star = $('#btnBm'); if(star && star.getAttribute('data-title')===title)
+      star.textContent = isBookmarked(title) ? '★ Bookmarked' : '☆ Bookmark';
+  }
+
+  function renderResults(){
+    const q = LAST_QUERY.trim(), host = $('#results'); host.innerHTML = '';
+    $('#count').textContent = `(${VIEW.length})`;
+    const rows = VIEW.slice(0, 300);
+    for(const e of rows){
+      const div = document.createElement('div'); div.className = 'item';
+      div.innerHTML = `
+        <div class="row" style="justify-content:space-between">
+          <div class="t">${highlight(e.title, q)}</div>
+          <button class="btn star" data-title="${e.title}" title="${isBookmarked(e.title)?'Remove bookmark':'Add bookmark'}">${isBookmarked(e.title)?'★':'☆'}</button>
+        </div>
+        <div class="s">${snippet(e.text, q, 160)}</div>`;
+      div.querySelector('.star').onclick = ev => { ev.stopPropagation(); toggleBookmark(e.title); };
+      div.onclick = () => showArticle(e.title); host.appendChild(div);
+    }
+    if(!rows.length){
+      const empty = document.createElement('div');
+      empty.className = 'mut';
+      empty.textContent = q || AZ ? 'No matches. Try a different search or scope.' : 'Type to search or pick a letter above.';
+      host.appendChild(empty);
+    }
+  }
+
+  function showArticle(title){
+    const e = DATA.find(x => x.title === title), art = $('#article');
+    if(!e){ art.innerHTML = `<h1 class="mut">Not found</h1>`; return; }
+    addToHistory(title);
+    const notes = store.get(KEY_NOTES, {}), note = notes[title] || '';
+    art.innerHTML = `
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h1>${e.title}</h1>
+        <div class="status">
+          <button class="btn" id="btnBm" data-title="${e.title}">${isBookmarked(e.title)?'★ Bookmarked':'☆ Bookmark'}</button>
+          <button class="btn" id="btnCopy">Copy</button>
+        </div>
+      </div>
+      <div class="meta">Length: ${e.text.length.toLocaleString()} chars</div>
+      <div class="content" id="content">${highlight(e.text, LAST_QUERY)}</div>
+      <div class="noteBox">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <strong>My Notes</strong>
+          <button class="btn" id="btnSaveNote">Save Note</button>
+        </div>
+        <textarea id="note" placeholder="Add your note for this article..." style="width:100%;min-height:110px;margin-top:6px">${note.replace(/</g,'&lt;')}</textarea>
+      </div>`;
+    $('#btnBm').onclick = ()=> toggleBookmark(e.title);
+    $('#btnCopy').onclick = ()=> {
+      navigator.clipboard?.writeText(`${e.title}\n\n${e.text}`)
+        .then(()=> alert('Copied to clipboard')).catch(()=> alert('Copy failed'));
+    };
+    $('#btnSaveNote').onclick = ()=>{
+      const map = store.get(KEY_NOTES, {});
+      map[e.title] = $('#note').value;
+      store.set(KEY_NOTES, map);
+      alert('Note saved locally.');
+    };
+  }
+
+  function runSearch(){
+    const q = $('#q').value.trim(); LAST_QUERY = q;
+    const letter = AZ, qSlug = slug(q);
+    VIEW = DATA.filter(e=>{
+      if(letter){
+        if(letter === '#'){ if(/^[A-Za-z]/.test(e.title)) return false; }
+        else if(e.title[0]?.toUpperCase() !== letter) return false;
+      }
+      if(!qSlug) return true;
+      return e._s.includes(qSlug);
+    });
+    renderResults();
+  }
+
+  function randomArticle(){
+    if(!DATA.length) return;
+    const e = DATA[Math.floor(Math.random()*DATA.length)];
+    showArticle(e.title);
+  }
+
+  function exportJSON(){
+    const obj = {}; for(const e of DATA) obj[e.title] = e.text;
+    const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'encyclopedia_data.json'; a.click();
+  }
+
+  function importJSON(file){
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const parsed = JSON.parse(reader.result);
+        let entries = Array.isArray(parsed) ? parsed : Object.keys(parsed).map(k=>({title:k, text:String(parsed[k])}));
+        const map = new Map(DATA.map(e=>[e.title, e.text]));
+        for(const e of entries){ if(e?.title && e?.text != null) map.set(String(e.title), String(e.text)); }
+        DATA = Array.from(map.entries()).map(([title, text])=>({
+          title, text, slug: slug(title), _s: (title+' '+text).toLowerCase()
+        })).sort((a,b)=> a.title.localeCompare(b.title));
+        runSearch(); alert(`Imported ${entries.length} entries.`);
+      }catch(err){ alert('Invalid JSON.'); }
+    };
+    reader.readAsText(file);
+  }
+
+  function init(){
+    renderAZ(); updateCounters();
+    $('#btnSearch').onclick = runSearch;
+    $('#q').addEventListener('keydown', e=>{ if(e.key==='Enter') runSearch(); });
+    window.addEventListener('keydown', e=>{ if(e.key==='/'){ e.preventDefault(); $('#q').focus(); } });
+    $('#btnRandom').onclick = randomArticle;
+    $('#btnClear').onclick = ()=>{ $('#q').value=''; LAST_QUERY=''; runSearch(); };
+    $('#btnExport').onclick = exportJSON;
+    $('#btnPrint').onclick = ()=> window.print();
+    $('#fileImport').addEventListener('change', e=>{ const f = e.target.files?.[0]; if(f) importJSON(f); e.target.value=''; });
+
+    // Load embedded data
+    DATA = Object.entries(EMBEDDED_DATA).map(([title, text]) => ({
+      title, text, slug: slug(title), _s: (title+' '+text).toLowerCase()
+    })).sort((a,b)=> a.title.localeCompare(b.title));
+    $('#count').textContent = `(${DATA.length})`;
+    runSearch();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
