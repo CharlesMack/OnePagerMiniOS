@@ -67,13 +67,19 @@
         /* Modal styles */
         .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); }
         .modal-content { background: linear-gradient(180deg, #13182a, #0e1322); border: 1px solid #1f294b; }
+        #settingsBtn.key-set svg { color: #63b3ed; }
     </style>
 </head>
 <body class="antialiased">
     <div id="app" class="max-w-4xl mx-auto my-10 p-4 rounded-2xl container">
         <div class="flex justify-between items-center mb-3">
             <h1 class="text-3xl font-bold">🗓 Planner Lite +</h1>
-            <span id="statusIndicator" class="text-sm font-semibold px-3 py-1 rounded-full"></span>
+            <div class="flex items-center gap-4">
+                <span id="statusIndicator" class="text-sm font-semibold px-3 py-1 rounded-full"></span>
+                <button id="settingsBtn" onclick="app.showApiKeyModal()" class="text-gray-400 hover:text-white transition-colors" title="API Settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
         </div>
         <p class="text-sm text-gray-400 mb-4">Your tasks are saved securely on this device.</p>
         <div class="flex flex-wrap gap-2 items-center mb-4">
@@ -99,7 +105,7 @@
 
     <div id="calendar" class="max-w-4xl mx-auto my-5 p-4 rounded-2xl"></div>
 
-    <!-- Custom Modal -->
+    <!-- Confirmation Modal -->
     <div id="customModal" class="fixed inset-0 z-50 items-center justify-center hidden modal-backdrop">
         <div class="modal-content w-full max-w-md p-6 rounded-2xl shadow-lg">
             <h2 id="modalTitle" class="text-xl font-bold mb-4"></h2>
@@ -112,15 +118,34 @@
         </div>
     </div>
 
+    <!-- API Key Modal -->
+    <div id="apiKeyModal" class="fixed inset-0 z-50 items-center justify-center hidden modal-backdrop">
+        <div class="modal-content w-full max-w-md p-6 rounded-2xl shadow-lg">
+            <h2 class="text-xl font-bold mb-2">Gemini API Setup</h2>
+            <p class="text-sm text-gray-400 mb-4">Save your API key to enable AI features. Your key is stored only in this browser.</p>
+            <label for="apiKeyInput" class="text-sm font-medium text-gray-300">Your API Key</label>
+            <input id="apiKeyInput" type="password" class="w-full p-2 mt-1 mb-4 rounded-lg" placeholder="Enter your Gemini API key">
+            <div class="flex justify-between items-center">
+                <button onclick="app.removeApiKey()" class="text-sm text-red-400 hover:text-red-300">Remove Key</button>
+                <div class="flex gap-3">
+                    <button onclick="app.hideApiKeyModal()" class="btn py-2 px-4 rounded-lg">Close</button>
+                    <button onclick="app.saveApiKey()" class="btn bg-blue-600/80 hover:bg-blue-500/80 border-blue-500/50 py-2 px-4 rounded-lg">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- JS Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js"></script>
 
     <script>
         const STORAGE_KEY = 'PLANNER_LITE_PLUS_TASKS';
+        const API_KEY_STORAGE_KEY = 'GEMINI_API_KEY';
 
         const appState = {
             tasks: [],
+            apiKey: null,
         };
 
         // --- LOCAL STORAGE ---
@@ -133,34 +158,43 @@
             if (tasksJson) {
                 appState.tasks = JSON.parse(tasksJson);
             }
+            appState.apiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
             renderUI();
         }
-
+        
         // --- UI RENDERING & STATUS ---
         const taskListEl = document.getElementById('taskList');
         let calendar;
 
+        function updateApiKeyStatusUI() {
+            const settingsBtn = document.getElementById('settingsBtn');
+            if (appState.apiKey) {
+                settingsBtn.classList.add('key-set');
+                settingsBtn.title = "API Key is set";
+            } else {
+                settingsBtn.classList.remove('key-set');
+                settingsBtn.title = "API Settings";
+            }
+            // Re-evaluate the breakdown button state whenever the key changes
+            app.handleTaskInputChange(document.getElementById('newTask').value);
+        }
+
         function updateOnlineStatus() {
             const statusIndicator = document.getElementById('statusIndicator');
             const isOnline = navigator.onLine;
-            if (isOnline) {
-                statusIndicator.textContent = 'Online';
-                statusIndicator.className = 'text-sm font-semibold px-3 py-1 rounded-full bg-green-500/20 text-green-300';
-            } else {
-                statusIndicator.textContent = 'Offline';
-                statusIndicator.className = 'text-sm font-semibold px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-300';
-            }
+            statusIndicator.textContent = isOnline ? 'Online' : 'Offline';
+            statusIndicator.className = `text-sm font-semibold px-3 py-1 rounded-full ${isOnline ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`;
             app.handleTaskInputChange(document.getElementById('newTask').value);
         }
 
         function renderUI() {
             renderTasks();
             renderCalendar();
+            updateApiKeyStatusUI();
         }
 
         function renderTasks() {
             taskListEl.innerHTML = '';
-            // Sort tasks by creation date before rendering
             appState.tasks.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
             appState.tasks.forEach((t) => {
                 const li = document.createElement('li');
@@ -201,12 +235,14 @@
             handleTaskInputChange(value) {
                 const breakdownBtn = document.getElementById('breakdownBtn');
                 const isOnline = navigator.onLine;
-                breakdownBtn.disabled = value.trim().length === 0 || !isOnline;
-                if (!isOnline) {
-                    breakdownBtn.title = "You must be online to use AI features.";
-                } else {
-                    breakdownBtn.title = "";
-                }
+                const hasApiKey = !!appState.apiKey;
+                const hasText = value.trim().length > 0;
+                
+                breakdownBtn.disabled = !isOnline || !hasApiKey || !hasText;
+
+                if (!isOnline) breakdownBtn.title = "You must be online to use AI features.";
+                else if (!hasApiKey) breakdownBtn.title = "Set your Gemini API key in settings to enable AI.";
+                else breakdownBtn.title = "";
             },
 
             addTask() {
@@ -229,18 +265,21 @@
                 appState.tasks.push(newTask);
                 saveToStorage();
                 renderUI();
-
                 textInput.value = '';
                 this.handleTaskInputChange('');
             },
 
             async breakDownTask() {
+                if (!appState.apiKey) {
+                    showModal("API Key Required", "Please set your Gemini API key in the settings (⚙️) to use this feature.", false);
+                    return;
+                }
+
                 const textInput = document.getElementById('newTask');
-                const breakdownBtn = document.getElementById('breakdownBtn');
                 const originalTask = textInput.value.trim();
                 if (!originalTask) return;
 
-                breakdownBtn.disabled = true;
+                document.getElementById('breakdownBtn').disabled = true;
                 showModal('✨ Thinking...', 'Breaking down your task. Please wait...', false, null, true);
 
                 const prompt = `Break down the following task into a list of simple, actionable sub-tasks. Task: "${originalTask}"`;
@@ -253,14 +292,13 @@
                 };
 
                 try {
-                    const apiKey = ""; // Leave empty
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${appState.apiKey}`;
                     const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
+                    if (!response.ok) throw new Error(`API request failed with status ${response.status}. Check your API key and permissions.`);
                     const result = await response.json();
                     const subTasksText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
                     if (!subTasksText) throw new Error("Received an invalid response from the AI.");
@@ -268,12 +306,7 @@
 
                     if (Array.isArray(subTasks) && subTasks.length > 0) {
                         const newTasks = subTasks.map(taskText => ({
-                            id: crypto.randomUUID(),
-                            text: taskText,
-                            due: null,
-                            cat: 'Personal',
-                            done: false,
-                            createdAt: new Date().toISOString()
+                            id: crypto.randomUUID(), text: taskText, due: null, cat: 'Personal', done: false, createdAt: new Date().toISOString()
                         }));
                         appState.tasks.push(...newTasks);
                         saveToStorage();
@@ -288,18 +321,14 @@
                     console.error("Gemini API Error:", error);
                     showModal("AI Error", `Could not break down the task. ${error.message}`, false);
                 } finally {
-                    breakdownBtn.disabled = false;
+                    document.getElementById('breakdownBtn').disabled = false;
                     this.handleTaskInputChange(textInput.value);
                 }
             },
 
             toggleDone(id) {
                 const task = appState.tasks.find(t => t.id === id);
-                if (task) {
-                    task.done = !task.done;
-                    saveToStorage();
-                    renderUI();
-                }
+                if (task) { task.done = !task.done; saveToStorage(); renderUI(); }
             },
 
             deleteTask(id) {
@@ -317,10 +346,7 @@
             },
             
             exportTasks() {
-                if (appState.tasks.length === 0) {
-                    showModal("Export", "There are no tasks to export.", false);
-                    return;
-                }
+                if (appState.tasks.length === 0) { showModal("Export", "There are no tasks to export.", false); return; }
                 const tasksToExport = appState.tasks.map(({id, ...task}) => task);
                 const blob = new Blob([JSON.stringify(tasksToExport, null, 2)], { type: 'application/json' });
                 const a = document.createElement('a');
@@ -341,9 +367,7 @@
                         
                         showModal('Confirm Import', `This will replace all current tasks with ${importedTasks.length} new tasks. Continue?`, true, () => {
                             appState.tasks = importedTasks.map(task => ({
-                                ...task,
-                                id: crypto.randomUUID(), // Assign new unique IDs
-                                createdAt: task.createdAt || new Date().toISOString()
+                                ...task, id: crypto.randomUUID(), createdAt: task.createdAt || new Date().toISOString()
                             }));
                             saveToStorage();
                             renderUI();
@@ -356,6 +380,29 @@
                     }
                 };
                 reader.readAsText(file);
+            },
+
+            // --- API KEY MODAL LOGIC ---
+            showApiKeyModal() {
+                document.getElementById('apiKeyInput').value = appState.apiKey || '';
+                document.getElementById('apiKeyModal').style.display = 'flex';
+            },
+            hideApiKeyModal() {
+                document.getElementById('apiKeyModal').style.display = 'none';
+            },
+            saveApiKey() {
+                const newKey = document.getElementById('apiKeyInput').value.trim();
+                appState.apiKey = newKey;
+                localStorage.setItem(API_KEY_STORAGE_KEY, newKey);
+                this.hideApiKeyModal();
+                updateApiKeyStatusUI();
+            },
+            removeApiKey() {
+                appState.apiKey = null;
+                localStorage.removeItem(API_KEY_STORAGE_KEY);
+                document.getElementById('apiKeyInput').value = '';
+                this.hideApiKeyModal();
+                updateApiKeyStatusUI();
             }
         };
         
@@ -372,9 +419,7 @@
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             confirmCallback = onConfirm;
-
             modalDisclaimer.style.display = showDisclaimer ? 'block' : 'none';
-
             modalConfirm.style.display = showConfirmButton ? 'block' : 'none';
             modalCancel.textContent = showConfirmButton ? 'Cancel' : 'Close';
             modal.style.display = 'flex';
