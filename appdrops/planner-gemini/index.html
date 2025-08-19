@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Planner Lite + (Device-Only & Gemini-Powered)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- CSS Libraries -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom dark theme styles */
+        body { 
+            font-family: 'Inter', ui-sans-serif, system-ui;
+            background-color: #0a0b0f;
+            color: #e6e8ee;
+        }
+        .container {
+            border: 1px solid #1f294b;
+            background: linear-gradient(180deg, #13182a, #0e1322);
+        }
+        .btn {
+            border: 1px solid #2a3356;
+            background-color: #141a2c;
+            transition: background-color 0.2s, border-color 0.2s, opacity 0.2s;
+        }
+        .btn:hover {
+            background-color: #1e2640;
+            border-color: #3a4574;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-gemini {
+            background-color: #28356a;
+            border-color: #4152a3;
+        }
+        .btn-gemini:hover:not(:disabled) {
+            background-color: #314182;
+            border-color: #5568c7;
+        }
+        input, select {
+            border: 1px solid #242d50;
+            background-color: #0f1426;
+        }
+        li.done {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+        .category {
+            background-color: #2a3356;
+        }
+        #calendar {
+            background-color: #0e1322;
+            border: 1px solid #1f294b;
+        }
+        /* Custom styles for FullCalendar */
+        .fc { color: #e6e8ee; }
+        .fc .fc-toolbar-title { color: #fff; }
+        .fc .fc-button-primary { background-color: #141a2c; border-color: #2a3356; }
+        .fc .fc-button-primary:hover { background-color: #1e2640; }
+        .fc .fc-daygrid-day-number { color: #a0aec0; }
+        .fc-day-today { background: #1f294b !important; }
+        /* Modal styles */
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.7); }
+        .modal-content { background: linear-gradient(180deg, #13182a, #0e1322); border: 1px solid #1f294b; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="app" class="max-w-4xl mx-auto my-10 p-4 rounded-2xl container">
+        <div class="flex justify-between items-center mb-3">
+            <h1 class="text-3xl font-bold">🗓 Planner Lite +</h1>
+            <span id="statusIndicator" class="text-sm font-semibold px-3 py-1 rounded-full"></span>
+        </div>
+        <p class="text-sm text-gray-400 mb-4">Your tasks are saved securely on this device.</p>
+        <div class="flex flex-wrap gap-2 items-center mb-4">
+            <input id="newTask" class="flex-grow p-2 rounded-lg" placeholder="Task description…" oninput="app.handleTaskInputChange(this.value)">
+            <input id="duePicker" class="p-2 rounded-lg" placeholder="Due date">
+            <select id="category" class="p-2 rounded-lg">
+                <option value="">No category</option>
+                <option>Work</option>
+                <option>Personal</option>
+                <option>Urgent</option>
+            </select>
+            <button class="btn p-2 rounded-lg" onclick="app.addTask()">Add Task</button>
+            <button id="breakdownBtn" class="btn btn-gemini p-2 rounded-lg" onclick="app.breakDownTask()" disabled>✨ Break Down Task</button>
+        </div>
+         <div class="flex flex-wrap gap-2 items-center mb-4">
+            <button class="btn p-2 rounded-lg" onclick="app.confirmClearAll()">Clear All</button>
+            <button class="btn p-2 rounded-lg" onclick="app.exportTasks()">Export JSON</button>
+            <button class="btn p-2 rounded-lg" onclick="importInput.click()">Import JSON</button>
+            <input type="file" id="importInput" accept="application/json" class="hidden" onchange="app.importTasks(event)">
+        </div>
+        <ul id="taskList" class="list-none p-0"></ul>
+    </div>
+
+    <div id="calendar" class="max-w-4xl mx-auto my-5 p-4 rounded-2xl"></div>
+
+    <!-- Custom Modal -->
+    <div id="customModal" class="fixed inset-0 z-50 items-center justify-center hidden modal-backdrop">
+        <div class="modal-content w-full max-w-md p-6 rounded-2xl shadow-lg">
+            <h2 id="modalTitle" class="text-xl font-bold mb-4"></h2>
+            <p id="modalMessage" class="mb-6"></p>
+            <p id="modalDisclaimer" class="text-xs text-gray-400 mt-2 hidden">Gemini may make mistakes. Consider checking important information.</p>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="modalCancel" class="btn py-2 px-4 rounded-lg">Cancel</button>
+                <button id="modalConfirm" class="btn bg-red-600/80 hover:bg-red-500/80 border-red-500/50 py-2 px-4 rounded-lg">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js"></script>
+
+    <script>
+        const STORAGE_KEY = 'PLANNER_LITE_PLUS_TASKS';
+
+        const appState = {
+            tasks: [],
+        };
+
+        // --- LOCAL STORAGE ---
+        function saveToStorage() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState.tasks));
+        }
+
+        function loadFromStorage() {
+            const tasksJson = localStorage.getItem(STORAGE_KEY);
+            if (tasksJson) {
+                appState.tasks = JSON.parse(tasksJson);
+            }
+            renderUI();
+        }
+
+        // --- UI RENDERING & STATUS ---
+        const taskListEl = document.getElementById('taskList');
+        let calendar;
+
+        function updateOnlineStatus() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            const isOnline = navigator.onLine;
+            if (isOnline) {
+                statusIndicator.textContent = 'Online';
+                statusIndicator.className = 'text-sm font-semibold px-3 py-1 rounded-full bg-green-500/20 text-green-300';
+            } else {
+                statusIndicator.textContent = 'Offline';
+                statusIndicator.className = 'text-sm font-semibold px-3 py-1 rounded-full bg-yellow-500/20 text-yellow-300';
+            }
+            app.handleTaskInputChange(document.getElementById('newTask').value);
+        }
+
+        function renderUI() {
+            renderTasks();
+            renderCalendar();
+        }
+
+        function renderTasks() {
+            taskListEl.innerHTML = '';
+            // Sort tasks by creation date before rendering
+            appState.tasks.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            appState.tasks.forEach((t) => {
+                const li = document.createElement('li');
+                li.className = `p-2 mb-2 rounded-lg flex justify-between items-center transition-all ${t.done ? 'done bg-white/5' : 'bg-white/10'}`;
+                li.innerHTML = `
+                    <span class="cursor-pointer" onclick="app.toggleDone('${t.id}')">${t.text}</span>
+                    <div class="flex items-center gap-3">
+                        ${t.due ? `<span class="text-sm text-gray-400">${t.due}</span>` : ''}
+                        ${t.cat ? `<span class="category text-xs py-1 px-2 rounded-full">${t.cat}</span>` : ''}
+                        <button class="text-red-400 hover:text-red-300 text-xl" onclick="app.deleteTask('${t.id}')">&times;</button>
+                    </div>`;
+                taskListEl.appendChild(li);
+            });
+        }
+
+        function renderCalendar() {
+            const events = appState.tasks
+                .map(t => t.due && { title: t.text, start: t.due, color: t.done ? '#4A5568' : '#63B3ED', id: t.id })
+                .filter(Boolean);
+            
+            const el = document.getElementById('calendar');
+            if (!calendar) {
+                calendar = new FullCalendar.Calendar(el, {
+                    initialView: 'dayGridMonth',
+                    height: 600,
+                    events,
+                    headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }
+                });
+                calendar.render();
+            } else {
+                calendar.removeAllEvents();
+                calendar.addEventSource(events);
+            }
+        }
+
+        // --- CORE APP LOGIC ---
+        const app = {
+            handleTaskInputChange(value) {
+                const breakdownBtn = document.getElementById('breakdownBtn');
+                const isOnline = navigator.onLine;
+                breakdownBtn.disabled = value.trim().length === 0 || !isOnline;
+                if (!isOnline) {
+                    breakdownBtn.title = "You must be online to use AI features.";
+                } else {
+                    breakdownBtn.title = "";
+                }
+            },
+
+            addTask() {
+                const textInput = document.getElementById('newTask');
+                const dueInput = document.getElementById('duePicker');
+                const catInput = document.getElementById('category');
+                
+                const txt = textInput.value.trim();
+                if (!txt) return;
+                
+                const newTask = {
+                    id: crypto.randomUUID(),
+                    text: txt,
+                    due: dueInput.value || null,
+                    cat: catInput.value || null,
+                    done: false,
+                    createdAt: new Date().toISOString()
+                };
+
+                appState.tasks.push(newTask);
+                saveToStorage();
+                renderUI();
+
+                textInput.value = '';
+                this.handleTaskInputChange('');
+            },
+
+            async breakDownTask() {
+                const textInput = document.getElementById('newTask');
+                const breakdownBtn = document.getElementById('breakdownBtn');
+                const originalTask = textInput.value.trim();
+                if (!originalTask) return;
+
+                breakdownBtn.disabled = true;
+                showModal('✨ Thinking...', 'Breaking down your task. Please wait...', false, null, true);
+
+                const prompt = `Break down the following task into a list of simple, actionable sub-tasks. Task: "${originalTask}"`;
+                const payload = {
+                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: { type: "ARRAY", items: { type: "STRING" } }
+                    }
+                };
+
+                try {
+                    const apiKey = ""; // Leave empty
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
+                    const result = await response.json();
+                    const subTasksText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!subTasksText) throw new Error("Received an invalid response from the AI.");
+                    const subTasks = JSON.parse(subTasksText);
+
+                    if (Array.isArray(subTasks) && subTasks.length > 0) {
+                        const newTasks = subTasks.map(taskText => ({
+                            id: crypto.randomUUID(),
+                            text: taskText,
+                            due: null,
+                            cat: 'Personal',
+                            done: false,
+                            createdAt: new Date().toISOString()
+                        }));
+                        appState.tasks.push(...newTasks);
+                        saveToStorage();
+                        renderUI();
+                        textInput.value = '';
+                        this.handleTaskInputChange('');
+                        hideModal();
+                    } else {
+                        showModal("No Sub-tasks", "The AI couldn't break down this task. Please try a different one.", false);
+                    }
+                } catch (error) {
+                    console.error("Gemini API Error:", error);
+                    showModal("AI Error", `Could not break down the task. ${error.message}`, false);
+                } finally {
+                    breakdownBtn.disabled = false;
+                    this.handleTaskInputChange(textInput.value);
+                }
+            },
+
+            toggleDone(id) {
+                const task = appState.tasks.find(t => t.id === id);
+                if (task) {
+                    task.done = !task.done;
+                    saveToStorage();
+                    renderUI();
+                }
+            },
+
+            deleteTask(id) {
+                appState.tasks = appState.tasks.filter(t => t.id !== id);
+                saveToStorage();
+                renderUI();
+            },
+
+            confirmClearAll() {
+                showModal('Confirm Clear', 'Are you sure you want to delete ALL tasks? This action cannot be undone.', true, () => {
+                    appState.tasks = [];
+                    saveToStorage();
+                    renderUI();
+                });
+            },
+            
+            exportTasks() {
+                if (appState.tasks.length === 0) {
+                    showModal("Export", "There are no tasks to export.", false);
+                    return;
+                }
+                const tasksToExport = appState.tasks.map(({id, ...task}) => task);
+                const blob = new Blob([JSON.stringify(tasksToExport, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'tasks.json';
+                a.click();
+                URL.revokeObjectURL(a.href);
+            },
+
+            importTasks(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedTasks = JSON.parse(e.target.result);
+                        if (!Array.isArray(importedTasks)) throw new Error("JSON is not an array.");
+                        
+                        showModal('Confirm Import', `This will replace all current tasks with ${importedTasks.length} new tasks. Continue?`, true, () => {
+                            appState.tasks = importedTasks.map(task => ({
+                                ...task,
+                                id: crypto.randomUUID(), // Assign new unique IDs
+                                createdAt: task.createdAt || new Date().toISOString()
+                            }));
+                            saveToStorage();
+                            renderUI();
+                        });
+                    } catch (error) {
+                        console.error("Import error:", error);
+                        showModal('Import Error', 'Invalid JSON file or format.', false);
+                    } finally {
+                        event.target.value = '';
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+        
+        // --- MODAL LOGIC ---
+        const modal = document.getElementById('customModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalDisclaimer = document.getElementById('modalDisclaimer');
+        const modalConfirm = document.getElementById('modalConfirm');
+        const modalCancel = document.getElementById('modalCancel');
+        let confirmCallback = null;
+
+        function showModal(title, message, showConfirmButton, onConfirm = null, showDisclaimer = false) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            confirmCallback = onConfirm;
+
+            modalDisclaimer.style.display = showDisclaimer ? 'block' : 'none';
+
+            modalConfirm.style.display = showConfirmButton ? 'block' : 'none';
+            modalCancel.textContent = showConfirmButton ? 'Cancel' : 'Close';
+            modal.style.display = 'flex';
+        }
+
+        function hideModal() {
+            modal.style.display = 'none';
+            confirmCallback = null;
+        }
+
+        modalConfirm.addEventListener('click', () => {
+            if (typeof confirmCallback === 'function') confirmCallback();
+            hideModal();
+        });
+        modalCancel.addEventListener('click', hideModal);
+        
+        // --- INITIALIZATION ---
+        window.app = app;
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            flatpickr('#duePicker', { dateFormat: 'Y-m-d' });
+            loadFromStorage();
+            updateOnlineStatus(); // Set initial status
+        });
+    </script>
+</body>
+</html>
