@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fiveseconds — MP4 Clip Recorder (AppDrop)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Tailwind (for quick styling) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FFmpeg WASM (for MP4 transcoding when native MP4 isn't available) -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.7/dist/ffmpeg.min.js"></script>
+  <style>
+    body { background:#0a0b0f; color:#eef2ff; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .card { background:#12172a; border:1px solid #1f294b; border-radius:16px; }
+    .btn { transition:.15s transform ease; }
+    .btn:hover { transform:translateY(-1px); }
+    video { background:#000; }
+    .mono { font-feature-settings:"liga" 0; }
+  </style>
+</head>
+<body class="min-h-screen p-5 flex flex-col items-center gap-6">
+  <header class="w-full max-w-4xl">
+    <h1 class="text-2xl md:text-3xl font-semibold">🎬 Fiveseconds — MP4 Clip Recorder</h1>
+    <p class="text-sm text-slate-300 mt-1">One-tap 5s camera clip → replay → save → download <span class="mono">.mp4</span>.</p>
+  </header>
+
+  <main class="w-full max-w-4xl card p-4 md:p-6">
+    <!-- Live preview & playback -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div>
+        <h2 class="font-semibold mb-2">Live Camera</h2>
+        <video id="preview" autoplay muted playsinline class="w-full aspect-video rounded-lg"></video>
+        <div class="mt-3 flex items-center gap-3 text-sm text-slate-300">
+          <label class="inline-flex items-center gap-2">
+            <input id="transcodeToggle" type="checkbox" class="scale-125 accent-blue-500" checked />
+            Force MP4 if unsupported (uses FFmpeg WASM)
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input id="mirrorToggle" type="checkbox" class="scale-125 accent-blue-500" checked />
+            Mirror preview
+          </label>
+          <select id="resolution" class="px-2 py-1 rounded bg-[#0f1424] border border-[#253158] text-sm">
+            <option value="1280x720" selected>720p</option>
+            <option value="1920x1080">1080p</option>
+            <option value="640x360">360p</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <h2 class="font-semibold mb-2">Playback</h2>
+        <video id="player" controls playsinline class="w-full aspect-video rounded-lg"></video>
+        <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <input id="titleInput" class="px-3 py-2 rounded-lg bg-[#0f1424] border border-[#253158] outline-none"
+                 placeholder="Optional title (e.g., 'Update #1')" />
+          <button id="downloadBtn" class="btn px-4 py-2 rounded-lg bg-blue-600 disabled:opacity-50" disabled>💾 Download MP4</button>
+          <button id="saveLocalBtn" class="btn px-4 py-2 rounded-lg bg-purple-600 disabled:opacity-50" disabled>📁 Save to Gallery</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="mt-6 flex flex-wrap items-center gap-3">
+      <button id="recordBtn" class="btn px-6 py-3 rounded-xl bg-red-600">⏺️ Record 5s</button>
+      <button id="stopBtn" class="btn px-6 py-3 rounded-xl bg-slate-700 disabled:opacity-50" disabled>⏹️ Stop</button>
+      <div class="flex items-center gap-2 text-sm">
+        <span>Countdown:</span>
+        <span id="countdown" class="mono text-lg">—</span>
+      </div>
+      <div class="flex items-center gap-2 text-sm">
+        <span>Status:</span>
+        <span id="status" class="mono text-slate-300">Ready</span>
+      </div>
+    </div>
+
+    <!-- Gallery -->
+    <section class="mt-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">📚 Local Gallery</h2>
+        <div class="flex items-center gap-2">
+          <input type="file" id="importFile" accept="video/mp4,video/webm" class="hidden" />
+          <button id="importBtn" class="btn px-3 py-2 rounded-lg bg-[#2b344f] text-xs">Import video</button>
+          <button id="clearGallery" class="btn px-3 py-2 rounded-lg bg-[#2b344f] text-xs">Clear Gallery</button>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 mt-1">Short clips recommended. LocalStorage has limited space; keep gallery lean.</p>
+      <div id="gallery" class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+    </section>
+  </main>
+
+  <footer class="text-xs text-slate-400">
+    Native MP4 when supported. Otherwise WebM → MP4 via FFmpeg WASM. Works offline if FFmpeg files are bundled locally.
+  </footer>
+
+<script>
+(() => {
+  const preview = document.getElementById('preview');
+  const player = document.getElementById('player');
+  const recordBtn = document.getElementById('recordBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const saveLocalBtn = document.getElementById('saveLocalBtn');
+  const countdownEl = document.getElementById('countdown');
+  const statusEl = document.getElementById('status');
+  const transcodeToggle = document.getElementById('transcodeToggle');
+  const mirrorToggle = document.getElementById('mirrorToggle');
+  const resolutionSel = document.getElementById('resolution');
+  const titleInput = document.getElementById('titleInput');
+  const galleryEl = document.getElementById('gallery');
+  const clearGalleryBtn = document.getElementById('clearGallery');
+  const importBtn = document.getElementById('importBtn');
+  const importFile = document.getElementById('importFile');
+
+  const FIVE_SECONDS = 5000;
+  let mediaStream = null;
+  let mediaRecorder = null;
+  let chunks = [];
+  let targetMime = 'video/mp4';
+  let recordedBlob = null;
+  let recordedUrl = null;
+  let recordTimer = null;
+  let countTimer = null;
+
+  // FFmpeg (lazy)
+  let ffmpeg = null;
+  const ffmpegReady = async () => {
+    if (!ffmpeg) {
+      const { createFFmpeg, fetchFile } = FFmpeg;
+      ffmpeg = createFFmpeg({ log: false });
+      await ffmpeg.load();
+      ffmpeg._fetchFile = fetchFile; // stash helper
+    }
+    return ffmpeg;
+  };
+
+  function writeStatus(msg) { statusEl.textContent = msg || ''; }
+
+  function supports(mime) {
+    return (window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(mime));
+  }
+
+  function pickBestMime() {
+    // Prefer native MP4; fallback to WebM variants.
+    const candidates = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm'
+    ];
+    for (const m of candidates) {
+      if (supports(m)) return m;
+    }
+    return ''; // let MediaRecorder pick default
+  }
+
+  async function initCamera() {
+    if (mediaStream) return;
+    const [w, h] = (resolutionSel.value || '1280x720').split('x').map(Number);
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: w }, height: { ideal: h }, facingMode: 'user' },
+      audio: true
+    });
+    preview.srcObject = mediaStream;
+    preview.style.transform = mirrorToggle.checked ? 'scaleX(-1)' : 'none';
+  }
+
+  function cleanupStream() {
+    if (preview.srcObject) preview.srcObject = null;
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(t => t.stop());
+      mediaStream = null;
+    }
+  }
+
+  function startCountdown(ms) {
+    let remaining = Math.ceil(ms / 1000);
+    countdownEl.textContent = remaining + 's';
+    countTimer = setInterval(() => {
+      remaining -= 1;
+      countdownEl.textContent = remaining > 0 ? (remaining + 's') : '0s';
+      if (remaining <= 0) clearInterval(countTimer);
+    }, 1000);
+  }
+
+  async function startRecording() {
+    chunks = [];
+    await initCamera();
+
+    const mime = pickBestMime();
+    targetMime = mime.includes('mp4') ? 'video/mp4' : 'video/webm';
+
+    try {
+      mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime, videoBitsPerSecond: 3_000_000 } : {});
+    } catch (e) {
+      // fallback: let browser choose
+      mediaRecorder = new MediaRecorder(mediaStream);
+      targetMime = mediaRecorder.mimeType || 'video/webm';
+    }
+
+    mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      await handleRecordingStop();
+    };
+
+    mediaRecorder.start();
+    writeStatus(`Recording 5s (${targetMime || 'default'})…`);
+    recordBtn.disabled = true;
+    stopBtn.disabled = false;
+    downloadBtn.disabled = true;
+    saveLocalBtn.disabled = true;
+
+    startCountdown(FIVE_SECONDS);
+    recordTimer = setTimeout(() => stopRecording(), FIVE_SECONDS);
+  }
+
+  function stopRecording() {
+    try { mediaRecorder && mediaRecorder.state !== 'inactive' && mediaRecorder.stop(); } catch {}
+    clearTimeout(recordTimer);
+    clearInterval(countTimer);
+    stopBtn.disabled = true;
+    countdownEl.textContent = '—';
+  }
+
+  async function handleRecordingStop() {
+    cleanupStream();
+
+    // Build recorded blob (native container)
+    const containerType = targetMime || 'video/webm';
+    recordedBlob = new Blob(chunks, { type: containerType });
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    recordedUrl = URL.createObjectURL(recordedBlob);
+
+    // If already MP4, we’re done.
+    if (containerType.startsWith('video/mp4')) {
+      player.src = recordedUrl;
+      writeStatus(`Captured MP4 (${prettyBytes(recordedBlob.size)})`);
+      recordBtn.disabled = false;
+      downloadBtn.disabled = false;
+      saveLocalBtn.disabled = false;
+      return;
+    }
+
+    // Otherwise: transcode to MP4 (if toggle on)
+    if (transcodeToggle.checked) {
+      writeStatus('Transcoding to MP4… (this may take a moment)');
+      try {
+        const mp4Blob = await transcodeToMp4(recordedBlob);
+        if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+        recordedBlob = mp4Blob;
+        recordedUrl = URL.createObjectURL(mp4Blob);
+        player.src = recordedUrl;
+        writeStatus(`Ready (MP4 ${prettyBytes(mp4Blob.size)})`);
+        recordBtn.disabled = false;
+        downloadBtn.disabled = false;
+        saveLocalBtn.disabled = false;
+      } catch (err) {
+        console.error(err);
+        // Fallback: keep WebM
+        player.src = recordedUrl;
+        writeStatus('MP4 transcode failed — using WebM fallback.');
+        recordBtn.disabled = false;
+        downloadBtn.disabled = false;
+        saveLocalBtn.disabled = false;
+      }
+    } else {
+      player.src = recordedUrl;
+      writeStatus(`Captured WebM (${prettyBytes(recordedBlob.size)})`);
+      recordBtn.disabled = false;
+      downloadBtn.disabled = false;
+      saveLocalBtn.disabled = false;
+    }
+  }
+
+  async function transcodeToMp4(srcBlob) {
+    // Initialize FFmpeg
+    await ffmpegReady();
+    const nameIn = srcBlob.type.includes('webm') ? 'input.webm' : 'input.mkv';
+    const nameOut = 'output.mp4';
+
+    ffmpeg.FS('writeFile', nameIn, await ffmpeg._fetchFile(srcBlob));
+
+    // Ensure even dimensions for yuv420p; use veryfast for speed; AAC audio.
+    // Note: If AAC is unavailable in your ffmpeg build, remove '-c:a','aac' to let it pick default.
+    await ffmpeg.run(
+      '-i', nameIn,
+      '-movflags', 'faststart',
+      '-preset', 'veryfast',
+      '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p',
+      '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      nameOut
+    );
+
+    const data = ffmpeg.FS('readFile', nameOut);
+    ffmpeg.FS('unlink', nameIn);
+    ffmpeg.FS('unlink', nameOut);
+    return new Blob([data.buffer], { type: 'video/mp4' });
+  }
+
+  function downloadClip() {
+    if (!recordedUrl || !recordedBlob) return;
+    const title = sanitize(titleInput.value || 'fiveseconds');
+    const ext = recordedBlob.type.includes('mp4') ? 'mp4' : 'webm';
+    const a = document.createElement('a');
+    a.href = recordedUrl;
+    a.download = `${title}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  }
+
+  async function saveToGallery() {
+    if (!recordedBlob) return;
+    const dataUrl = await blobToDataUrl(recordedBlob);
+    const entry = {
+      id: `fs_${Date.now()}`,
+      title: titleInput.value || 'Untitled',
+      date: new Date().toISOString(),
+      type: recordedBlob.type,
+      dataUrl
+    };
+    const all = JSON.parse(localStorage.getItem('fiveseconds_gallery') || '[]');
+    all.unshift(entry);
+    // keep last 6
+    localStorage.setItem('fiveseconds_gallery', JSON.stringify(all.slice(0, 6)));
+    renderGallery();
+    writeStatus('Saved to gallery.');
+  }
+
+  function renderGallery() {
+    const all = JSON.parse(localStorage.getItem('fiveseconds_gallery') || '[]');
+    galleryEl.innerHTML = '';
+    if (!all.length) {
+      galleryEl.innerHTML = '<div class="text-xs text-slate-400">No saved clips yet.</div>';
+      return;
+    }
+    for (const item of all) {
+      const card = document.createElement('div');
+      card.className = 'p-3 rounded-lg bg-[#0f1424] border border-[#253158] flex flex-col gap-2';
+      card.innerHTML = `
+        <div class="text-sm font-medium">${escapeHtml(item.title)}</div>
+        <div class="text-[11px] text-slate-400">${new Date(item.date).toLocaleString()}</div>
+        <video controls playsinline class="w-full rounded" src="${item.dataUrl}"></video>
+        <div class="flex flex-wrap gap-2">
+          <a href="${item.dataUrl}" download="${sanitize(item.title)}.${item.type.includes('mp4')?'mp4':'webm'}"
+             class="btn px-3 py-2 rounded-md bg-blue-600 text-xs">Download</a>
+          <button data-id="${item.id}" class="share btn px-3 py-2 rounded-md bg-green-600 text-xs">Share (copy link)</button>
+          <button data-id="${item.id}" class="delete btn px-3 py-2 rounded-md bg-[#2b344f] text-xs">Delete</button>
+        </div>
+      `;
+      galleryEl.appendChild(card);
+    }
+    // Bind buttons
+    galleryEl.querySelectorAll('button.share').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-id');
+        shareItem(id);
+      };
+    });
+    galleryEl.querySelectorAll('button.delete').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute('data-id');
+        deleteItem(id);
+      };
+    });
+  }
+
+  function shareItem(id) {
+    const all = JSON.parse(localStorage.getItem('fiveseconds_gallery') || '[]');
+    const item = all.find(x => x.id === id);
+    if (!item) return;
+    const shareUrl = `${location.origin}${location.pathname}#fs=${encodeURIComponent(item.dataUrl)}`;
+    navigator.clipboard.writeText(shareUrl).then(() => writeStatus('Share link copied to clipboard.'));
+  }
+
+  function deleteItem(id) {
+    const all = JSON.parse(localStorage.getItem('fiveseconds_gallery') || '[]');
+    const next = all.filter(x => x.id !== id);
+    localStorage.setItem('fiveseconds_gallery', JSON.stringify(next));
+    renderGallery();
+  }
+
+  function sanitize(name) { return (name || '').replace(/[^\w\-]+/g, '_'); }
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function prettyBytes(n) {
+    if (!n && n !== 0) return '—';
+    const u = ['B','KB','MB','GB']; let i = 0;
+    while (n >= 1024 && i < u.length-1) { n /= 1024; i++; }
+    return `${n.toFixed(n<10&&i>0?1:0)} ${u[i]}`;
+  }
+
+  // Import
+  importBtn.onclick = () => importFile.click();
+  importFile.onchange = async () => {
+    const f = importFile.files[0];
+    if (!f) return;
+    const dataUrl = await blobToDataUrl(f);
+    const entry = {
+      id: `fs_${Date.now()}`,
+      title: f.name.replace(/\.(mp4|webm)$/i,''),
+      date: new Date().toISOString(),
+      type: f.type || 'video/mp4',
+      dataUrl
+    };
+    const all = JSON.parse(localStorage.getItem('fiveseconds_gallery') || '[]');
+    all.unshift(entry);
+    localStorage.setItem('fiveseconds_gallery', JSON.stringify(all.slice(0, 6)));
+    renderGallery();
+    writeStatus('Imported into gallery.');
+    player.src = dataUrl;
+  };
+
+  // UI bindings
+  recordBtn.onclick = () => startRecording().catch(err => writeStatus('Error: ' + (err && err.message || err)));
+  stopBtn.onclick = () => stopRecording();
+  downloadBtn.onclick = () => downloadClip();
+  saveLocalBtn.onclick = () => saveToGallery();
+  clearGalleryBtn.onclick = () => { localStorage.removeItem('fiveseconds_gallery'); renderGallery(); };
+  mirrorToggle.onchange = () => {
+    preview.style.transform = mirrorToggle.checked ? 'scaleX(-1)' : 'none';
+  };
+
+  // If shared via hash, hydrate player
+  (function hydrateFromHash(){
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const dataUrl = hash.get('fs');
+    if (dataUrl) {
+      player.src = dataUrl;
+      writeStatus('Loaded shared clip from link.');
+      downloadBtn.disabled = false;
+      saveLocalBtn.disabled = false;
+      // Build blob for download/save convenience
+      fetch(dataUrl).then(r => r.blob()).then(b => {
+        recordedBlob = b;
+        if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+        recordedUrl = URL.createObjectURL(b);
+      }).catch(()=>{});
+    }
+  })();
+
+  // Kick off
+  renderGallery();
+
+})();
+</script>
+</body>
+</html>
