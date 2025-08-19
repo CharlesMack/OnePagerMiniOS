@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0b0f" />
+  <title>P.O.P.S. — One-Pager Mini OS</title>
+  <meta name="description" content="P.O.P.S. single-page flat UI OS with draggable panels, AppDock, and offline AppDrop catalog. Modular, resizable, and session-aware." />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    html, body {
+      margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+      background-color: #0a0b0f; color: #e2e8f0;
+    }
+    #hud {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px; background: #1a202c; border-bottom: 1px solid #2d3748;
+    }
+    .btn {
+      padding: 6px 10px; margin-right: 6px; border: none; border-radius: 4px;
+      background: #2b6cb0; color: white; cursor: pointer;
+    }
+    .badge {
+      padding: 2px 6px; background: #4a5568; border-radius: 4px; font-size: 12px;
+    }
+    .panel {
+      position: absolute; width: 600px; top: 100px; left: 100px;
+      background: #2d3748; border-radius: 6px; box-shadow: 0 0 8px rgba(0,0,0,0.5);
+      resize: both; overflow: auto; z-index: 1; display: flex; flex-direction: column;
+    }
+    .panel.active { z-index: 10; }
+    .p-head {
+      background: #1a202c; padding: 10px; font-weight: bold; cursor: move;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .p-head .close {
+      font-size: 14px; cursor: pointer; padding: 0 6px; color: #e53e3e;
+    }
+    .p-body {
+      flex: 1; display: flex; flex-direction: column; height: 100%; padding: 0;
+    }
+    .urlbar { padding: 10px; background: #1a202c; }
+    .urlbar input { width: 60%; }
+    .urlbar button { margin-left: 4px; }
+    .browser iframe, .p-body iframe {
+      flex-grow: 1; width: 100%; height: 100%; border: none; display: block;
+    }
+    .kv { display: flex; gap: 8px; margin: 5px 10px; }
+    .kv span { width: 80px; }
+    .list {
+      background: #1a202c; padding: 8px; max-height: 300px; overflow-y: auto;
+      border: 1px solid #2d3748;
+    }
+    #dock {
+      position: fixed; bottom: 0; left: 0; right: 0; background: #1a202c;
+      padding: 6px; display: flex; gap: 6px; border-top: 1px solid #2d3748;
+    }
+    .dock-item {
+      background: #2d3748; color: white; padding: 6px 10px;
+      border-radius: 6px; cursor: pointer; font-size: 14px;
+    }
+    .appdrop {
+      padding: 8px; margin: 4px 0; background: #4a5568; border-radius: 4px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div id="brand"><span>P.O.P.S. Mini OS</span><span class="badge">v1.0</span></div>
+    <div id="actions">
+      <button class="btn" onclick="showBrowser()">🌐 Web Browser</button>
+      <button class="btn" onclick="showCatalog()">📚 Catalog</button>
+      <button class="btn" onclick="showInstaller()">💿 Installer</button>
+      <button class="btn" onclick="showPlugins()">🧩 Plugins</button>
+      <button class="btn" onclick="showDocs()">📖 Docs</button>
+      <button class="btn" onclick="saveLayout()">💾 Save Layout</button>
+      <button class="btn" onclick="loadLayout()">♻️ Load Layout</button>
+      <button class="btn" onclick="showZipBrowser()">🗂️ View ZIP Files</button>
+    </div>
+  </div>
+  <div id="dock"></div>
+  <div id="panels"></div>
+  <input type="file" id="zipUpload" style="display:none" accept=".zip" onchange="handleZipUpload(event)">
+<script>
+const panels = document.getElementById('panels');
+const dock = document.getElementById('dock');
+let panelCount = 0;
+
+function createPanel(title, contentHTML) {
+  const panel = document.createElement('div');
+  panel.className = 'panel';
+  panel.style.left = `${100 + panelCount * 20}px`;
+  panel.style.top = `${100 + panelCount * 20}px`;
+  panel.innerHTML = `
+    <div class="p-head" onmousedown="startDrag(event, this.parentElement)">
+      ${title} <span class="close" onclick="this.closest('.panel').remove()">×</span>
+    </div>
+    <div class="p-body">${contentHTML}</div>`;
+  panels.appendChild(panel);
+  bringToFront(panel);
+  panelCount++;
+  return panel;
+}
+
+function bringToFront(panel) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  panel.style.zIndex = Date.now();
+  panel.classList.add('active');
+}
+
+function startDrag(evt, panel) {
+  evt.preventDefault(); bringToFront(panel);
+  const rect = panel.getBoundingClientRect();
+  const offsetX = evt.clientX - rect.left;
+  const offsetY = evt.clientY - rect.top;
+  function onMouseMove(e) {
+    panel.style.left = `${e.clientX - offsetX}px`;
+    panel.style.top = `${e.clientY - offsetY}px`;
+  }
+  function onMouseUp() {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
+function showBrowser() {
+  const html = `
+    <div class="urlbar">
+      <input type="text" value="https://charlesmack.github.io/pops-media-hub/" id="urlInput">
+      <button onclick="goToURL()">Go</button>
+    </div>
+    <div class="p-body browser">
+      <iframe id="webFrame" src="https://charlesmack.github.io/pops-media-hub/"></iframe>
+    </div>`;
+  createPanel("Web Browser", html);
+}
+
+function goToURL() {
+  const url = document.getElementById('urlInput').value;
+  document.getElementById('webFrame').src = url;
+}
+
+function showCatalog() {
+  const html = `
+    <div class="kv"><span>Filter</span><input id="catFilter" type="text" oninput="filterCatalog()" placeholder="Search AppDrops..." /></div>
+    <div class="list" id="catalogList"></div>`;
+  createPanel("Scroll Catalog", html);
+  loadCatalog();
+}
+
+function filterCatalog() {
+  const term = document.getElementById('catFilter').value.toLowerCase();
+  document.querySelectorAll('.appdrop').forEach(el => {
+    el.style.display = el.innerText.toLowerCase().includes(term) ? 'block' : 'none';
+  });
+}
+
+function loadCatalog() {
+  const list = [
+    { name: "Media Hub", entry: "appdrops/pops/index.html", description: "AI-driven media hub" },
+    { name: "Encyclopedia", entry: "appdrops/encyclopedia/index.html", description: "Offline knowledge base" },
+    { name: "First Aid Quick-Reference", entry: "appdrops/first-aid-quickref/index.html", description: "First Aid quick-reference mini" },
+    { name: "First Aid", entry: "appdrops/firstaid/index.html", description: "First Aid Help" },
+    { name: "Planner Lite", entry: "appdrops/firstaid/index.html", description: "Simple task & schedule tracker" },
+    { name: "Viewria", entry: "appdrops/viewria/index.html", description: "Movie Video player" },
+    { name: "Reader Pro", entry: "appdrops/readerpro/index.html", description: "Ebook PDF Reader" },
+    { name: "Panel Pong", entry: "appdrops/panel-pong/index.html", description: "Classic pong in panel" }
+  ];
+  const catList = document.getElementById('catalogList');
+  catList.innerHTML = '';
+  for (const app of list) {
+    const div = document.createElement('div');
+    div.className = 'appdrop';
+    div.setAttribute('data-url', app.entry);
+    div.innerHTML = `<strong>${app.name}</strong><br><small>${app.description}</small>`;
+    div.onclick = () => launchAppDrop(app.entry, app.name);
+    catList.appendChild(div);
+  }
+}
+
+function launchAppDrop(url, title) {
+  const html = `<iframe src="${url}"></iframe>`;
+  createPanel(title, html);
+  dockItem(title, () => launchAppDrop(url, title));
+}
+
+function showInstaller() {
+  document.getElementById('zipUpload').click();
+}
+
+async function handleZipUpload(event) {
+  const file = event.target.files[0];
+  if (!file || !file.name.endsWith('.zip')) return alert('Invalid ZIP.');
+  const zip = await JSZip.loadAsync(file);
+  const files = Object.keys(zip.files);
+  const db = await openAppDropDB();
+  const tx = db.transaction('apps', 'readwrite');
+  const store = tx.objectStore('apps');
+  for (const path of files) {
+    const content = await zip.files[path].async('string');
+    await store.put({ path, content });
+  }
+  alert(`Installed ${files.length} files.`);
+}
+
+async function openAppDropDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('AppDropStorage', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('apps')) {
+        db.createObjectStore('apps', { keyPath: 'path' });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function showZipBrowser() {
+  const db = await openAppDropDB();
+  const tx = db.transaction('apps', 'readonly');
+  const store = tx.objectStore('apps');
+  const req = store.getAll();
+  req.onsuccess = () => {
+    const html = `<ul>${req.result.map(f => `<li>${f.path}</li>`).join('')}</ul>`;
+    createPanel("ZIP Browser", html);
+  };
+}
+
+function showPlugins() {
+  const html = `<div class="kv"><span>Tool:</span><input placeholder="Plugin name..." /></div><div class="list">Plugin loader not yet implemented.</div>`;
+  createPanel("Plugin Loader", html);
+}
+
+function showDocs() {
+  const html = `<div style="padding:10px;line-height:1.4"><strong>Welcome to P.O.P.S. OS!</strong><br><br>Use the buttons above to launch panels, install AppDrops, or explore ZIPs offline. Layout is saved to localStorage.<br><br>Drag, resize, close, dock, and reload anytime.</div>`;
+  createPanel("Documentation", html);
+}
+
+function dockItem(label, action) {
+  const btn = document.createElement('div');
+  btn.className = 'dock-item';
+  btn.innerText = label;
+  btn.onclick = action;
+  dock.appendChild(btn);
+}
+
+function saveLayout() {
+  const data = [];
+  document.querySelectorAll('.panel').forEach(p => {
+    data.push({
+      title: p.querySelector('.p-head').innerText.replace('×', '').trim(),
+      content: p.querySelector('.p-body').innerHTML,
+      top: p.style.top,
+      left: p.style.left,
+      width: p.style.width,
+      height: p.style.height
+    });
+  });
+  localStorage.setItem('layout', JSON.stringify(data));
+  alert('Layout saved.');
+}
+
+function loadLayout() {
+  const data = JSON.parse(localStorage.getItem('layout') || '[]');
+  for (const p of data) {
+    const panel = createPanel(p.title, p.content);
+    panel.style.top = p.top;
+    panel.style.left = p.left;
+    panel.style.width = p.width;
+    panel.style.height = p.height;
+  }
+}
+</script>
+
+</body>
+</html>
