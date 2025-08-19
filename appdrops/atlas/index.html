@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Offline World Atlas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg:#0a0b0f; --fg:#e6e8ee; --muted:#a2a8b5; --card:#13182a; --rim:#1f294b; --accent:#6be675; --accent2:#9ec8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
+  a{color:var(--accent2)}
+  .container{max-width:1100px;margin:32px auto;padding:16px;border:1px solid var(--rim);border-radius:16px;background:linear-gradient(180deg,#13182a,#0e1322)}
+  h1,h2{margin:0 0 10px 0}
+  .row{display:grid;grid-template-columns:1fr;gap:16px}
+  @media (min-width:980px){ .row{grid-template-columns: 1.2fr 1fr} }
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #2a3356;border-radius:10px;background:#141a2c;color:var(--fg);text-decoration:none;cursor:pointer}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  input,select,textarea{background:#0f1426;border:1px solid #242d50;color:var(--fg);padding:8px 10px;border-radius:10px;width:100%}
+  .small{color:var(--muted);font-size:12px}
+  .panel{background:#0c1020;border:1px solid #1a2142;border-radius:12px;padding:12px}
+  .pill{display:inline-block;padding:2px 8px;border:1px solid #2a3356;border-radius:999px;background:#0f1426;font-size:12px;color:#cbd5e1}
+  .grid{display:grid;grid-template-columns:1fr;gap:8px}
+  @media (min-width:640px){ .grid{grid-template-columns:1fr 1fr} }
+  @media (min-width:980px){ .grid{grid-template-columns:1fr 1fr} }
+  .country{padding:10px;border:1px solid #20274a;border-radius:10px;background:#0f1426;display:flex;gap:10px;align-items:flex-start}
+  .country .flag{font-size:22px;line-height:1.1}
+  .country .meta{flex:1}
+  .country h3{margin:0 0 4px 0;font-size:16px}
+  .row-tools{display:flex;flex-wrap:wrap;gap:8px}
+  .divider{height:1px;background:#1b2241;margin:8px 0}
+  .mapwrap{background:#0b0f1e;border:1px solid #2a3356;border-radius:12px;overflow:hidden}
+  .mapwrap svg{width:100%;display:block}
+  .tagbar{display:flex;gap:6px;flex-wrap:wrap}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#0b1426;border:1px solid #233057;border-radius:6px;padding:1px 6px;color:#cde1ff}
+  .star{cursor:pointer}
+  .star.active{color:#ffd266}
+  .notearea{min-height:90px}
+  .footer{margin-top:10px;color:#94a3b8;font-size:12px}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🗺️ Offline World Atlas</h1>
+  <p class="small">Search countries, click a region on the map, bookmark favorites, and save offline notes. Works entirely offline. If a local <code>countries.json</code> is present, it will load it automatically; otherwise it uses the built-in dataset.</p>
+
+  <div class="row">
+    <!-- LEFT: Map + Controls + Country list -->
+    <div>
+      <!-- Controls -->
+      <div class="panel">
+        <div class="row-tools">
+          <input id="q" placeholder="🔎 Search country / ISO / capital…" />
+          <select id="region">
+            <option value="">🌍 All regions</option>
+            <option>Africa</option>
+            <option>Asia</option>
+            <option>Europe</option>
+            <option>North America</option>
+            <option>South America</option>
+            <option>Oceania</option>
+            <option>Antarctica</option>
+          </select>
+          <button id="onlyBookmarked" class="btn">⭐ Bookmarked</button>
+          <button id="exportBtn" class="btn">📤 Export notes & bookmarks</button>
+          <label class="btn">
+            📥 Import
+            <input id="importFile" type="file" accept="application/json" style="display:none" />
+          </label>
+        </div>
+        <div class="footer">Tips: Press <span class="kbd">/</span> to focus search. Click on the map to filter by region.</div>
+      </div>
+
+      <!-- Map -->
+      <div class="mapwrap panel" title="Coarse regions map (upgradeable to real GeoJSON later)">
+        <!-- Coarse equirectangular continent blocks (kept light for offline) -->
+        <svg id="map" viewBox="0 0 200 100">
+          <rect x="0" y="0" width="200" height="100" fill="#111523"></rect>
+          <!-- North America -->
+          <rect x="5" y="22" width="48" height="30" fill="#2a3b6a" data-region="North America"></rect>
+          <!-- South America -->
+          <rect x="34" y="58" width="28" height="30" fill="#36586f" data-region="South America"></rect>
+          <!-- Europe -->
+          <rect x="97" y="22" width="25" height="16" fill="#274864" data-region="Europe"></rect>
+          <!-- Africa -->
+          <rect x="96" y="40" width="30" height="34" fill="#2e3f6a" data-region="Africa"></rect>
+          <!-- Asia -->
+          <rect x="125" y="18" width="60" height="38" fill="#2a3b6a" data-region="Asia"></rect>
+          <!-- Oceania -->
+          <rect x="155" y="65" width="35" height="18" fill="#274864" data-region="Oceania"></rect>
+          <!-- Antarctica -->
+          <rect x="5" y="90" width="190" height="8" fill="#1f2748" data-region="Antarctica"></rect>
+          <!-- Labels -->
+          <g fill="#9db2ff" font-size="6">
+            <text x="8" y="20">North America</text>
+            <text x="37" y="56">South America</text>
+            <text x="98" y="20">Europe</text>
+            <text x="97" y="39">Africa</text>
+            <text x="126" y="16">Asia</text>
+            <text x="156" y="63">Oceania</text>
+            <text x="6" y="88">Antarctica</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- Country list -->
+      <div class="panel">
+        <div class="tagbar" id="stats"></div>
+        <div class="divider"></div>
+        <div class="grid" id="list"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Details panel -->
+    <div>
+      <div class="panel">
+        <h2 id="title">Select a country</h2>
+        <div class="tagbar" id="tags"></div>
+        <div class="divider"></div>
+        <div id="details" class="small">Click a country card to view details, bookmark it, and write offline notes.</div>
+        <div class="divider"></div>
+        <div class="row-tools">
+          <button id="bookmarkBtn" class="btn" disabled>⭐ Bookmark</button>
+          <button id="copyLinkBtn" class="btn" disabled>🔗 Copy share link</button>
+        </div>
+        <div class="divider"></div>
+        <label class="small">Notes (saved offline per country)</label>
+        <textarea id="notes" class="notearea" placeholder="Type your field notes, travel tips, reminders…" disabled></textarea>
+        <div class="row-tools" style="margin-top:8px">
+          <button id="saveNotesBtn" class="btn" disabled>💾 Save notes</button>
+          <button id="clearNotesBtn" class="btn" disabled>🧹 Clear notes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="small" style="margin-top:12px">
+    🔒 <b>Offline by design.</b> This atlas never calls external APIs. To expand facts or load real boundaries, ship a local <code>countries.json</code> 
+  </p>
+</div>
+
+<script>
+/** =========================
+ *  Data boot (offline-first)
+ *  ========================= */
+const COUNTRIES_FALLBACK = [
+  // Note: values are approximate and for offline use.
+  // {name, iso2, iso3, region, capital, population, area_km2, currencies:[{code,name}], languages:[..], calling_code, timezones:[..], lat, lon}
+  {name:"United States", iso2:"US", iso3:"USA", region:"North America", capital:"Washington, D.C.", population:334000000, area_km2:9833520,
+   currencies:[{code:"USD",name:"US Dollar"}], languages:["English"], calling_code:"+1", timezones:["UTC-10 to UTC-5, +AK/HI"], lat:38.9, lon:-77.0},
+  {name:"Canada", iso2:"CA", iso3:"CAN", region:"North America", capital:"Ottawa", population:38900000, area_km2:9984670,
+   currencies:[{code:"CAD",name:"Canadian Dollar"}], languages:["English","French"], calling_code:"+1", timezones:["UTC-8 to UTC-3.5"], lat:45.4, lon:-75.7},
+  {name:"Mexico", iso2:"MX", iso3:"MEX", region:"North America", capital:"Mexico City", population:128000000, area_km2:1964375,
+   currencies:[{code:"MXN",name:"Mexican Peso"}], languages:["Spanish"], calling_code:"+52", timezones:["UTC-8 to UTC-5"], lat:19.4, lon:-99.1},
+  {name:"Brazil", iso2:"BR", iso3:"BRA", region:"South America", capital:"Brasília", population:214000000, area_km2:8515767,
+   currencies:[{code:"BRL",name:"Real"}], languages:["Portuguese"], calling_code:"+55", timezones:["UTC-5 to UTC-2"], lat:-15.8, lon:-47.9},
+  {name:"Argentina", iso2:"AR", iso3:"ARG", region:"South America", capital:"Buenos Aires", population:45700000, area_km2:2780400,
+   currencies:[{code:"ARS",name:"Argentine Peso"}], languages:["Spanish"], calling_code:"+54", timezones:["UTC-3"], lat:-34.6, lon:-58.4},
+  {name:"United Kingdom", iso2:"GB", iso3:"GBR", region:"Europe", capital:"London", population:67500000, area_km2:243610,
+   currencies:[{code:"GBP",name:"Pound Sterling"}], languages:["English"], calling_code:"+44", timezones:["UTC±0/UTC+1"], lat:51.5, lon:-0.1},
+  {name:"France", iso2:"FR", iso3:"FRA", region:"Europe", capital:"Paris", population:68000000, area_km2:551695,
+   currencies:[{code:"EUR",name:"Euro"}], languages:["French"], calling_code:"+33", timezones:["UTC+1/UTC+2"], lat:48.9, lon:2.4},
+  {name:"Germany", iso2:"DE", iso3:"DEU", region:"Europe", capital:"Berlin", population:83200000, area_km2:357022,
+   currencies:[{code:"EUR",name:"Euro"}], languages:["German"], calling_code:"+49", timezones:["UTC+1/UTC+2"], lat:52.5, lon:13.4},
+  {name:"Spain", iso2:"ES", iso3:"ESP", region:"Europe", capital:"Madrid", population:48500000, area_km2:505990,
+   currencies:[{code:"EUR",name:"Euro"}], languages:["Spanish"], calling_code:"+34", timezones:["UTC+1/UTC+2"], lat:40.4, lon:-3.7},
+  {name:"Italy", iso2:"IT", iso3:"ITA", region:"Europe", capital:"Rome", population:58800000, area_km2:301340,
+   currencies:[{code:"EUR",name:"Euro"}], languages:["Italian"], calling_code:"+39", timezones:["UTC+1/UTC+2"], lat:41.9, lon:12.5},
+  {name:"Russia", iso2:"RU", iso3:"RUS", region:"Europe", capital:"Moscow", population:144000000, area_km2:17098246,
+   currencies:[{code:"RUB",name:"Russian Ruble"}], languages:["Russian"], calling_code:"+7", timezones:["UTC+2 to UTC+12"], lat:55.8, lon:37.6},
+  {name:"China", iso2:"CN", iso3:"CHN", region:"Asia", capital:"Beijing", population:1412000000, area_km2:9596961,
+   currencies:[{code:"CNY",name:"Renminbi (Yuan)"}], languages:["Chinese"], calling_code:"+86", timezones:["UTC+8"], lat:39.9, lon:116.4},
+  {name:"India", iso2:"IN", iso3:"IND", region:"Asia", capital:"New Delhi", population:1417000000, area_km2:3287263,
+   currencies:[{code:"INR",name:"Indian Rupee"}], languages:["Hindi","English", "regional"], calling_code:"+91", timezones:["UTC+5:30"], lat:28.6, lon:77.2},
+  {name:"Japan", iso2:"JP", iso3:"JPN", region:"Asia", capital:"Tokyo", population:124000000, area_km2:377975,
+   currencies:[{code:"JPY",name:"Yen"}], languages:["Japanese"], calling_code:"+81", timezones:["UTC+9"], lat:35.7, lon:139.7},
+  {name:"South Korea", iso2:"KR", iso3:"KOR", region:"Asia", capital:"Seoul", population:51700000, area_km2:100363,
+   currencies:[{code:"KRW",name:"Won"}], languages:["Korean"], calling_code:"+82", timezones:["UTC+9"], lat:37.6, lon:126.98},
+  {name:"Indonesia", iso2:"ID", iso3:"IDN", region:"Asia", capital:"Jakarta", population:277000000, area_km2:1904569,
+   currencies:[{code:"IDR",name:"Rupiah"}], languages:["Indonesian"], calling_code:"+62", timezones:["UTC+7 to +9"], lat:-6.2, lon:106.8},
+  {name:"Saudi Arabia", iso2:"SA", iso3:"SAU", region:"Asia", capital:"Riyadh", population:36000000, area_km2:2149690,
+   currencies:[{code:"SAR",name:"Riyal"}], languages:["Arabic"], calling_code:"+966", timezones:["UTC+3"], lat:24.7, lon:46.7},
+  {name:"Turkey", iso2:"TR", iso3:"TUR", region:"Asia", capital:"Ankara", population:85300000, area_km2:783562,
+   currencies:[{code:"TRY",name:"Lira"}], languages:["Turkish"], calling_code:"+90", timezones:["UTC+3"], lat:39.9, lon:32.8},
+  {name:"Australia", iso2:"AU", iso3:"AUS", region:"Oceania", capital:"Canberra", population:26000000, area_km2:7692024,
+   currencies:[{code:"AUD",name:"Australian Dollar"}], languages:["English"], calling_code:"+61", timezones:["UTC+8 to +10"], lat:-35.3, lon:149.1},
+  {name:"New Zealand", iso2:"NZ", iso3:"NZL", region:"Oceania", capital:"Wellington", population:5200000, area_km2:268838,
+   currencies:[{code:"NZD",name:"New Zealand Dollar"}], languages:["English","Māori"], calling_code:"+64", timezones:["UTC+12/+13"], lat:-41.3, lon:174.8},
+  {name:"Egypt", iso2:"EG", iso3:"EGY", region:"Africa", capital:"Cairo", population:110000000, area_km2:1002450,
+   currencies:[{code:"EGP",name:"Egyptian Pound"}], languages:["Arabic"], calling_code:"+20", timezones:["UTC+2"], lat:30.0, lon:31.2},
+  {name:"Nigeria", iso2:"NG", iso3:"NGA", region:"Africa", capital:"Abuja", population:223000000, area_km2:923768,
+   currencies:[{code:"NGN",name:"Naira"}], languages:["English","local"], calling_code:"+234", timezones:["UTC+1"], lat:9.1, lon:7.5},
+  {name:"South Africa", iso2:"ZA", iso3:"ZAF", region:"Africa", capital:"Pretoria (exec.)", population:60400000, area_km2:1221037,
+   currencies:[{code:"ZAR",name:"Rand"}], languages:["Zulu","Xhosa","Afrikaans","English", "…"], calling_code:"+27", timezones:["UTC+2"], lat:-25.7, lon:28.2},
+  {name:"Kenya", iso2:"KE", iso3:"KEN", region:"Africa", capital:"Nairobi", population:55000000, area_km2:580367,
+   currencies:[{code:"KES",name:"Kenyan Shilling"}], languages:["English","Swahili"], calling_code:"+254", timezones:["UTC+3"], lat:-1.3, lon:36.8},
+  {name:"Ethiopia", iso2:"ET", iso3:"ETH", region:"Africa", capital:"Addis Ababa", population:126000000, area_km2:1104300,
+   currencies:[{code:"ETB",name:"Birr"}], languages:["Amharic","regional"], calling_code:"+251", timezones:["UTC+3"], lat:9.0, lon:38.8}
+];
+
+let ALL = [];           // full dataset loaded (countries.json or fallback)
+let FILTERED = [];      // current search/filter result
+let CURRENT = null;     // currently selected country {…}
+let state = {
+  q:"", region:"", onlyBookmarked:false,
+  bookmarks: JSON.parse(localStorage.getItem("atlas_bookmarks") || "[]"), // array of iso2
+  notes: JSON.parse(localStorage.getItem("atlas_notes") || "{}") // {iso2: "text"}
+};
+
+const els = {
+  q: qs("#q"),
+  region: qs("#region"),
+  onlyBookmarked: qs("#onlyBookmarked"),
+  list: qs("#list"),
+  stats: qs("#stats"),
+  map: qs("#map"),
+  title: qs("#title"),
+  tags: qs("#tags"),
+  details: qs("#details"),
+  bookmarkBtn: qs("#bookmarkBtn"),
+  copyLinkBtn: qs("#copyLinkBtn"),
+  notes: qs("#notes"),
+  saveNotesBtn: qs("#saveNotesBtn"),
+  clearNotesBtn: qs("#clearNotesBtn"),
+  exportBtn: qs("#exportBtn"),
+  importFile: qs("#importFile")
+};
+
+boot();
+
+async function boot(){
+  // Load dataset if present
+  try {
+    // Attempt to fetch local countries.json (must be shipped next to this file)
+    const res = await fetch("./countries.json");
+    if (res.ok) {
+      ALL = await res.json();
+    } else {
+      ALL = COUNTRIES_FALLBACK;
+    }
+  } catch(e){
+    ALL = COUNTRIES_FALLBACK;
+  }
+  // Normalize fields (defensive)
+  ALL = ALL.map(n => ({
+    name: n.name, iso2: n.iso2 || n.alpha2 || n.code || "", iso3: n.iso3 || n.alpha3 || "",
+    region: n.region || n.continent || "", capital: n.capital || "", population: n.population || null,
+    area_km2: n.area_km2 || n.area || null, currencies: n.currencies || [], languages: n.languages || [],
+    calling_code: n.calling_code || n.callingCode || "", timezones: n.timezones || n.timezone ? [].concat(n.timezone) : (n.timezones || []),
+    lat: n.lat || (n.location?.lat) || null, lon: n.lon || (n.location?.lon) || null
+  }));
+  // Hydrate from URL hash (e.g., #iso=US)
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const iso = (hash.get("iso") || "").toUpperCase();
+  if (iso) {
+    CURRENT = ALL.find(c => c.iso2 === iso) || null;
+  }
+
+  // Events
+  els.q.addEventListener("input", () => { state.q = els.q.value.trim(); render(); });
+  els.region.addEventListener("change", () => { state.region = els.region.value; render(); });
+  els.onlyBookmarked.addEventListener("click", () => { state.onlyBookmarked = !state.onlyBookmarked; render(); });
+  window.addEventListener("keydown", (e) => { if (e.key === "/") { e.preventDefault(); els.q.focus(); } });
+
+  els.map.addEventListener("click", (e) => {
+    const r = e.target.getAttribute("data-region");
+    if (r) {
+      els.region.value = r;
+      state.region = r;
+      render();
+    }
+  });
+
+  els.bookmarkBtn.addEventListener("click", toggleBookmark);
+  els.copyLinkBtn.addEventListener("click", copyShareLink);
+  els.saveNotesBtn.addEventListener("click", saveNotes);
+  els.clearNotesBtn.addEventListener("click", clearNotes);
+  els.exportBtn.addEventListener("click", exportData);
+  els.importFile.addEventListener("change", importData);
+
+  render();
+}
+
+function render(){
+  // Filter
+  FILTERED = ALL.filter(c => {
+    if (state.region && c.region !== state.region) return false;
+    if (state.onlyBookmarked && !state.bookmarks.includes(c.iso2)) return false;
+    if (state.q) {
+      const q = state.q.toLowerCase();
+      const hay = [
+        c.name, c.iso2, c.iso3, c.capital,
+        c.region, (c.currencies||[]).map(x=>x.code).join(","), (c.languages||[]).join(",")
+      ].join("|").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Stats
+  els.stats.innerHTML = `
+    <span class="pill">Results: ${FILTERED.length}</span>
+    ${state.region? `<span class="pill">Region: ${escapeHtml(state.region)}</span>` : ""}
+    ${state.onlyBookmarked? `<span class="pill">⭐ Only bookmarks</span>` : ""}
+  `;
+
+  // List
+  els.list.innerHTML = "";
+  FILTERED.forEach(c => {
+    const card = document.createElement("div");
+    const starred = state.bookmarks.includes(c.iso2);
+    card.className = "country";
+    card.innerHTML = `
+      <div class="flag">${flagEmoji(c.iso2) || "🏳️"}</div>
+      <div class="meta">
+        <h3>${escapeHtml(c.name)} <span class="small">(${c.iso2})</span></h3>
+        <div class="small">
+          <b>${escapeHtml(c.region || "—")}</b> · Capital: ${escapeHtml(c.capital || "—")}
+        </div>
+        <div class="small">Pop: ${fmtNum(c.population)} · Area: ${fmtNum(c.area_km2)} km²</div>
+        <div class="tagbar" style="margin-top:6px">
+          ${(c.languages||[]).slice(0,3).map(l=>`<span class="pill">${escapeHtml(l)}</span>`).join("")}
+          ${(c.currencies||[]).slice(0,2).map(x=>`<span class="pill">${escapeHtml(x.code || "")}</span>`).join("")}
+        </div>
+        <div class="row-tools" style="margin-top:8px">
+          <button class="btn view">📖 View</button>
+          <button class="btn star ${starred? "active":""}">${starred? "⭐ Bookmarked":"☆ Bookmark"}</button>
+        </div>
+      </div>
+    `;
+    card.querySelector(".view").onclick = () => selectCountry(c);
+    card.querySelector(".star").onclick = () => { toggleBookmarkFor(c.iso2); render(); };
+    els.list.appendChild(card);
+  });
+
+  // Update right panel if country already selected
+  if (CURRENT) showCurrent();
+}
+
+function selectCountry(c){
+  CURRENT = c;
+  // Set hash for share
+  location.hash = `iso=${encodeURIComponent(c.iso2)}`;
+  showCurrent();
+}
+
+function showCurrent(){
+  const c = CURRENT;
+  els.title.textContent = `${flagEmoji(c.iso2)||"🏳️"} ${c.name} (${c.iso2})`;
+  els.tags.innerHTML = `
+    <span class="pill">${escapeHtml(c.region || "—")}</span>
+    ${c.capital ? `<span class="pill">Capital: ${escapeHtml(c.capital)}</span>` : ""}
+    ${c.calling_code ? `<span class="pill">Dial: ${escapeHtml(c.calling_code)}</span>` : ""}
+  `;
+  els.details.innerHTML = `
+    <div class="small">
+      <b>Population:</b> ${fmtNum(c.population)} &nbsp;•&nbsp;
+      <b>Area:</b> ${fmtNum(c.area_km2)} km² &nbsp;•&nbsp;
+      <b>ISO3:</b> ${escapeHtml(c.iso3 || "—")}
+    </div>
+    <div class="small" style="margin-top:6px">
+      <b>Languages:</b> ${escapeHtml((c.languages||[]).join(", ") || "—")}
+    </div>
+    <div class="small" style="margin-top:6px">
+      <b>Currencies:</b> ${(c.currencies||[]).map(x => `${escapeHtml(x.code)}${x.name? " — "+escapeHtml(x.name):""}`).join(", ") || "—"}
+    </div>
+    <div class="small" style="margin-top:6px">
+      <b>Timezones:</b> ${escapeHtml((c.timezones||[]).join(", ") || "—")}
+    </div>
+    <div class="small" style="margin-top:6px">
+      <b>Approx. location:</b> ${c.lat!=null && c.lon!=null ? `${c.lat.toFixed(1)}, ${c.lon.toFixed(1)}` : "—"}
+    </div>
+  `;
+
+  // Notes + bookmark controls
+  els.notes.disabled = false;
+  els.saveNotesBtn.disabled = false;
+  els.clearNotesBtn.disabled = false;
+  els.bookmarkBtn.disabled = false;
+  els.copyLinkBtn.disabled = false;
+
+  els.bookmarkBtn.textContent = state.bookmarks.includes(c.iso2) ? "⭐ Remove bookmark" : "☆ Add bookmark";
+  els.notes.value = state.notes[c.iso2] || "";
+}
+
+function toggleBookmark(){
+  if (!CURRENT) return;
+  toggleBookmarkFor(CURRENT.iso2);
+  els.bookmarkBtn.textContent = state.bookmarks.includes(CURRENT.iso2) ? "⭐ Remove bookmark" : "☆ Add bookmark";
+  render(); // refresh list stars
+}
+function toggleBookmarkFor(iso2){
+  const i = state.bookmarks.indexOf(iso2);
+  if (i >= 0) state.bookmarks.splice(i,1); else state.bookmarks.push(iso2);
+  localStorage.setItem("atlas_bookmarks", JSON.stringify(state.bookmarks));
+}
+
+function saveNotes(){
+  if (!CURRENT) return;
+  state.notes[CURRENT.iso2] = els.notes.value || "";
+  localStorage.setItem("atlas_notes", JSON.stringify(state.notes));
+  toast("Notes saved.");
+}
+function clearNotes(){
+  if (!CURRENT) return;
+  delete state.notes[CURRENT.iso2];
+  localStorage.setItem("atlas_notes", JSON.stringify(state.notes));
+  els.notes.value = "";
+  toast("Notes cleared.");
+}
+
+function copyShareLink(){
+  if (!CURRENT) return;
+  const url = `${location.origin}${location.pathname}#iso=${encodeURIComponent(CURRENT.iso2)}`;
+  navigator.clipboard.writeText(url).then(() => toast("Share link copied."));
+}
+
+function exportData(){
+  const payload = {
+    at: new Date().toISOString(),
+    bookmarks: state.bookmarks,
+    notes: state.notes
+  };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "atlas-data.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(e){
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (Array.isArray(data.bookmarks)) state.bookmarks = data.bookmarks;
+      if (data.notes && typeof data.notes === "object") state.notes = data.notes;
+      localStorage.setItem("atlas_bookmarks", JSON.stringify(state.bookmarks));
+      localStorage.setItem("atlas_notes", JSON.stringify(state.notes));
+      toast("Imported successfully.");
+      render();
+    } catch(err){ toast("Import failed: invalid file."); }
+  };
+  reader.readAsText(file);
+}
+
+function flagEmoji(iso2){
+  if (!iso2 || iso2.length !== 2) return "";
+  const A = 0x1F1E6;
+  const code = iso2.toUpperCase();
+  return String.fromCodePoint(A + (code.charCodeAt(0)-65), A + (code.charCodeAt(1)-65));
+}
+
+// Utils
+function qs(s){ return document.querySelector(s); }
+function fmtNum(n){ return (n==null? "—" : n.toLocaleString()); }
+function escapeHtml(str){ return String(str||"").replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+function toast(msg){
+  const el = document.createElement("div");
+  el.textContent = msg;
+  el.style.cssText = "position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#101a33;border:1px solid #2a3356;color:#e6e8ee;padding:8px 12px;border-radius:10px;z-index:9999";
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.remove(); }, 1400);
+}
+</script>
+
+</body>
+</html>
