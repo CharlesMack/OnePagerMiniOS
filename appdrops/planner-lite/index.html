@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Planner Lite +</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- CSS Libraries -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css" rel="stylesheet">
+  <style>
+    body { margin:0; background:#0a0b0f; color:#e6e8ee; font-family:Inter,ui-sans-serif,system-ui; }
+    .container { max-width:920px; margin:40px auto; padding:16px; border:1px solid #1f294b; border-radius:16px;
+                background:linear-gradient(180deg,#13182a,#0e1322); }
+    h1 { margin-bottom:12px; }
+    .row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px; }
+    .btn { padding:8px 12px; border:1px solid #2a3356; border-radius:10px; background:#141a2c; color:#e6e8ee;
+           cursor:pointer; }
+    input, select { padding:8px 10px; border:1px solid #242d50; border-radius:10px; background:#0f1426; color:#e6e8ee; }
+    ul { list-style:none; padding-left:0; }
+    li { padding:6px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center; }
+    li.done { text-decoration:line-through; opacity:0.7; }
+    .category { font-size:12px; padding:2px 6px; background:#2a3356; border-radius:6px; margin-left:8px; }
+    #calendar { max-width:920px; margin:20px auto; background:#0e1322; color:#e6e8ee; border-radius:16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗓 Planner Lite +</h1>
+    <div class="row">
+      <input id="newTask" placeholder="Task description…" style="flex:2">
+      <input id="duePicker" placeholder="Due date">
+      <select id="category">
+        <option value="">No category</option>
+        <option>Work</option>
+        <option>Personal</option>
+        <option>Urgent</option>
+      </select>
+      <button class="btn" onclick="addTask()">Add</button>
+      <button class="btn" onclick="clearAll()">Clear All</button>
+      <button class="btn" onclick="exportTasks()">Export JSON</button>
+      <button class="btn" onclick="importInput.click()">Import JSON</button>
+      <input type="file" id="importInput" accept="application/json" style="display:none" onchange="importTasks(event)">
+    </div>
+    <ul id="taskList"></ul>
+  </div>
+
+  <div id="calendar"></div>
+
+  <!-- JS Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.19/index.global.min.js"></script>
+
+  <script>
+    const KEY = 'PLANNER_PLUS';
+    const taskList = document.getElementById('taskList');
+    let tasks = [];
+
+    // Initialize date picker
+    flatpickr('#duePicker', { dateFormat: 'Y-m-d' });
+
+    // Save to localStorage
+    function save() {
+      localStorage.setItem(KEY, JSON.stringify(tasks));
+      renderTasks();
+      renderCalendar();
+    }
+
+    // Load from storage
+    function load() {
+      tasks = JSON.parse(localStorage.getItem(KEY) || '[]');
+      renderTasks();
+      renderCalendar();
+    }
+
+    // Add new task
+    function addTask() {
+      const txt = document.getElementById('newTask').value.trim();
+      const due = document.getElementById('duePicker').value;
+      const cat = document.getElementById('category').value;
+      if (!txt) return;
+      tasks.push({ text: txt, due: due || null, cat: cat || null, done: false });
+      document.getElementById('newTask').value = '';
+      save();
+    }
+
+    // Clear all tasks
+    function clearAll() {
+      if (confirm('Clear ALL tasks?')) {
+        tasks = [];
+        save();
+      }
+    }
+
+    // Render task list
+    function renderTasks() {
+      taskList.innerHTML = '';
+      tasks.forEach((t, i) => {
+        const li = document.createElement('li');
+        if (t.done) li.classList.add('done');
+        li.innerHTML = `
+          <span onclick="toggleDone(${i})">${t.text}</span>
+          <div>
+            ${t.due ? `<span>${t.due}</span>` : ''}
+            ${t.cat ? `<span class="category">${t.cat}</span>` : ''}
+            <button onclick="deleteTask(${i})">&times;</button>
+          </div>`;
+        taskList.appendChild(li);
+      });
+    }
+
+    function toggleDone(i) {
+      tasks[i].done = !tasks[i].done;
+      save();
+    }
+
+    function deleteTask(i) {
+      tasks.splice(i,1);
+      save();
+    }
+
+    // Export tasks
+    function exportTasks() {
+      const blob = new Blob([JSON.stringify(tasks, null,2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'tasks.json';
+      a.click();
+    }
+
+    // Import tasks
+    function importTasks(e) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try { tasks = JSON.parse(reader.result); save(); }
+        catch { alert('Invalid JSON'); }
+      };
+      reader.readAsText(e.target.files[0]);
+    }
+
+    // FullCalendar setup
+    let calendar;
+    function renderCalendar() {
+      const events = tasks.map((t, i) => t.due && { title: t.text, start: t.due, color: t.done ? '#555' : '#9ec8ff' }).filter(Boolean);
+      const el = document.getElementById('calendar');
+      if (!calendar) {
+        calendar = new FullCalendar.Calendar(el, {
+          initialView: 'dayGridMonth',
+          height: 600,
+          events,
+          headerToolbar: { left: 'prev,next today', center: 'title', right: '' }
+        });
+        calendar.render();
+      } else {
+        calendar.removeAllEvents();
+        calendar.addEventSource(events);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', load);
+  </script>
+</body>
+</html>
