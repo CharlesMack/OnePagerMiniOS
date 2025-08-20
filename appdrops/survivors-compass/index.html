@@ -1,0 +1,157 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Survivor's Compass - P.O.P.S.</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --fg: #e0f7ff;
+      --accent: #4afcb3;
+      --hot: #ff5c7a;
+      --rim: #1c2a36;
+      --card: #101a24;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: 'Segoe UI', sans-serif;
+    }
+    #app {
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 16px;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--rim);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 0 12px rgba(74, 252, 179, 0.3);
+    }
+    h1 {
+      font-size: 1.5em;
+      margin: 0 0 10px 0;
+    }
+    input, button, select {
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid var(--rim);
+      background: var(--bg);
+      color: var(--fg);
+      font-size: 1em;
+      margin: 4px 0;
+    }
+    textarea {
+      width: 100%;
+      height: 80px;
+      background: var(--bg);
+      border: 1px solid var(--rim);
+      border-radius: 8px;
+      color: var(--fg);
+      padding: 8px;
+    }
+    canvas {
+      width: 100%;
+      height: 300px;
+      background: #1a2b33;
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="panel">
+      <h1>🧭 Compass</h1>
+      <p><strong>Direction:</strong> <span id="direction">Waiting...</span></p>
+    </div>
+    <div class="panel">
+      <h1>🌦️ Weather Estimator</h1>
+      <select id="weatherSelect">
+        <option>Clear Skies</option>
+        <option>Cloudy</option>
+        <option>Rain Expected</option>
+        <option>Storm Incoming</option>
+      </select>
+    </div>
+    <div class="panel">
+      <h1>🌅 Sunrise / Sunset</h1>
+      <label>Latitude: <input type="number" id="lat" value="40.7" /></label>
+      <label>Longitude: <input type="number" id="lon" value="-74.0" /></label>
+      <button onclick="calculateSun()">Calculate</button>
+      <p id="sunResult">--</p>
+    </div>
+    <div class="panel">
+      <h1>🔖 Survival Notes / Bookmarks</h1>
+      <textarea id="noteInput" placeholder="Record a log, find, or landmark..."></textarea>
+      <button onclick="saveNote()">Save Note</button>
+      <ul id="notesList"></ul>
+    </div>
+    <div class="panel">
+      <h1>🗺️ Map Sketchpad</h1>
+      <canvas id="sketchCanvas"></canvas>
+    </div>
+  </div>
+  <script>
+    const dirEl = document.getElementById('direction');
+    window.addEventListener('deviceorientationabsolute', (e) => {
+      if (e.alpha !== null) dirEl.textContent = Math.round(e.alpha) + '°';
+    });
+
+    function calculateSun() {
+      const lat = parseFloat(document.getElementById('lat').value);
+      const lon = parseFloat(document.getElementById('lon').value);
+      const now = new Date();
+      const hours = (lon / 15);
+      const offset = now.getTimezoneOffset() / 60;
+      const sunrise = 6 - hours - offset;
+      const sunset = 18 - hours - offset;
+      document.getElementById('sunResult').textContent =
+        `Sunrise ~ ${Math.round(sunrise)}:00, Sunset ~ ${Math.round(sunset)}:00`;
+    }
+
+    function saveNote() {
+      const val = document.getElementById('noteInput').value;
+      const notes = JSON.parse(localStorage.getItem('survivalNotes') || '[]');
+      notes.push({ time: new Date().toLocaleString(), text: val });
+      localStorage.setItem('survivalNotes', JSON.stringify(notes));
+      loadNotes();
+      document.getElementById('noteInput').value = '';
+    }
+
+    function loadNotes() {
+      const notes = JSON.parse(localStorage.getItem('survivalNotes') || '[]');
+      const list = document.getElementById('notesList');
+      list.innerHTML = '';
+      notes.forEach(n => {
+        const li = document.createElement('li');
+        li.textContent = `[${n.time}] ${n.text}`;
+        list.appendChild(li);
+      });
+    }
+    loadNotes();
+
+    const canvas = document.getElementById("sketchCanvas");
+    const ctx = canvas.getContext("2d");
+    let drawing = false;
+
+    canvas.addEventListener("mousedown", () => drawing = true);
+    canvas.addEventListener("mouseup", () => drawing = false);
+    canvas.addEventListener("mousemove", (e) => {
+      if (!drawing) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      ctx.fillStyle = "#4afcb3";
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  </script>
+</body>
+</html>
