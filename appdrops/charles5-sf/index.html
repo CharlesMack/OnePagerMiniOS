@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>P.O.P.S. Legacy System — Charles 5 + Max v2.1 (Physics)</title>
+<style>
+  :root {
+    --bg-primary:#0a0d14; --bg-secondary:#141a2b; --bg-tertiary:#1e2a45;
+    --fg-primary:#eaf0ff; --fg-secondary:#c7d2fe; --fg-muted:#9aacbf;
+    --accent-cyan:#00e5ff; --accent-electric:#7af0ff; --accent-hot:#ff5c7a;
+    --accent-max:#d61d39; --accent-treat:#ffcf7a; --accent-success:#4ade80;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:radial-gradient(1200px 700px at 70% -20%,#1b2440 0%,#0a0d14 60%);color:var(--fg-primary);font:500 12px/1.2 system-ui,Inter,Segoe UI;overflow:hidden}
+  #hud{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:8px;flex-wrap:wrap}
+  .btn{padding:6px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--bg-tertiary);background:linear-gradient(180deg,#1e2a45,#141a2b);color:var(--fg-secondary)}
+  .btn-primary{background:var(--accent-cyan);color:#000}
+  .btn-secondary{background:var(--accent-hot);color:#fff}
+  .status-indicator{padding:4px 8px;border-radius:6px;font-weight:600}
+  .status-auto{background:var(--accent-success)}
+  .status-manual{background:var(--accent-hot)}
+  #theater{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:50}
+  #theater video{max-width:80%;max-height:60%}
+  #theaterClose{margin-top:12px}
+</style>
+</head>
+<body>
+<div id="hud">
+  <button id="btnFP" class="btn">FP</button>
+  <button id="btnTP" class="btn">TP</button>
+  <button id="btnAuto" class="btn">Auto</button>
+  <button id="btnManual" class="btn">Manual</button>
+  <button id="btnFetch" class="btn btn-primary">🥎 Fetch</button>
+  <button id="btnTreat" class="btn">Treat</button>
+  <button id="btnFeed" class="btn">Feed Max</button>
+  <button id="btnShader" class="btn">Shader</button>
+  <button id="btnTheater" class="btn">🎬</button>
+  <span id="statusMode" class="status-indicator"></span>
+</div>
+<div id="theater">
+  <h2 id="theaterTitle">Hologram Theater</h2>
+  <video id="tv" controls></video>
+  <audio id="ta" controls></audio>
+  <button id="theaterClose" class="btn">Close</button>
+  <button id="theaterHiddenButton" style="position:absolute;left:-9999px"></button>
+</div>
+<canvas id="viewport"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<!-- Physics + game logic -->
+<script type="module">
+/* ===== Cannon.js (ESM) ===== */
+import * as CANNON from "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js";
+
+/* ===== Utils ===== */
+if(!('randomUUID' in crypto)){
+  crypto.randomUUID=()=>
+    ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0]&15>>(c/4)).toString(16));
+}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ===== Event bus ===== */
+const EVENTS={
+  INVENTORY_DEPLOY_TREAT:'inventory:treat',
+  INVENTORY_FEED_MAX:'inventory:feed',
+  MEDIA_TOGGLE_THEATER:'media:theater',
+  FETCH_BALL:'action:fetchball'
+};
+class Core{constructor(){this.evt={};}
+on(ev,cb){(this.evt[ev]??=[]).push(cb);}
+emit(ev,p){(this.evt[ev]||[]).forEach(f=>f(p));}}
+
+/* ===== State ===== */
+class StateModule{
+  constructor(){this.camMode='third-person';this.auto=true;this.inv={treats:3};}
+  toggleCamera(){this.camMode=this.camMode==='first-person'?'third-person':'first-person';}
+  isAutoMode(){return this.auto;}
+  setAuto(v){this.auto=v;}
+  getCameraMode(){return this.camMode;}
+  useTreat(n=1){if(this.inv.treats>=n){this.inv.treats-=n;return true;}return false;}
+}
+
+/* ===== UI ===== */
+class UIModule{
+  constructor(core,state){this.core=core;this.state=state;
+    this.mode=document.getElementById('statusMode');
+    this.tv=document.getElementById('tv'); this.ta=document.getElementById('ta');
+    this.theater=document.getElementById('theater');
+    this.init();
+  }
+  init(){
+    const s=this.state, c=this.core;
+    document.getElementById('btnFP').onclick=()=>{s.camMode='first-person';this.updateStatus()};
+    document.getElementById('btnTP').onclick=()=>{s.camMode='third-person';this.updateStatus()};
+    document.getElementById('btnAuto').onclick=()=>{s.setAuto(true);this.updateStatus()};
+    document.getElementById('btnManual').onclick=()=>{s.setAuto(false);this.updateStatus()};
+    document.getElementById('btnFetch').onclick=()=>c.emit(EVENTS.FETCH_BALL);
+    document.getElementById('btnTreat').onclick=()=>c.emit(EVENTS.INVENTORY_DEPLOY_TREAT);
+    document.getElementById('btnFeed').onclick=()=>c.emit(EVENTS.INVENTORY_FEED_MAX);
+    document.getElementById('btnShader').onclick=()=>alert("Shader toggled (stub).");
+    document.getElementById('btnTheater').onclick=()=>c.emit(EVENTS.MEDIA_TOGGLE_THEATER);
+    document.getElementById('theaterClose').onclick=()=>this.toggleTheater(false);
+
+    c.on(EVENTS.INVENTORY_DEPLOY_TREAT,()=>{
+      if(s.useTreat(1)) alert("🍖 Max grabs the treat! Following!");
+      else alert("No treats left.");
+    });
+    c.on(EVENTS.INVENTORY_FEED_MAX,()=>{
+      if(s.useTreat(1)) alert("👨‍🔧 Feeding Max successful.");
+      else alert("No treats left.");
+    });
+    c.on(EVENTS.MEDIA_TOGGLE_THEATER,()=>this.toggleTheater(true));
+
+    this.updateStatus();
+  }
+  updateStatus(){
+    const s=this.state;
+    this.mode.textContent=s.isAutoMode()?'AUTO':'MANUAL';
+    this.mode.className='status-indicator '+(s.isAutoMode()?'status-auto':'status-manual');
+
+    const fp=s.getCameraMode()==='first-person';
+    const btnFP=document.getElementById('btnFP');
+    const btnTP=document.getElementById('btnTP');
+    const btnAuto=document.getElementById('btnAuto');
+    const btnManual=document.getElementById('btnManual');
+    [btnFP,btnTP,btnAuto,btnManual].forEach(b=>b.classList.add('btn'));
+    btnFP.classList.toggle('btn-primary',fp);
+    btnTP.classList.toggle('btn-primary',!fp);
+    btnAuto.classList.toggle('btn-primary',s.isAutoMode());
+    btnAuto.classList.toggle('btn-secondary',!s.isAutoMode());
+    btnManual.classList.toggle('btn-primary',!s.isAutoMode());
+    btnManual.classList.toggle('btn-secondary',s.isAutoMode());
+  }
+  toggleTheater(show=true,title='Hologram Theater'){
+    document.getElementById('theaterTitle').textContent=title;
+    this.theater.style.display=show?'flex':'none';
+    if(!show){this.tv.pause();this.ta.pause();}
+    const closeBtn=document.getElementById('theaterClose');
+    const sentry=document.getElementById('theaterHiddenButton');
+    if(show) closeBtn.focus(); else sentry.focus();
+  }
+}
+
+/* ===== THREE.js Scene ===== */
+const canvas=document.getElementById('viewport');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0b0f19);
+
+const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,4000);
+camera.position.set(0,40,160);
+
+const hemi=new THREE.HemisphereLight(0x88aaff,0x0b0f19,0.6); scene.add(hemi);
+const dl=new THREE.DirectionalLight(0xffffff,0.9); dl.position.set(120,200,80); dl.castShadow=true; scene.add(dl);
+
+/* Ground (visual) */
+const seg=(innerWidth<768)?160:300;
+const groundGeo=new THREE.PlaneGeometry(2000,2000,seg,seg);
+const groundMat=new THREE.MeshStandardMaterial({color:0x1e2a45,roughness:.95,metalness:.05});
+const groundMesh=new THREE.Mesh(groundGeo,groundMat);
+groundMesh.rotation.x=-Math.PI/2; groundMesh.receiveShadow=true; scene.add(groundMesh);
+
+/* Simple “Max” agent (visual) */
+const maxMat=new THREE.MeshStandardMaterial({color:0xd61d39,roughness:.6,metalness:.2,emissive:0x220000});
+const maxMesh=new THREE.Mesh(new THREE.SphereGeometry(6,24,24),maxMat);
+maxMesh.castShadow=true; maxMesh.position.set(-20,6,0); scene.add(maxMesh);
+
+/* ===== Cannon.js Physics World ===== */
+const world=new CANNON.World({
+  gravity:new CANNON.Vec3(0,-9.82,0),
+  allowSleep:true
+});
+world.broadphase=new CANNON.SAPBroadphase(world);
+
+const groundMaterial=new CANNON.Material("ground");
+const ballMaterial=new CANNON.Material("ball");
+world.addContactMaterial(new CANNON.ContactMaterial(groundMaterial,ballMaterial,{friction:0.4,restitution:0.65}));
+world.addContactMaterial(new CANNON.ContactMaterial(ballMaterial,ballMaterial,{friction:0.3,restitution:0.6}));
+
+/* Ground (physics) */
+const groundBody=new CANNON.Body({type:CANNON.Body.STATIC,shape:new CANNON.Plane(),material:groundMaterial});
+groundBody.quaternion.setFromEuler(-Math.PI/2,0,0);
+world.addBody(groundBody);
+
+/* Active balls */
+const balls=[]; // { mesh, body, id }
+
+/* Helpers */
+const v3=(v)=>new THREE.Vector3(v.x,v.y,v.z);
+function syncMesh(mesh,body){
+  mesh.position.set(body.position.x,body.position.y,body.position.z);
+  mesh.quaternion.set(body.quaternion.x,body.quaternion.y,body.quaternion.z,body.quaternion.w);
+}
+
+/* Spawn/throw a ball */
+function spawnBall(){
+  const radius=5;
+  // THREE
+  const geom=new THREE.SphereGeometry(radius,24,24);
+  const mat=new THREE.MeshStandardMaterial({color:0xffcf7a,emissive:0x221a00,roughness:.6,metalness:.15});
+  const mesh=new THREE.Mesh(geom,mat); mesh.castShadow=true; scene.add(mesh);
+
+  // CANNON
+  const body=new CANNON.Body({
+    mass:2.5, shape:new CANNON.Sphere(radius), material:ballMaterial,
+    linearDamping:0.01, angularDamping:0.01
+  });
+
+  // Throw from in front of camera toward its look direction
+  const camForward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+  const start= camera.position.clone().add(camForward.clone().multiplyScalar(30));
+  body.position.set(start.x,start.y,start.z);
+
+  const impulse=camForward.clone().multiplyScalar(60); // throw strength
+  body.velocity.set(impulse.x, impulse.y+25, impulse.z); // arc
+  body.angularVelocity.set(Math.random()*3, Math.random()*3, Math.random()*3);
+
+  world.addBody(body);
+
+  const id=crypto.randomUUID();
+  balls.push({id,mesh,body});
+  return id;
+}
+
+/* Max chasing logic (kinematic steering) */
+const maxState={
+  speed: 45,               // units/sec
+  catchRadius: 9,          // “mouth” radius to catch
+  targetBall: null,        // id
+  carrying: false
+};
+function updateMax(dt){
+  // If carrying, follow camera (owner) or sit
+  if(maxState.carrying){
+    // heel near camera
+    const target= camera.position.clone().add(new THREE.Vector3(-12,0,-8).applyQuaternion(camera.quaternion));
+    const dir=target.clone().sub(maxMesh.position); dir.y=0;
+    const dist=dir.length();
+    if(dist>0.1){
+      dir.normalize(); maxMesh.position.add(dir.multiplyScalar(Math.min(maxState.speed*0.6*dt,dist)));
+    }
+    // bob
+    maxMesh.position.y = 6 + Math.sin(performance.now()*0.006)*0.6;
+    return;
+  }
+
+  // Acquire a ball if none
+  if(!maxState.targetBall && balls.length){
+    maxState.targetBall = balls[0].id;
+  }
+  if(!maxState.targetBall) return;
+
+  const entry=balls.find(b=>b.id===maxState.targetBall);
+  if(!entry){ maxState.targetBall=null; return; }
+
+  const target=v3(entry.body.position);
+  const pos=maxMesh.position.clone();
+  const dir=target.clone().sub(pos);
+  const horiz=new THREE.Vector3(dir.x,0,dir.z);
+  const dist=horiz.length();
+
+  // Move horizontally toward ball
+  if(dist>0.01){
+    horiz.normalize();
+    maxMesh.position.add(horiz.multiplyScalar(Math.min(maxState.speed*dt,dist)));
+  }
+  // Keep Max on ground visually, with a tiny bounce when running
+  maxMesh.position.y = 6 + (dist>2 ? Math.abs(Math.sin(performance.now()*0.02))*0.8 : 0);
+
+  // “Catch” if close enough
+  if(dist < maxState.catchRadius && Math.abs(dir.y) < 6){
+    // Attach ball to Max's “mouth”: freeze body & stick to offset
+    entry.body.type = CANNON.Body.KINEMATIC;
+    entry.body.velocity.set(0,0,0); entry.body.angularVelocity.set(0,0,0);
+    const mouthOffset = new THREE.Vector3(0, 4, 7); // relative to Max
+    // Keep syncing each frame while carrying
+    entry._carry = { offset: mouthOffset };
+    maxState.carrying = true;
+  }
+}
+
+/* Keep carried ball glued to Max’s mouth */
+function updateCarriedBalls(){
+  balls.forEach(entry=>{
+    if(entry._carry){
+      const p = maxMesh.position.clone().add(entry._carry.offset);
+      entry.body.position.set(p.x, p.y, p.z);
+      entry.body.quaternion.set(0,0,0,1);
+    }
+  });
+}
+
+/* ===== Controls & Camera follow ===== */
+const keys={};
+window.addEventListener('keydown',e=>{keys[e.code]=true; if(e.key==='f' || e.key==='F') core.emit(EVENTS.FETCH_BALL);});
+window.addEventListener('keyup',e=>{keys[e.code]=false;});
+
+function updateCamera(dt){
+  // simple orbit/strafe
+  const move = new THREE.Vector3();
+  const forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+  const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0));
+  const spd=80;
+
+  if(keys['KeyW']) move.add(forward);
+  if(keys['KeyS']) move.sub(forward);
+  if(keys['KeyA']) move.sub(right);
+  if(keys['KeyD']) move.add(right);
+
+  if(move.lengthSq()){
+    move.normalize().multiplyScalar(spd*dt);
+    camera.position.add(move);
+  }
+}
+
+/* ===== Resize ===== */
+addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+/* ===== Boot UI/Core ===== */
+const core=new Core();
+const state=new StateModule();
+const ui=new UIModule(core,state);
+
+core.on(EVENTS.FETCH_BALL,()=>{
+  // If Max is carrying, drop the ball then throw a new one
+  balls.forEach(b=>{ if(b._carry){ b._carry=null; maxState.carrying=false; b.body.type=CANNON.Body.DYNAMIC; }});
+  spawnBall();
+});
+
+/* ===== Main loop ===== */
+let last=performance.now();
+const FIXED=1/60;
+
+function animate(now){
+  requestAnimationFrame(animate);
+  const dt=Math.min(0.05, (now-last)/1000); last=now;
+
+  // Camera
+  updateCamera(dt);
+
+  // Step physics (fixed)
+  world.step(FIXED, dt);
+
+  // Carried balls glue
+  updateCarriedBalls();
+
+  // Sync meshes
+  balls.forEach(({mesh,body})=>syncMesh(mesh,body));
+
+  // Max chases / carries
+  updateMax(dt);
+
+  // Clean up far balls
+  for(let i=balls.length-1;i>=0;i--){
+    const b=balls[i];
+    if(Math.abs(b.body.position.x)>3000 || Math.abs(b.body.position.z)>3000){
+      world.removeBody(b.body); scene.remove(b.mesh); balls.splice(i,1);
+      if(maxState.targetBall===b.id) maxState.targetBall=null;
+    }
+  }
+
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(animate);
+
+// First ball for fun
+spawnBall();
+</script>
+</body>
+</html>
