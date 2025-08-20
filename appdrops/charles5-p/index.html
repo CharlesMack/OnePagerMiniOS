@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>P.O.P.S. — Charles 5 <title> 
+<meta name="description" content="Offline-first, procedural Johnny‑5‑inspired companion built with Three.js. No Blender. Click parts to interact."/>
+<style>
+  :root{
+    --bg:#0b0d12; --fg:#e8ecf6; --muted:#9aa3b2; --accent:#7af0ff; --accent2:#7bff9b;
+    --hud:#121827; --rim:#1f2a44; --hot:#ff4d6d;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:radial-gradient(1200px 600px at 70% -20%,#192238 0%,#0b0d12 60%);}
+  #app{position:fixed;inset:0;overflow:hidden}
+  canvas{display:block}
+
+  /* HUD */
+  #hud{position:fixed;top:16px;left:16px;display:flex;gap:12px;align-items:center;z-index:2}
+  .chip{
+    padding:8px 12px;border:1px solid var(--rim);border-radius:12px;background:linear-gradient(180deg,#141b2e,#0e1424);
+    color:var(--fg);font:600 12px/1.1 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;
+    box-shadow:0 6px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  .chip b{color:var(--accent)}
+  button, .toggle{
+    border:1px solid var(--rim);background:#131a2b;color:var(--fg);border-radius:10px;padding:8px 12px;cursor:pointer;
+    font:600 12px/1 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;
+  }
+  button:hover{filter:brightness(1.08)}
+  #log{
+    position:fixed;left:16px;bottom:16px;max-width:min(600px,80vw);
+    padding:10px 12px;border:1px solid var(--rim);border-radius:12px;background:linear-gradient(180deg,#111726,#0e1423);
+    color:var(--muted);font:500 12px/1.35 Inter,ui-sans-serif;white-space:pre-wrap
+  }
+  #tooltip{
+    position:fixed;pointer-events:none;z-index:3;padding:6px 8px;border:1px solid var(--rim);border-radius:10px;
+    background:#0b1020;color:var(--fg);font:600 11px/1 Inter,ui-sans-serif;transform:translate(-50%,-140%);
+    opacity:0;transition:opacity .12s ease;
+  }
+  #centerHint{
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    color:#c7d2fe;font:700 16px Inter,ui-sans-serif;letter-spacing:.2px;text-align:center;
+    text-shadow:0 2px 12px rgba(0,0,0,.6);opacity:.0;transition:opacity .6s ease;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud">
+  <div class="chip">💾 <b>P.O.P.S.</b> Charles 5 — Procedural</div>
+  <button id="btnWave" title="Wave hello">👋 Wave</button>
+  <button id="btnSpin" title="Spin treads">🌀 Spin</button>
+  <button id="btnJoke" title="Tell a quick line">🎙️ Speak</button>
+  <label class="toggle"><input id="voiceToggle" type="checkbox"> Voice</label>
+  <button id="btnListen" title="Try voice commands (experimental)">🎤 Listen</button>
+</div>
+
+<div id="tooltip"></div>
+<div id="centerHint">Click Charles 5’s <b>head</b>, <b>arms</b>, or <b>treads</b> 👀</div>
+<div id="log">ready.</div>
+
+<!-- Three.js (vendor the file later for 100% offline) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  const app = document.getElementById('app');
+  const logEl = document.getElementById('log');
+  const tip = document.getElementById('tooltip');
+  const hint = document.getElementById('centerHint');
+
+  // Renderer / Scene / Camera
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 200);
+  camera.position.set(0.8, 1.2, 3.4);
+
+  const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  app.appendChild(renderer.domElement);
+
+  // Lights
+  const hemi = new THREE.HemisphereLight(0xaad1ff, 0x0b0d12, .7);
+  scene.add(hemi);
+  const key = new THREE.DirectionalLight(0xffffff, .9);
+  key.position.set(4, 6, 3);
+  key.castShadow = false;
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x7af0ff, .6);
+  rim.position.set(-3, 3, -4);
+  scene.add(rim);
+
+  // Ground
+  const grid = new THREE.GridHelper(50, 50, 0x1c2746, 0x151e36);
+  grid.position.y = -0.01;
+  scene.add(grid);
+
+  // ---------------------------
+  // Materials (toon-ish + outline)
+  // ---------------------------
+  function toon(color, emissive=0x000000){
+    const m = new THREE.MeshToonMaterial({color, emissive, emissiveIntensity: .8});
+    return m;
+  }
+  function outlined(mesh, color=0x070b12, scale=1.03){
+    const outline = mesh.clone();
+    outline.material = new THREE.MeshBasicMaterial({color, side:THREE.BackSide});
+    outline.scale.multiplyScalar(scale);
+    const group = new THREE.Group();
+    group.add(outline);
+    group.add(mesh);
+    return group;
+  }
+
+  // ---------------------------
+  // Charles 5 (procedural build)
+  // ---------------------------
+  const Charles = new THREE.Group();
+  Charles.position.y = 0.5;
+  scene.add(Charles);
+
+  // Torso
+  const torsoGeo = new THREE.BoxGeometry(0.9, 0.6, 0.45);
+  const torso = outlined(new THREE.Mesh(torsoGeo, toon(0x2a3558)), 0x000000);
+  torso.name = 'torso'; torso.userData = {hint:'Charles 5 Torso'};
+  Charles.add(torso);
+
+  // Neck
+  const neck = outlined(new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1,0.1,0.18,24),
+    toon(0x3a4a78, 0x0c0f16)
+  ), 0x000000);
+  neck.position.y = 0.45;
+  torso.add(neck);
+
+  // Head
+  const head = outlined(new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 0.32, 0.32),
+    toon(0x3a4f86, 0x081018)
+  ), 0x000000);
+  head.position.y = 0.18;
+  head.name = 'head'; head.userData = {action:'talk', hint:'Head: click to talk'};
+  neck.add(head);
+
+  // Eyes
+  const eyeMat = new THREE.MeshStandardMaterial({color:0x10131a, emissive:0x77ddff, emissiveIntensity: 1.1, metalness:0, roughness:0.4});
+  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 24, 24), eyeMat);
+  const eyeR = eyeL.clone();
+  eyeL.position.set(-0.12, 0.03, 0.15);
+  eyeR.position.set( 0.12, 0.03, 0.15);
+  head.add(eyeL, eyeR);
+
+  // Jaw (cute)
+  const jaw = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.25), toon(0x2b385e)), 0x000000);
+  jaw.position.set(0, -0.20, 0.03);
+  head.add(jaw);
+
+  // Chest LEDs (InstancedMesh demo)
+  const ledGeo = new THREE.SphereGeometry(0.025, 12, 12);
+  const ledMat = new THREE.MeshStandardMaterial({color:0x22293f, emissive:0x00e0ff, emissiveIntensity:1.0});
+  const LED_COUNT = 12;
+  const leds = new THREE.InstancedMesh(ledGeo, ledMat, LED_COUNT);
+  const dummy = new THREE.Object3D();
+  for(let i=0;i<LED_COUNT;i++){
+    const x = -0.42 + i*(0.84/(LED_COUNT-1));
+    dummy.position.set(x, 0.08, 0.23);
+    dummy.updateMatrix();
+    leds.setMatrixAt(i, dummy.matrix);
+  }
+  leds.instanceMatrix.needsUpdate = true;
+  torso.add(leds);
+
+  // Arms
+  function makeArm(side=1){
+    const shoulder = outlined(new THREE.Mesh(new THREE.SphereGeometry(0.10,24,24), toon(0x32406a)), 0x000000);
+    shoulder.position.set(0.50*side, 0.18, 0.0);
+    shoulder.name = side>0?'armR':'armL';
+    shoulder.userData = {action:'wave', hint:'Arm: click to wave'};
+
+    const upper = outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.08,0.36,24), toon(0x2b3a66)), 0x000000);
+    upper.rotation.z = Math.PI/2 * 0.08*side;
+    upper.position.set(0.0, -0.22, 0.0);
+    shoulder.add(upper);
+
+    const elbow = outlined(new THREE.Mesh(new THREE.SphereGeometry(0.08,24,24), toon(0x2f3e6b)), 0x000000);
+    elbow.position.set(0, -0.2, 0);
+    upper.add(elbow);
+
+    const fore = outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.32,24), toon(0x2b3a66)), 0x000000);
+    fore.position.set(0, -0.20, 0);
+    elbow.add(fore);
+
+    const claw = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.10,0.10,0.18), toon(0x3b4a78)), 0x000000);
+    claw.position.set(0, -0.18, 0.02);
+    fore.add(claw);
+
+    // joints for animation
+    shoulder.userData.joints = {shoulder, upper, elbow, fore, claw};
+    return shoulder;
+  }
+  const armL = makeArm(-1); const armR = makeArm(1);
+  torso.add(armL, armR);
+
+  // Treads
+  function makeTread(side=1){
+    const g = new THREE.Group();
+    const base = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.1,0.26,0.8), toon(0x243259)), 0x000000);
+    base.position.set(0.45*side, -0.28, 0);
+    g.add(base);
+
+    // rollers (instanced cylinders)
+    const rollerGeo = new THREE.CylinderGeometry(0.035,0.035,0.6,12);
+    rollerGeo.rotateZ(Math.PI/2);
+    const rollerMat = new THREE.MeshStandardMaterial({color:0x1e2849, metalness:.1, roughness:.7});
+    const count = 8;
+    const rollers = new THREE.InstancedMesh(rollerGeo, rollerMat, count);
+    const d = new THREE.Object3D();
+    for(let i=0;i<count;i++){
+      d.position.set(0.45*side, -0.28 + (-0.10 + i*(0.20/(count-1))), 0);
+      d.updateMatrix();
+      rollers.setMatrixAt(i, d.matrix);
+    }
+    rollers.instanceMatrix.needsUpdate = true;
+    g.add(rollers);
+
+    g.name = side>0?'treadsR':'treadsL';
+    g.userData = {action:'spin', hint:'Treads: click to roll'};
+    return g;
+  }
+  const tL = makeTread(-1), tR = makeTread(1);
+  Charles.add(tL, tR);
+
+  // ---------------------------
+  // Interaction (Raycaster)
+  // ---------------------------
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+  let hovered = null;
+
+  function setPointer(e){
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = ( (e.clientX-rect.left) / rect.width ) * 2 - 1;
+    const y = -( (e.clientY-rect.top) / rect.height ) * 2 + 1;
+    pointer.set(x,y);
+  }
+
+  function pick(e){
+    setPointer(e);
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(Charles.children, true);
+    hovered = hits[0]?.object || null;
+    tip.style.opacity = hovered ? 1 : 0;
+    if(hovered){
+      const t = hovered.parent?.userData?.hint || hovered.userData?.hint || hovered.name || 'Charles 5';
+      tip.textContent = t;
+      tip.style.left = e.clientX+'px';
+      tip.style.top = e.clientY+'px';
+    }
+  }
+
+  function act(e){
+    setPointer(e);
+    raycaster.setFromCamera(pointer, camera);
+    const hits = raycaster.intersectObjects(Charles.children, true);
+    const obj = hits[0]?.object;
+    if(!obj) return;
+    const action = obj.parent?.userData?.action || obj.userData?.action || obj.name;
+    if(action) handleAction(action);
+    state.lastInteraction = performance.now();
+  }
+
+  renderer.domElement.addEventListener('pointermove', pick);
+  renderer.domElement.addEventListener('pointerdown', act);
+
+  // ---------------------------
+  // FSM (idle -> curious -> playful)
+  // ---------------------------
+  const state = {
+    mode:'idle', lastInteraction: performance.now(), curiousDelay: 30000, blinkPhase:0, wavePhase:0, spinPhase:0
+  };
+
+  function setMode(m){
+    state.mode = m;
+    log(`mode: ${m}`);
+    hint.style.opacity = m==='idle' ? 0.18 : 0.0;
+  }
+
+  function handleAction(action){
+    if(action==='talk'){ speakRandom(); headNod(); setMode('playful'); }
+    if(action==='wave'){ waveArm(); setMode('playful'); }
+    if(action==='spin'){ spinTreads(); setMode('playful'); }
+  }
+
+  // ---------------------------
+  // Micro-animations
+  // ---------------------------
+  function headNod(){
+    // small nod via head rotation
+    const target = head; let t=0;
+    const anim = () => {
+      t += 0.04;
+      target.rotation.x = Math.sin(t)*0.15;
+      if(t<Math.PI*2) requestAnimationFrame(anim); else target.rotation.x=0;
+    };
+    anim();
+  }
+
+  function waveArm(){
+    const joint = Math.random()<0.5 ? armL.userData.joints : armR.userData.joints;
+    let t=0;
+    const anim = () => {
+      t+=0.08;
+      joint.shoulder.rotation.z = Math.sin(t)*0.6;
+      joint.elbow.rotation.z = Math.cos(t*1.3)*0.5;
+      if(t<Math.PI*3) requestAnimationFrame(anim);
+      else {joint.shoulder.rotation.z=0; joint.elbow.rotation.z=0;}
+    };
+    anim();
+  }
+
+  function spinTreads(){
+    let t=0;
+    const anim = () => {
+      t+=0.05;
+      Charles.rotation.y += 0.05;
+      if(t<Math.PI*2) requestAnimationFrame(anim);
+    };
+    anim();
+  }
+
+  // LED chase (instanced per-instance transform edit)
+  let ledIndex = 0;
+  function updateLEDs(dt){
+    state.blinkPhase += dt*4;
+    const i = Math.floor(state.blinkPhase)%LED_COUNT;
+    if(i!==ledIndex){
+      // shrink previous
+      dummy.matrix.identity();
+      for(let k=0;k<LED_COUNT;k++){
+        dummy.position.set(-0.42 + k*(0.84/(LED_COUNT-1)), 0.08, 0.23);
+        dummy.scale.setScalar(k===i?1.9:1.0);
+        dummy.updateMatrix();
+        leds.setMatrixAt(k, dummy.matrix);
+      }
+      leds.instanceMatrix.needsUpdate = true;
+      ledIndex = i;
+    }
+  }
+
+  // Idle breathing + subtle head drift
+  function updateIdle(t){
+    head.position.y = 0.18 + Math.sin(t*0.9)*0.01;
+    head.rotation.y = Math.sin(t*0.3)*0.08;
+  }
+
+  // Curious: small head tilt + faster LED chase
+  function updateCurious(t){
+    head.rotation.z = Math.sin(t*1.5)*0.08;
+  }
+
+  // Playful quickly decays back to idle
+  let playfulTimer = 0;
+  function updatePlayful(dt){
+    playfulTimer += dt;
+    if(playfulTimer>4){
+      playfulTimer = 0;
+      setMode('idle');
+    }
+  }
+
+  // ---------------------------
+  // Voice (TTS + optional ASR)
+  // ---------------------------
+  const voiceToggle = document.getElementById('voiceToggle');
+  const btnListen = document.getElementById('btnListen');
+  voiceToggle.checked = localStorage.getItem('c5.voice')==='1';
+  voiceToggle.addEventListener('change',()=>localStorage.setItem('c5.voice', voiceToggle.checked?'1':'0'));
+
+  const lines = [
+    "Wowsers! Charles five at your service.",
+    "Go go gadget… charm module engaged.",
+    "Awaiting input. Any puzzle for me today?",
+    "Action speaks louder than words—shall we?"
+  ];
+  function speakRandom(){
+    if(!voiceToggle.checked) { log("💬 (voice off)"); return; }
+    const u = new SpeechSynthesisUtterance(lines[Math.floor(Math.random()*lines.length)]);
+    u.rate = 1.05; u.pitch = 1.1; u.volume = 1;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
+
+  // Experimental: speech recognition (Chrome)
+  let rec = null;
+  btnListen.addEventListener('click',()=>{
+    const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!R){ log("🎤 SpeechRecognition not supported on this browser."); return; }
+    rec = new R();
+    rec.lang = 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
+    rec.onresult = (ev)=>{
+      const txt = ev.results[0][0].transcript.toLowerCase();
+      log("🎧 heard: " + txt);
+      if(txt.includes('wave')) handleAction('wave');
+      else if(txt.includes('spin')) handleAction('spin');
+      else if(txt.includes('hello')||txt.includes('talk')) handleAction('talk');
+      else log("🤔 try: wave • spin • hello");
+    };
+    rec.start();
+    log("🎙️ listening…");
+  });
+
+  // HUD buttons
+  document.getElementById('btnWave').onclick = ()=>handleAction('wave');
+  document.getElementById('btnSpin').onclick = ()=>handleAction('spin');
+  document.getElementById('btnJoke').onclick = ()=>handleAction('talk');
+
+  // ---------------------------
+  // Resize + Camera drift
+  // ---------------------------
+  addEventListener('resize',()=>{
+    camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  // Gentle camera parallax
+  addEventListener('pointermove',(e)=>{
+    const nx = (e.clientX/innerWidth - 0.5);
+    const ny = (e.clientY/innerHeight - 0.5);
+    camera.position.x = 0.8 + nx*0.6;
+    camera.position.y = 1.2 + -ny*0.3;
+    camera.lookAt(0,0.6,0);
+  });
+
+  // Utility log
+  function log(s){ logEl.textContent = s; }
+
+  // ---------------------------
+  // Main loop
+  // ---------------------------
+  let last = performance.now();
+  function loop(now){
+    const dt = Math.min(0.05,(now-last)/1000); last = now;
+    const t = now/1000;
+
+    // FSM transitions
+    if(state.mode==='idle' && (now - state.lastInteraction) > state.curiousDelay){
+      setMode('curious');
+    }
+    if(state.mode==='curious' && (now - state.lastInteraction) > state.curiousDelay + 15000){
+      setMode('idle');
+      state.lastInteraction = now;
+    }
+
+    // Per-state updates
+    updateLEDs(dt);
+    if(state.mode==='idle') updateIdle(t);
+    if(state.mode==='curious') updateCurious(t);
+    if(state.mode==='playful') updatePlayful(dt);
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  setTimeout(()=>{hint.style.opacity=.22}, 500);
+
+})();
+</script>
+</body>
+</html>
