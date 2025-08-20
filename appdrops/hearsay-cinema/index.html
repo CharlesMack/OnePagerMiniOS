@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Hearsay Cinema — Offline MP4 Player</title>
+<style>
+  :root{
+    --bg:#0a0b0f; --glass:#0f162a99; --stroke:#1f294b; --fg:#e6e8ee; --muted:#9fb2d0;
+    --accent:#7af0ff; --hot:#ff5c7a; --ok:#6be675; --ring:#2b3a67;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:
+    radial-gradient(1200px 700px at 70% -20%, #1b2440 0%, #0a0b0f 60%) fixed;
+    color:var(--fg); font:500 13px/1.35 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto}
+  .app{position:fixed; inset:0; display:grid; grid-template-columns: 290px 1fr; gap:14px; padding:14px}
+  @media (max-width: 1024px){ .app{grid-template-columns:1fr} .sidebar{order:2} }
+  .glass{background:linear-gradient(180deg, #121a33aa, #0e152b88); border:1px solid var(--stroke);
+         border-radius:18px; backdrop-filter: blur(14px) saturate(115%);}
+  .btn{display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border:1px solid var(--ring);
+       background:linear-gradient(180deg,#151d39,#0f1429); color:var(--fg); border-radius:12px; cursor:pointer; user-select:none}
+  .btn:disabled{opacity:.55; cursor:not-allowed}
+  .btn.ghost{background:transparent}
+  .btn.alt{background:linear-gradient(180deg,#173242,#0e1f2a); border-color:#1f3a4b}
+  .icon{opacity:.9}
+  .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+  .sidebar{padding:12px}
+  .section{margin-bottom:12px}
+  .title{font-weight:700; letter-spacing:.3px}
+  .muted{color:var(--muted)}
+  input[type="range"]{width:160px}
+  .list{display:grid; gap:8px; grid-template-columns:1fr}
+  .card{display:grid; grid-template-columns:74px 1fr; gap:10px; padding:8px; border:1px solid #203158;
+        border-radius:12px; background:linear-gradient(180deg,#0c1226,#0a1022); cursor:pointer}
+  .thumb{width:74px; height:46px; border-radius:8px; overflow:hidden; background:#0b1120; border:1px solid #1b2a53}
+  .thumb img{width:100%; height:100%; object-fit:cover}
+  .meta .name{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .meta .small{color:var(--muted); font-size:11px}
+  .active{outline:2px solid var(--accent); outline-offset:2px}
+  /* Player */
+  .player{position:relative; padding:12px; display:flex; flex-direction:column; gap:12px}
+  .stage{position:relative; border:1px solid var(--stroke); border-radius:16px; overflow:hidden; background:#0b1120}
+  video{display:block; width:100%; height:auto; background:#000}
+  .vis{position:absolute; inset:auto 10px 10px 10px; height:48px; pointer-events:none; opacity:.8}
+  /* Controls */
+  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;
+            padding:10px; border:1px solid var(--stroke); border-radius:14px; background:linear-gradient(180deg,#0f162b,#0b1226)}
+  .left,.right{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .time{min-width:96px; text-align:center; font-variant-numeric: tabular-nums}
+  .seek{display:flex; align-items:center; gap:8px; flex:1 1 360px}
+  .seek input[type="range"]{flex:1}
+  .chip{padding:2px 8px; border:1px solid #203158; border-radius:999px; background:#0d142a; color:#cfe2ff; font-size:11px}
+  .toggle{border-color:#284169}
+  .toggle.active{border-color:#3a86a0; background:#0e2030}
+  .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:#0b1426; border:1px solid #233057; border-radius:6px; padding:2px 6px}
+  .dropmask{position:fixed; inset:0; display:none; place-items:center; background:#0b1120cc; z-index:9999}
+  .dropmask.active{display:grid}
+  .dropmask .dropzone{border:2px dashed #455a9e; border-radius:18px; padding:40px; color:#cfe2ff; text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar glass">
+    <div class="section">
+      <div class="title">🎬 Hearsay Cinema</div>
+      <div class="muted" style="margin-top:4px">Offline MP4 player with playlist, A-B loop, and visualizer.</div>
+    </div>
+    <div class="section row">
+      <button class="btn" id="openFiles">📁 Open files</button>
+      <button class="btn" id="openFolder">🗂️ Open folder</button>
+      <label class="btn">
+        ➕ Add
+        <input id="fileInput" type="file" accept="video/mp4,video/webm" multiple style="display:none"/>
+      </label>
+    </div>
+    <div class="section">
+      <div class="row" style="justify-content:space-between">
+        <span class="muted">Playlist</span>
+        <button class="btn ghost" id="clearList">🧹 Clear</button>
+      </div>
+      <div id="list" class="list" aria-label="Playlist"></div>
+    </div>
+    <div class="section">
+      <div class="muted">Tips: <span class="kbd">Space</span> play/pause · <span class="kbd">L</span> loop · <span class="kbd">A</span>/<span class="kbd">B</span> set A-B</div>
+    </div>
+  </aside>
+
+  <!-- Player -->
+  <main class="player glass">
+    <div class="stage" id="stage">
+      <video id="video" preload="metadata" crossorigin="anonymous" playsinline></video>
+      <canvas id="vis" class="vis"></canvas>
+    </div>
+
+    <div class="controls">
+      <div class="left">
+        <button class="btn" id="prevBtn" title="Previous">⏮️</button>
+        <button class="btn" id="playBtn" title="Play/Pause">▶️</button>
+        <button class="btn" id="nextBtn" title="Next">⏭️</button>
+
+        <div class="seek">
+          <span class="time" id="timeNow">00:00</span>
+          <input id="seek" type="range" min="0" max="100" step="0.1" value="0" />
+          <span class="time" id="timeEnd">00:00</span>
+        </div>
+      </div>
+
+      <div class="right">
+        <button class="btn toggle" id="loopBtn" title="Loop whole video">🔁 Loop</button>
+        <button class="btn toggle" id="abA" title="Set A (start)">A</button>
+        <button class="btn toggle" id="abB" title="Set B (end)">B</button>
+        <span class="chip" id="abLabel">A-B: —</span>
+
+        <label class="row muted" style="gap:6px">Vol
+          <input id="vol" type="range" min="0" max="1" step="0.01" />
+        </label>
+        <button class="btn" id="muteBtn" title="Mute/Unmute">🔊</button>
+
+        <select id="rate" class="btn alt" title="Playback speed">
+          <option value="0.5">0.5×</option>
+          <option value="0.75">0.75×</option>
+          <option value="1" selected>1×</option>
+          <option value="1.25">1.25×</option>
+          <option value="1.5">1.5×</option>
+          <option value="2">2×</option>
+        </select>
+        <button class="btn" id="fullscreenBtn" title="Fullscreen">⛶</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Drag & drop mask -->
+<div id="dropmask" class="dropmask">
+  <div class="dropzone">
+    <div style="font-size:22px; margin-bottom:8px">Drop MP4/WebM files here</div>
+    <div class="muted">They’ll be added to the playlist offline.</div>
+  </div>
+</div>
+
+<script>
+/* ===========================
+   State & Elements
+=========================== */
+const el = {
+  video: qs('#video'), vis: qs('#vis'),
+  list: qs('#list'), stage: qs('#stage'),
+  openFiles: qs('#openFiles'), openFolder: qs('#openFolder'), fileInput: qs('#fileInput'), clearList: qs('#clearList'),
+  playBtn: qs('#playBtn'), prevBtn: qs('#prevBtn'), nextBtn: qs('#nextBtn'),
+  seek: qs('#seek'), timeNow: qs('#timeNow'), timeEnd: qs('#timeEnd'),
+  loopBtn: qs('#loopBtn'), abA: qs('#abA'), abB: qs('#abB'), abLabel: qs('#abLabel'),
+  vol: qs('#vol'), muteBtn: qs('#muteBtn'), rate: qs('#rate'), fullscreenBtn: qs('#fullscreenBtn'),
+  dropmask: qs('#dropmask')
+};
+let playlist = []; // {name, file, url, thumb?}
+let index = -1;
+const settings = loadSettings();
+let abLoop = {a:null, b:null};
+let audioCtx, analyser, dataArray, sourceNode, visRAF, visReady = false;
+
+/* ===========================
+   Boot
+=========================== */
+boot();
+function boot(){
+  // settings
+  el.video.volume = clamp(settings.volume ?? 0.9, 0, 1);
+  el.vol.value = el.video.volume;
+  el.video.playbackRate = clamp(settings.rate ?? 1, 0.25, 4);
+  el.rate.value = String(el.video.playbackRate);
+  toggleBtn(el.loopBtn, !!settings.loop);
+
+  // wire UI
+  el.openFiles.onclick = pickFiles;
+  el.openFolder.onclick = pickFolder;
+  el.fileInput.onchange = (e)=> addFiles(e.target.files);
+  el.clearList.onclick = clearPlaylist;
+
+  el.playBtn.onclick = togglePlay;
+  el.prevBtn.onclick = ()=> select(index-1);
+  el.nextBtn.onclick = ()=> select(index+1);
+
+  el.seek.oninput = onSeekInput;
+  el.seek.onchange = onSeekCommit;
+
+  el.loopBtn.onclick = ()=> { toggleBtn(el.loopBtn); saveSettings(); };
+  el.abA.onclick = ()=> setAB('a');
+  el.abB.onclick = ()=> setAB('b');
+
+  el.vol.oninput = ()=> { el.video.volume = +el.vol.value; saveSettingsDebounced(); };
+  el.muteBtn.onclick = ()=> { el.video.muted = !el.video.muted; el.muteBtn.textContent = el.video.muted ? '🔈' : '🔊'; };
+
+  el.rate.onchange = ()=> { el.video.playbackRate = +el.rate.value; saveSettings(); };
+  el.fullscreenBtn.onclick = toggleFullscreen;
+
+  el.video.addEventListener('timeupdate', onTime);
+  el.video.addEventListener('loadedmetadata', onMeta);
+  el.video.addEventListener('ended', onEnded);
+
+  window.addEventListener('keydown', onKey);
+  window.addEventListener('dragover', e=>{ e.preventDefault(); el.dropmask.classList.add('active'); });
+  window.addEventListener('drop', onDrop);
+  el.dropmask.addEventListener('dragenter', e=> e.preventDefault());
+  el.dropmask.addEventListener('dragleave', ()=> el.dropmask.classList.remove('active'));
+
+  // restore last session (best effort)
+  if (settings.lastNames && settings.lastNames.length) {
+    // We cannot rehydrate files automatically for privacy reasons; show hint
+    toast('Tip: Click “Open folder” to quickly rebuild your last playlist.');
+  }
+}
+
+/* ===========================
+   File intake
+=========================== */
+async function pickFiles(){
+  if (window.showOpenFilePicker){
+    try{
+      const handles = await showOpenFilePicker({ multiple:true, types:[{description:'Video', accept:{'video/*':['.mp4','.webm']}}] });
+      const files = await Promise.all(handles.map(h=>h.getFile()));
+      addFiles(files);
+    }catch{}
+  } else {
+    el.fileInput.click();
+  }
+}
+async function pickFolder(){
+  if (!window.showDirectoryPicker){ toast('Folder picker not supported in this browser. Use “Open files”.'); return; }
+  try{
+    const dir = await showDirectoryPicker();
+    const files = [];
+    for await (const entry of dir.values()){
+      if (entry.kind === 'file' && /\.(mp4|webm)$/i.test(entry.name)) {
+        files.push(await entry.getFile());
+      }
+    }
+    addFiles(files.sort((a,b)=>a.name.localeCompare(b.name)));
+  }catch{}
+}
+function addFiles(files){
+  const arr = Array.from(files || []).filter(f=> /\.(mp4|webm)$/i.test(f.name));
+  if (!arr.length){ toast('No MP4/WebM files found.'); return; }
+  for (const f of arr){
+    const url = URL.createObjectURL(f);
+    playlist.push({name:f.name, file:f, url});
+  }
+  saveSettings(); // store names only (for hint)
+  renderList();
+  if (index === -1) select(0);
+}
+
+/* ===========================
+   Playlist UI
+=========================== */
+function renderList(){
+  el.list.innerHTML = '';
+  if (!playlist.length){
+    el.list.innerHTML = `<div class="muted">No items yet. Use <b>Open files</b> or drag & drop.</div>`;
+    return;
+  }
+  playlist.forEach((item,i)=>{
+    const card = document.createElement('div');
+    card.className = 'card' + (i===index? ' active':'' );
+    card.onclick = ()=> select(i);
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    if (item.thumb){
+      const img = new Image(); img.src = item.thumb; thumb.appendChild(img);
+    }
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML = `<div class="name">${escapeHtml(item.name)}</div><div class="small">${i+1} / ${playlist.length}</div>`;
+    card.appendChild(thumb); card.appendChild(meta);
+    el.list.appendChild(card);
+  });
+}
+function clearPlaylist(){
+  // revoke object URLs
+  playlist.forEach(p=> { try{ if (p.url) URL.revokeObjectURL(p.url); }catch{} });
+  playlist = []; index = -1; abLoop = {a:null,b:null}; updateABLabel();
+  el.video.removeAttribute('src'); el.video.load();
+  renderList(); updatePlayBtn(false); setSeek(0,0);
+}
+
+/* ===========================
+   Selection & playback
+=========================== */
+function select(i){
+  if (!playlist.length) return;
+  index = mod(i, playlist.length);
+  const item = playlist[index];
+  el.video.pause();
+  el.video.src = item.url;
+  el.video.loop = el.loopBtn.classList.contains('active');
+  el.video.playbackRate = +el.rate.value;
+  updatePlayBtn(false);
+  highlightActive();
+  // Generate thumbnail on first load
+  if (!item.thumb){ generateThumb(item); }
+  // Start visualizer pipeline (on user gesture later)
+  ensureAudioViz();
+  // remember
+  saveSettings();
+}
+function highlightActive(){
+  [...el.list.children].forEach((c, i)=> c.classList.toggle('active', i===index));
+}
+function togglePlay(){
+  if (el.video.paused){ el.video.play(); updatePlayBtn(true); ensureAudioViz(true); }
+  else { el.video.pause(); updatePlayBtn(false); }
+}
+function updatePlayBtn(playing){
+  el.playBtn.textContent = playing ? '⏸️' : '▶️';
+}
+function onEnded(){
+  if (abLoop.a!=null && abLoop.b!=null){ el.video.currentTime = abLoop.a; el.video.play(); return; }
+  if (el.loopBtn.classList.contains('active')){ el.video.play(); return; }
+  select(index+1);
+}
+
+/* ===========================
+   Time, seek, meta
+=========================== */
+function onMeta(){
+  setSeek(0, el.video.duration || 0);
+  el.timeEnd.textContent = fmtTime(el.video.duration);
+}
+function onTime(){
+  // A-B loop enforcement
+  if (abLoop.a!=null && abLoop.b!=null){
+    if (el.video.currentTime < abLoop.a) el.video.currentTime = abLoop.a;
+    if (el.video.currentTime > abLoop.b) el.video.currentTime = abLoop.a;
+  }
+  el.timeNow.textContent = fmtTime(el.video.currentTime);
+  if (!el.seekDragging){ el.seek.value = (el.video.currentTime / (el.video.duration||1)) * 100; }
+}
+function onSeekInput(e){
+  el.seekDragging = true;
+  const t = (+el.seek.value/100) * (el.video.duration||0);
+  el.timeNow.textContent = fmtTime(t);
+}
+function onSeekCommit(e){
+  const t = (+el.seek.value/100) * (el.video.duration||0);
+  el.video.currentTime = t; el.seekDragging = false;
+}
+function setSeek(curr, dur){
+  el.seek.value = dur? (curr/dur)*100 : 0;
+  el.timeNow.textContent = fmtTime(curr || 0);
+  el.timeEnd.textContent = fmtTime(dur || 0);
+}
+
+/* ===========================
+   Loop & A-B
+=========================== */
+function toggleBtn(b, force){
+  b.classList.toggle('active', force===undefined ? !b.classList.contains('active') : force);
+  if (b===el.loopBtn){ el.video.loop = b.classList.contains('active'); }
+  return b.classList.contains('active');
+}
+function setAB(which){
+  if (!el.video.duration) return;
+  if (which==='a'){ abLoop.a = el.video.currentTime; toggleBtn(el.abA, true); }
+  if (which==='b'){ abLoop.b = el.video.currentTime; toggleBtn(el.abB, true); }
+  if (abLoop.a!=null && abLoop.b!=null && abLoop.b < abLoop.a){
+    // swap if needed
+    [abLoop.a, abLoop.b] = [abLoop.b, abLoop.a];
+  }
+  updateABLabel();
+}
+function updateABLabel(){
+  const a = abLoop.a!=null ? fmtTime(abLoop.a) : '—';
+  const b = abLoop.b!=null ? fmtTime(abLoop.b) : '—';
+  el.abLabel.textContent = `A-B: ${a} → ${b}`;
+}
+
+/* ===========================
+   Visualizer (AudioContext)
+=========================== */
+function ensureAudioViz(autostart){
+  if (visReady) return;
+  // Create context lazily (requires user gesture before resume in some browsers)
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  sourceNode = audioCtx.createMediaElementSource(el.video);
+  sourceNode.connect(analyser);
+  analyser.connect(audioCtx.destination); // let audio pass through
+  visReady = true;
+  drawViz();
+  if (autostart && audioCtx.state === 'suspended'){ audioCtx.resume(); }
+}
+function drawViz(){
+  const ctx = el.vis.getContext('2d');
+  const {width, height} = el.vis;
+  el.vis.width = el.stage.clientWidth - 20;
+  el.vis.height = 48;
+  analyser.getByteFrequencyData(dataArray);
+  ctx.clearRect(0,0,el.vis.width, el.vis.height);
+  const barW = (el.vis.width / dataArray.length);
+  for (let i=0;i<dataArray.length;i++){
+    const v = dataArray[i] / 255;
+    const h = v * el.vis.height;
+    ctx.fillStyle = `rgba(122,240,255,${0.15 + v*0.7})`;
+    ctx.fillRect(i*barW, el.vis.height - h, barW*0.9, h);
+  }
+  visRAF = requestAnimationFrame(drawViz);
+}
+
+/* ===========================
+   Thumbnails
+=========================== */
+function generateThumb(item){
+  const v = document.createElement('video');
+  v.src = item.url; v.muted = true; v.preload='metadata'; v.currentTime = 1;
+  v.addEventListener('loadeddata', ()=>{
+    try{
+      const c = document.createElement('canvas');
+      const w = 160, h = 100;
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(v, 0, 0, w, h);
+      item.thumb = c.toDataURL('image/jpeg', 0.7);
+      renderList();
+      v.src = ''; v.remove();
+    }catch{}
+  }, {once:true});
+}
+
+/* ===========================
+   Keyboard & DnD
+=========================== */
+function onKey(e){
+  if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+  if (e.code === 'Space'){ e.preventDefault(); togglePlay(); }
+  else if (e.key === 'ArrowRight'){ el.video.currentTime = Math.min((el.video.currentTime||0)+5, el.video.duration||0); }
+  else if (e.key === 'ArrowLeft'){ el.video.currentTime = Math.max((el.video.currentTime||0)-5, 0); }
+  else if (e.key.toLowerCase() === 'l'){ toggleBtn(el.loopBtn); saveSettings(); }
+  else if (e.key.toLowerCase() === 'a'){ setAB('a'); }
+  else if (e.key.toLowerCase() === 'b'){ setAB('b'); }
+  else if (e.key.toLowerCase() === 'f'){ toggleFullscreen(); }
+  else if (e.key === 'ArrowUp'){ el.video.volume = clamp(el.video.volume + 0.05, 0, 1); el.vol.value = el.video.volume; saveSettingsDebounced(); }
+  else if (e.key === 'ArrowDown'){ el.video.volume = clamp(el.video.volume - 0.05, 0, 1); el.vol.value = el.video.volume; saveSettingsDebounced(); }
+}
+function onDrop(e){
+  e.preventDefault(); el.dropmask.classList.remove('active');
+  const files = Array.from(e.dataTransfer.files || []);
+  addFiles(files);
+}
+
+/* ===========================
+   Fullscreen
+=========================== */
+function toggleFullscreen(){
+  const elTarget = document.fullscreenElement ? document : el.stage;
+  if (!document.fullscreenElement){ elTarget.requestFullscreen?.(); }
+  else { elTarget.exitFullscreen?.(); }
+}
+
+/* ===========================
+   Settings
+=========================== */
+function loadSettings(){
+  try{ return JSON.parse(localStorage.getItem('hearsay_cinema_settings')||'{}'); }catch{ return {}; }
+}
+function saveSettings(){
+  const s = {
+    volume: el.video.volume,
+    rate: el.video.playbackRate,
+    loop: el.loopBtn.classList.contains('active'),
+    lastIndex: index,
+    lastNames: playlist.map(p=>p.name).slice(0,50) // hint only
+  };
+  localStorage.setItem('hearsay_cinema_settings', JSON.stringify(s));
+}
+const saveSettingsDebounced = debounce(saveSettings, 300);
+
+/* ===========================
+   Helpers
+=========================== */
+function fmtTime(t){
+  if (!isFinite(t)) return '00:00';
+  const m = Math.floor(t/60), s = Math.floor(t%60);
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+function debounce(fn,ms){ let id; return (...a)=>{ clearTimeout(id); id=setTimeout(()=>fn(...a),ms); }; }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function mod(n,m){ return ((n % m) + m) % m; }
+function toast(msg){
+  const d = document.createElement('div');
+  d.textContent = msg;
+  d.style.cssText = "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#101a33;border:1px solid #2a3356;color:#e6e8ee;padding:8px 12px;border-radius:10px;z-index:10000";
+  document.body.appendChild(d);
+  setTimeout(()=> d.remove(), 1300);
+}
+function escapeHtml(str){ return (str??'').replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
+function qs(s){ return document.querySelector(s); }
+</script>
+</body>
+</html>
