@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>P.O.P.S. — Charles 5 (World + FSM + Voice)</title>
+<style>
+  :root{
+    --bg:#0a0d14; --fg:#eaf0ff; --muted:#9aacbf; --rim:#1e2a45; --accent:#7af0ff; --hot:#ff5c7a;
+  }
+  *{box-sizing:border-box} html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 70% -20%,#1b2440 0%,#0a0d14 60%)}
+  #app{position:fixed;inset:0;overflow:hidden} canvas{display:block}
+  #hud{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip,button,label.toggle{
+    border:1px solid var(--rim);border-radius:12px;background:linear-gradient(180deg,#141a2b,#0f1525);
+    color:var(--fg);padding:8px 12px;font:600 12px/1.1 Inter,ui-sans-serif,system-ui;box-shadow:0 8px 24px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04)
+  }
+  button{cursor:pointer} button:hover{filter:brightness(1.08)}
+  #log{position:fixed;left:12px;bottom:12px;max-width:min(640px,80vw);padding:10px 12px;border:1px solid var(--rim);border-radius:12px;background:#0d1222;color:var(--muted);font:500 12px/1.35 Inter,ui-sans-serif;white-space:pre-wrap}
+  #stats{position:fixed;right:12px;top:12px;z-index:10;color:#cfe2ff;font:600 12px/1.35 Inter,ui-sans-serif;background:#0d1222a8;border:1px solid var(--rim);border-radius:12px;padding:8px 12px}
+  #centerHint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);color:#c7d2fe;font:700 16px Inter;text-shadow:0 2px 12px rgba(0,0,0,.6);opacity:.0;transition:opacity .6s ease;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud">
+  <div class="chip">💾 <b>P.O.P.S.</b> Charles 5 — World Mode</div>
+  <button id="btnFP">👁️ First‑Person</button>
+  <button id="btnTP">🎥 Third‑Person</button>
+  <button id="btnManual">🕹️ Manual</button>
+  <button id="btnAuto">🤖 Auto</button>
+  <button id="btnFocus">🎯 Focus</button>
+  <button id="btnTired">😴 Tired</button>
+  <button id="btnSolar">🔆 Sunbathe</button>
+  <button id="btnDance">💃 Dance</button>
+  <label class="toggle"><input id="shaderToggle" type="checkbox"> Shader Look</label>
+  <label class="toggle"><input id="voiceToggle" type="checkbox"> Voice</label>
+  <button id="btnListen">🎤 Listen</button>
+  <button id="btnSave">💾 Save Profile</button>
+</div>
+<div id="stats"></div>
+<div id="centerHint">WASD to move · Mouse to look (click to lock) · Click parts of Charles 5</div>
+<div id="log">ready.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  // ---------- Helpers: log + clamp ----------
+  const logEl = document.getElementById('log');
+  const statsEl = document.getElementById('stats');
+  const hint = document.getElementById('centerHint');
+  const log = (s)=>logEl.textContent = s;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+
+  // ---------- Renderer / Scene / Camera ----------
+  const app = document.getElementById('app');
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 1000);
+  camera.position.set(0.8, 1.2, 3.6);
+  const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  app.appendChild(renderer.domElement);
+
+  // ---------- Lights + Day/Night ----------
+  const hemi = new THREE.HemisphereLight(0xaed8ff, 0x0a0d14, .7); scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xffffff, .9); sun.position.set(6,8,4); scene.add(sun);
+
+  let dayClock = 0;                      // seconds
+  const DAY_LEN = 120;                   // 2 minutes per full cycle
+  function updateDayNight(dt){
+    dayClock = (dayClock + dt) % DAY_LEN;
+    const phase = dayClock / DAY_LEN;    // 0..1
+    // sun angle
+    const ang = phase * Math.PI*2;
+    sun.position.set(Math.cos(ang)*8, Math.sin(ang)*8, 4);
+    const daylight = clamp(Math.sin(ang)*0.5+0.5, 0.08, 1.0);
+    sun.intensity = lerp(0.08, 1.0, daylight);
+    hemi.intensity = lerp(0.08, 0.7, daylight);
+    // LED dimming happens later via state + daylight
+    return daylight;
+  }
+
+  // ---------- World: Ground + Instanced props ----------
+  // Ground (slight height variation)
+  const groundGeo = new THREE.PlaneGeometry(400, 400, 200, 200);
+  groundGeo.rotateX(-Math.PI/2);
+  for(let i=0;i<groundGeo.attributes.position.count;i++){
+    const x = groundGeo.attributes.position.getX(i);
+    const z = groundGeo.attributes.position.getZ(i);
+    const h = (Math.sin(x*0.03)+Math.cos(z*0.025))*0.15 + (Math.sin((x+z)*0.02))*0.1;
+    groundGeo.attributes.position.setY(i, h);
+  }
+  groundGeo.computeVertexNormals();
+  const groundMat = new THREE.MeshStandardMaterial({color:0x0f1525, roughness:0.95, metalness:0.0});
+  const ground = new THREE.Mesh(groundGeo, groundMat); ground.receiveShadow=false; scene.add(ground);
+
+  // Props: pillars to show distance (instanced)
+  const pillarGeo = new THREE.CylinderGeometry(0.25,0.25,Math.random()*3+2, 12);
+  const pillarMat = new THREE.MeshStandardMaterial({color:0x1e2a49, roughness:0.9});
+  const PILLAR_COUNT = 1200;
+  const pillars = new THREE.InstancedMesh(pillarGeo, pillarMat, PILLAR_COUNT);
+  const dummy = new THREE.Object3D();
+  for(let i=0;i<PILLAR_COUNT;i++){
+    const x = (Math.random()-0.5)*380;
+    const z = (Math.random()-0.5)*380;
+    dummy.position.set(x, 0, z);
+    dummy.rotation.y = Math.random()*Math.PI*2;
+    dummy.updateMatrix();
+    pillars.setMatrixAt(i, dummy.matrix);
+  }
+  pillars.instanceMatrix.needsUpdate = true;
+  scene.add(pillars); // InstancedMesh improves perf when many repeats are needed. :contentReference[oaicite:5]{index=5}
+
+  // ---------- Materials (toon & shader look) ----------
+  const toon = (color, emissive=0x000000)=>new THREE.MeshToonMaterial({color, emissive, emissiveIntensity:.8});
+  // Optional pure-shader toon ramp (toggle)
+  function makeToonShader(color=0x32406a){
+    const col = new THREE.Color(color);
+    const vsh = `
+      varying vec3 vNormal; varying vec3 vWorldPos;
+      void main(){
+        vNormal = normalize(normalMatrix * normal);
+        vec4 wp = modelMatrix * vec4(position,1.0);
+        vWorldPos = wp.xyz;
+        gl_Position = projectionMatrix * viewMatrix * wp;
+      }`;
+    const fsh = `
+      uniform vec3 uColor; uniform vec3 uLightDir;
+      varying vec3 vNormal;
+      void main(){
+        float ndl = max(dot(normalize(vNormal), normalize(uLightDir)), 0.0);
+        float band = step(0.7, ndl)*1.0 + step(0.35, ndl)*0.6 + step(0.08, ndl)*0.35;
+        vec3 c = uColor * band;
+        gl_FragColor = vec4(c,1.0);
+      }`;
+    return new THREE.ShaderMaterial({
+      vertexShader:vsh, fragmentShader:fsh,
+      uniforms:{ uColor:{value:col}, uLightDir:{value:new THREE.Vector3().copy(sun.position).normalize()} },
+      lights:false
+    }); // Custom toon ramp via ShaderMaterial. :contentReference[oaicite:6]{index=6}
+  }
+
+  function outlined(mesh, color=0x070b12, scale=1.03){
+    // inverted-hull outline: cheap, no post-processing :contentReference[oaicite:7]{index=7}
+    const outline = mesh.clone();
+    outline.material = new THREE.MeshBasicMaterial({color, side:THREE.BackSide});
+    outline.scale.multiplyScalar(scale);
+    const g = new THREE.Group(); g.add(outline, mesh); return g;
+  }
+
+  let useShaderLook = false;
+
+  // ---------- Charles 5 (procedural body) ----------
+  const Charles = new THREE.Group();
+  Charles.position.y = 0.6; scene.add(Charles);
+
+  let CMatBody = toon(0x2a3558);
+  let CMatHead = toon(0x3a4f86);
+  let CMatLimb = toon(0x2b3a66);
+
+  function buildC5(){
+    Charles.clear();
+
+    const torso = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.9,0.6,0.45),
+      useShaderLook ? makeToonShader(0x2a3558) : CMatBody));
+    torso.name='torso'; Charles.add(torso);
+
+    const neck = outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.18,24),
+      useShaderLook ? makeToonShader(0x3a4a78) : toon(0x3a4a78)));
+    neck.position.y = 0.45; torso.add(neck);
+
+    const head = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.55,0.32,0.32),
+      useShaderLook ? makeToonShader(0x3a4f86) : CMatHead)); head.position.y=0.18; head.name='head'; neck.add(head);
+
+    const eyeMat = new THREE.MeshStandardMaterial({color:0x10131a, emissive:0x77ddff, emissiveIntensity:1.2, roughness:0.4});
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.06,24,24), eyeMat);
+    const eyeR = eyeL.clone(); eyeL.position.set(-0.12,0.03,0.15); eyeR.position.set(0.12,0.03,0.15);
+    head.add(eyeL, eyeR);
+
+    const jaw = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.5,0.05,0.25),
+      useShaderLook ? makeToonShader(0x2b385e) : toon(0x2b385e)));
+    jaw.position.set(0,-0.20,0.03); head.add(jaw);
+
+    // LEDs
+    const ledGeo = new THREE.SphereGeometry(0.025, 12, 12);
+    const ledMat = new THREE.MeshStandardMaterial({color:0x22293f, emissive:0x00e0ff, emissiveIntensity:1.0});
+    LEDs = new THREE.InstancedMesh(ledGeo, ledMat, LED_COUNT);
+    const d = new THREE.Object3D();
+    for(let i=0;i<LED_COUNT;i++){
+      const x = -0.42 + i*(0.84/(LED_COUNT-1)); d.position.set(x, 0.08, 0.23); d.updateMatrix();
+      LEDs.setMatrixAt(i, d.matrix);
+    } LEDs.instanceMatrix.needsUpdate=true; torso.add(LEDs);
+
+    // Arms
+    function makeArm(side=1){
+      const shoulder = outlined(new THREE.Mesh(new THREE.SphereGeometry(0.10,24,24),
+        useShaderLook ? makeToonShader(0x32406a) : CMatLimb));
+      shoulder.position.set(0.50*side,0.18,0.0);
+      const upper = outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.08,0.36,24),
+        useShaderLook ? makeToonShader(0x2b3a66) : CMatLimb));
+      upper.rotation.z = Math.PI/2 * 0.08*side; upper.position.set(0,-0.22,0); shoulder.add(upper);
+      const elbow = outlined(new THREE.Mesh(new THREE.SphereGeometry(0.08,24,24),
+        useShaderLook ? makeToonShader(0x2f3e6b) : CMatLimb));
+      elbow.position.set(0,-0.2,0); upper.add(elbow);
+      const fore = outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.32,24),
+        useShaderLook ? makeToonShader(0x2b3a66) : CMatLimb));
+      fore.position.set(0,-0.20,0); elbow.add(fore);
+      const claw = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.10,0.10,0.18),
+        useShaderLook ? makeToonShader(0x3b4a78) : toon(0x3b4a78)));
+      claw.position.set(0,-0.18,0.02); fore.add(claw);
+      shoulder.userData.joints = {shoulder, upper, elbow, fore, claw};
+      return shoulder;
+    }
+    armL = makeArm(-1); armR = makeArm(1); torso.add(armL, armR);
+
+    // Treads
+    function makeTread(side=1){
+      const g = new THREE.Group();
+      const base = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.1,0.26,0.8),
+        useShaderLook ? makeToonShader(0x243259) : toon(0x243259)));
+      base.position.set(0.45*side,-0.28,0); g.add(base);
+
+      const rollerGeo = new THREE.CylinderGeometry(0.035,0.035,0.6,12); rollerGeo.rotateZ(Math.PI/2);
+      const rollerMat = new THREE.MeshStandardMaterial({color:0x1e2849, metalness:.1, roughness:.8});
+      const count=8; const r = new THREE.InstancedMesh(rollerGeo, rollerMat, count); const d2 = new THREE.Object3D();
+      for(let i=0;i<count;i++){ d2.position.set(0.45*side,-0.28 + (-0.10 + i*(0.20/(count-1))),0); d2.updateMatrix(); r.setMatrixAt(i,d2.matrix); }
+      r.instanceMatrix.needsUpdate = true; g.add(r);
+      g.userData.tread=true; return g;
+    }
+    tL = makeTread(-1); tR = makeTread(1); Charles.add(tL, tR);
+
+    CHead = head; // references
+  }
+
+  let LEDs, armL, armR, tL, tR, CHead;
+  const LED_COUNT = 12;
+  let ledIndex=0;
+
+  // ---------- Camera modes ----------
+  let modeFP = false; // FP or TP
+  const camRig = new THREE.Object3D(); scene.add(camRig);
+  camRig.position.copy(camera.position);
+  let yaw=0, pitch=0;
+  const pointerLocked = ()=>document.pointerLockElement === renderer.domElement;
+  renderer.domElement.addEventListener('click',()=>renderer.domElement.requestPointerLock()); // pointer lock for FP look :contentReference[oaicite:8]{index=8}
+  addEventListener('mousemove',e=>{
+    if(!pointerLocked()) return;
+    const mx = e.movementX || 0, my = e.movementY || 0;
+    yaw -= mx*0.002; pitch = clamp(pitch - my*0.002, -1.2, 1.2);
+  });
+
+  function setFP(){ modeFP=true; log("👁️ First‑person"); }
+  function setTP(){ modeFP=false; log("🎥 Third‑person"); }
+
+  // ---------- Input (WASD) ----------
+  const keys={}; addEventListener('keydown',e=>keys[e.code]=true); addEventListener('keyup',e=>keys[e.code]=false);
+
+  // ---------- FSM ----------
+  const state = {
+    mode:'idle', // idle, curious, playful, focus, tired, solar
+    lastInteraction: performance.now(),
+    curiousDelay: 30000, playfulTimer:0,
+    auto:false, daylight:1.0
+  };
+  function setMode(m){ state.mode=m; log(`mode: ${m}`); }
+
+  // ---------- Movement + Autonomy (Reynolds-style wander/seek) ----------
+  // (Ref: Reynolds steering behaviors) :contentReference[oaicite:9]{index=9}
+  const vel = new THREE.Vector3(), acc = new THREE.Vector3(), forward = new THREE.Vector3(0,0,-1);
+  let target = new THREE.Vector3(0,0,0);
+  function wander(dt){
+    // random small steering changes
+    const jitter = 0.8; target.x += (Math.random()-0.5)*jitter; target.z += (Math.random()-0.5)*jitter;
+    const desired = new THREE.Vector3(target.x,0,target.z).normalize().multiplyScalar(2.0);
+    acc.copy(desired.sub(vel)).multiplyScalar(0.5);
+    vel.addScaledVector(acc, dt).setLength(clamp(vel.length(), 0, 2.2));
+    Charles.position.addScaledVector(vel, dt);
+    // face movement
+    if(vel.lengthSq()>1e-4) Charles.rotation.y = Math.atan2(vel.x, vel.z);
+  }
+  function seek(to, dt){
+    const desired = new THREE.Vector3().subVectors(to, Charles.position).setY(0).normalize().multiplyScalar(2.8);
+    acc.copy(desired.sub(vel)).multiplyScalar(0.6); vel.addScaledVector(acc, dt).setLength(clamp(vel.length(),0,3.0));
+    Charles.position.addScaledVector(vel, dt);
+    if(vel.lengthSq()>1e-4) Charles.rotation.y = Math.atan2(vel.x, vel.z);
+  }
+
+  // ---------- LEDs + micro-animations ----------
+  function updateLEDs(dt){
+    if(!LEDs) return;
+    const idx = Math.floor( (performance.now()/120) % LED_COUNT );
+    if(idx!==ledIndex){
+      const d = new THREE.Object3D();
+      for(let k=0;k<LED_COUNT;k++){
+        d.position.set(-0.42 + k*(0.84/(LED_COUNT-1)), 0.08, 0.23);
+        d.scale.setScalar(k===idx?1.8:1.0); d.updateMatrix();
+        LEDs.setMatrixAt(k, d.matrix);
+      }
+      LEDs.instanceMatrix.needsUpdate=true;
+      ledIndex=idx;
+    }
+  }
+  function headNod(){ if(!CHead) return; let t=0; (function anim(){ t+=0.055; CHead.rotation.x=Math.sin(t)*0.18; if(t<Math.PI*2) requestAnimationFrame(anim); else CHead.rotation.x=0; })(); }
+  function waveArm(){
+    const j = Math.random()<0.5? armL.userData.joints: armR.userData.joints; let t=0;
+    (function anim(){ t+=0.09; j.shoulder.rotation.z=Math.sin(t)*0.6; j.elbow.rotation.z=Math.cos(t*1.3)*0.5; if(t<Math.PI*3) requestAnimationFrame(anim); else {j.shoulder.rotation.z=0;j.elbow.rotation.z=0;} })();
+  }
+  function dance(){ waveArm(); setTimeout(()=>{Charles.rotation.y+=Math.PI/8; waveArm();}, 260); }
+
+  // ---------- Raycaster interactions ----------
+  const raycaster = new THREE.Raycaster(); const pointer = new THREE.Vector2();
+  function setPointer(e){ const r=renderer.domElement.getBoundingClientRect(); pointer.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); }
+  renderer.domElement.addEventListener('pointerdown',e=>{
+    setPointer(e); raycaster.setFromCamera(pointer,camera);
+    const o=raycaster.intersectObjects(Charles.children,true)[0]?.object; if(!o) return;
+    state.lastInteraction = performance.now();
+    if(o.parent?.userData?.tread) dance(); else if(o.name==='head'){ speak("Ready!"); headNod(); setMode('playful'); } else { waveArm(); setMode('playful'); }
+  });
+
+  // ---------- Voice (TTS + optional ASR) ----------
+  const voiceToggle = document.getElementById('voiceToggle');
+  voiceToggle.checked = localStorage.getItem('c5.voice')==='1';
+  voiceToggle.onchange = ()=>localStorage.setItem('c5.voice', voiceToggle.checked?'1':'0');
+
+  function speak(text){
+    if(!voiceToggle.checked) { log("💬 (voice off)"); return; }
+    const u = new SpeechSynthesisUtterance(text); u.rate=1.04; u.pitch=1.05; speechSynthesis.cancel(); speechSynthesis.speak(u);
+  } // Web Speech synthesis :contentReference[oaicite:10]{index=10}
+
+  const btnListen = document.getElementById('btnListen');
+  btnListen.onclick = ()=>{
+    const R = window.SpeechRecognition || window.webkitSpeechRecognition; // Recognition (availability varies) :contentReference[oaicite:11]{index=11}
+    if(!R){ log("🎤 SpeechRecognition not supported"); return; }
+    const rec = new R(); rec.lang='en-US'; rec.interimResults=false; rec.maxAlternatives=1;
+    rec.onresult = (ev)=>{
+      const txt = ev.results[0][0].transcript.toLowerCase();
+      log("🎧 " + txt);
+      if(txt.includes('dance')) { dance(); setMode('playful'); speak("Dancing!"); }
+      else if(txt.includes('first')) setFP();
+      else if(txt.includes('third')) setTP();
+      else if(txt.includes('auto')) { state.auto=true; speak("Autonomous patrol engaged"); }
+      else if(txt.includes('manual')) { state.auto=false; speak("Manual control ready"); }
+      else if(txt.includes('focus')) { setMode('focus'); speak("Focus mode"); }
+      else if(txt.includes('tired')) { setMode('tired'); speak("Power saving"); }
+      else if(txt.includes('sun') || txt.includes('charge')) { setMode('solar'); speak("Sunbathing"); }
+      else if(txt.includes('follow')) { followMe = true; speak("Following"); }
+      else speak("Try: dance, first person, third person, auto, manual, focus, tired, sunbathe, follow me");
+      state.lastInteraction = performance.now();
+    };
+    rec.start(); log("🎙️ listening…");
+  };
+
+  // ---------- Camera & Controls ----------
+  let followMe = false;
+  function updateCamera(dt){
+    // rig orientation from yaw/pitch
+    camRig.rotation.set(0, yaw, 0);
+    const dir = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(0,yaw,0));
+    const up = new THREE.Vector3(0,1,0);
+    if(modeFP){
+      // FP camera at head
+      const headPos = new THREE.Vector3().setFromMatrixPosition(CHead ? CHead.children[0]?.matrixWorld : Charles.matrixWorld);
+      camera.position.copy(headPos).add(new THREE.Vector3(0,0.1,0));
+      const look = new THREE.Vector3().copy(headPos).addScaledVector(dir, 5).addScaledVector(up, pitch*0.5);
+      camera.lookAt(look);
+    }else{
+      // TP chase camera
+      const back = new THREE.Vector3(0,0,2.8).applyEuler(new THREE.Euler(pitch, yaw, 0));
+      const anchor = new THREE.Vector3().copy(Charles.position).add(new THREE.Vector3(0,0.9,0));
+      camera.position.lerp(new THREE.Vector3().copy(anchor).add(back), 0.12);
+      camera.lookAt(anchor);
+    }
+  }
+
+  // ---------- Manual movement ----------
+  const move = new THREE.Vector3();
+  let distanceTraveled = 0; let lastPos = new THREE.Vector3().copy(Charles.position);
+  function manualMove(dt){
+    move.set(0,0,0);
+    const moveSpeed = (state.mode==='tired'? 1.2 : 2.6);
+    const dir = new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw)); // forward
+    const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).negate();
+    if(keys['KeyW']) move.addScaledVector(dir, moveSpeed*dt);
+    if(keys['KeyS']) move.addScaledVector(dir, -moveSpeed*dt);
+    if(keys['KeyA']) move.addScaledVector(right, -moveSpeed*dt);
+    if(keys['KeyD']) move.addScaledVector(right, moveSpeed*dt);
+    Charles.position.add(move);
+    if(move.lengthSq()>1e-6) Charles.rotation.y = Math.atan2(move.x, move.z);
+  }
+
+  // ---------- IndexedDB profile (prefs+stats) ----------
+  // Basic async wrapper from MDN patterns. :contentReference[oaicite:12]{index=12}
+  const DB_NAME = 'charles5'; const STORE='profiles';
+  let db=null; let profile = {
+    id:'default', shader:false, voice:false, cam:'TP', auto:false,
+    stats:{distance:0, sessions:1, start:Date.now()}
+  };
+  function openDB(){
+    return new Promise((resolve,reject)=>{
+      const R = indexedDB.open(DB_NAME,1);
+      R.onupgradeneeded = (e)=>{ const db=e.target.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:'id'}); };
+      R.onsuccess = ()=>resolve(R.result); R.onerror = ()=>reject(R.error);
+    });
+  }
+  async function loadProfile(){
+    db = await openDB();
+    return new Promise((resolve,reject)=>{
+      const tx = db.transaction(STORE,'readonly'); const st = tx.objectStore(STORE);
+      const get = st.get('default'); get.onsuccess = ()=>resolve(get.result||null); get.onerror = ()=>reject(get.error);
+    });
+  }
+  async function saveProfile(){
+    if(!db) db = await openDB();
+    return new Promise((resolve,reject)=>{
+      const tx = db.transaction(STORE,'readwrite'); const st = tx.objectStore(STORE);
+      profile.shader = useShaderLook; profile.voice = voiceToggle.checked; profile.cam = modeFP?'FP':'TP'; profile.auto = state.auto;
+      const put = st.put(profile); put.onsuccess = ()=>resolve(); put.onerror = ()=>reject(put.error);
+    });
+  }
+  document.getElementById('btnSave').onclick = ()=>{ saveProfile().then(()=>log("💾 profile saved")).catch(e=>log(String(e))); };
+
+  // ---------- UI buttons ----------
+  document.getElementById('btnFP').onclick = setFP;
+  document.getElementById('btnTP').onclick = setTP;
+  document.getElementById('btnManual').onclick = ()=>{ state.auto=false; log("🕹️ Manual"); };
+  document.getElementById('btnAuto').onclick = ()=>{ state.auto=true; log("🤖 Auto"); };
+  document.getElementById('btnFocus').onclick = ()=>setMode('focus');
+  document.getElementById('btnTired').onclick = ()=>setMode('tired');
+  document.getElementById('btnSolar').onclick = ()=>setMode('solar');
+  document.getElementById('btnDance').onclick = ()=>{ dance(); setMode('playful'); };
+
+  const shaderToggle = document.getElementById('shaderToggle');
+  shaderToggle.onchange = ()=>{ useShaderLook = shaderToggle.checked; buildC5(); };
+
+  // ---------- Boot ----------
+  let last = performance.now();
+  let LEDDayIntensity = 1.0;
+
+  (async function boot(){
+    try{
+      const saved = await loadProfile(); if(saved){ profile = saved; useShaderLook = profile.shader; document.getElementById('voiceToggle').checked = profile.voice; profile.stats.sessions++; }
+    }catch{}
+    buildC5();
+    shaderToggle.checked = useShaderLook;
+    setTP();
+    setTimeout(()=>{ hint.style.opacity=.22; }, 600);
+    requestAnimationFrame(loop);
+  })();
+
+  // ---------- Main loop ----------
+  function loop(now){
+    const dt = Math.min(0.05,(now-last)/1000); last=now;
+    const daylight = updateDayNight(dt); state.daylight = daylight;
+
+    // LEDs brighten in focus/playful, dim at night or tired/solar
+    if(LEDs){
+      const targetI =
+        (state.mode==='solar'||state.mode==='tired') ? 0.25 :
+        (state.mode==='focus'||state.mode==='playful') ? 1.3 :
+        lerp(0.4, 1.0, daylight);
+      LEDDayIntensity = lerp(LEDDayIntensity, targetI, 0.08);
+      LEDs.material.emissiveIntensity = LEDDayIntensity;
+    }
+
+    // FSM transitions
+    if(state.mode==='idle' && (now - state.lastInteraction) > state.curiousDelay) setMode('curious');
+    if(state.mode==='curious' && (now - state.lastInteraction) > state.curiousDelay + 15000){ setMode('idle'); state.lastInteraction=now; }
+    if(state.mode==='playful'){ state.playfulTimer += dt; if(state.playfulTimer>4){ state.playfulTimer=0; setMode('idle'); } }
+
+    // Control: manual or auto
+    if(state.auto && state.mode!=='solar'){ // autonomous
+      if(followMe){ // follow camera anchor
+        const aim = new THREE.Vector3().copy(camera.position); aim.y=0; seek(aim, dt);
+      }else{
+        wander(dt);
+      }
+    }else{
+      if(state.mode!=='solar') manualMove(dt);
+    }
+
+    // Distance/time stats
+    const distStep = Charles.position.distanceTo(lastPos); distanceTraveled += distStep; lastPos.copy(Charles.position);
+    profile.stats.distance = distanceTraveled;
+
+    // Micro updaters
+    updateLEDs(dt);
+    updateCamera(dt);
+
+    // Render
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+
+    // HUD stats
+    statsEl.innerHTML = `Mode: <b>${state.mode}${state.auto?' + Auto':''}${modeFP?' + FP':' + TP'}</b><br>
+Daylight: ${(daylight*100)|0}% &nbsp; LEDs: ${LEDDayIntensity.toFixed(2)}<br>
+Distance: ${(distanceTraveled).toFixed(1)}m &nbsp; Session: ${(((Date.now()-profile.stats.start)/1000)|0)}s`;
+  }
+
+})();
+</script>
+</body>
+</html>
