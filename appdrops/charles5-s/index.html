@@ -1,0 +1,2207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>P.O.P.S. Legacy System — Charles 5 + Max Autonomous Companion Framework</title>
+<style>
+  :root {
+    /* Core Brand Palette */
+    --bg-primary: #0a0d14;
+    --bg-secondary: #141a2b;
+    --bg-tertiary: #1e2a45;
+    --fg-primary: #eaf0ff;
+    --fg-secondary: #c7d2fe;
+    --fg-muted: #9aacbf;
+    
+    /* Accent Colors */
+    --accent-cyan: #00e5ff;
+    --accent-electric: #7af0ff;
+    --accent-hot: #ff5c7a;
+    --accent-max: #d61d39;
+    --accent-treat: #ffcf7a;
+    --accent-success: #4ade80;
+    --accent-warning: #fbbf24;
+    
+    /* Interactive States */
+    --hover-glow: rgba(122, 240, 255, 0.15);
+    --active-glow: rgba(122, 240, 255, 0.25);
+    --focus-ring: 0 0 0 2px var(--accent-cyan);
+    
+    /* Glass Morphism */
+    --glass-bg: rgba(20, 26, 43, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    
+    /* Motion */
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* Reset & Base */
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: radial-gradient(1400px 800px at 70% -20%, #1b2440 0%, #0f1525 45%, #0a0d14 100%);
+    color: var(--fg-primary);
+    overflow: hidden;
+  }
+
+  /* Canvas Container */
+  #app {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+  }
+  canvas {
+    display: block;
+    cursor: crosshair;
+    transition: filter var(--transition-smooth);
+  }
+  canvas:hover { filter: brightness(1.05); }
+
+  /* Enhanced HUD System */
+  #hud {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: min(400px, 90vw);
+  }
+
+  .hud-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Glass Morphism Components */
+  .glass-panel {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 16px 20px;
+    backdrop-filter: blur(20px) saturate(1.5);
+    box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all var(--transition-smooth);
+  }
+
+  .glass-panel:hover {
+    background: rgba(20, 26, 43, 0.95);
+    box-shadow: var(--glass-shadow), 0 0 20px var(--hover-glow);
+  }
+
+  /* Enhanced Button System */
+  .btn, .btn-primary, .btn-secondary, .btn-danger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 12px;
+    font: 600 13px/1.2 'Inter', sans-serif;
+    color: var(--fg-primary);
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary));
+    border: 1px solid var(--bg-tertiary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    user-select: none;
+    overflow: hidden;
+  }
+
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(122, 240, 255, 0.1));
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  .btn:hover::before { opacity: 1; }
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--accent-cyan);
+  }
+
+  .btn:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent-cyan), #0ea5e9);
+    color: #000;
+    font-weight: 700;
+  }
+
+  .btn-secondary {
+    background: linear-gradient(135deg, var(--accent-treat), #f59e0b);
+    color: #000;
+  }
+
+  .btn-danger {
+    background: linear-gradient(135deg, var(--accent-hot), var(--accent-max));
+  }
+
+  /* Status Indicators */
+  .status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .status-online { background: rgba(74, 222, 128, 0.15); color: var(--accent-success); }
+  .status-auto { background: rgba(122, 240, 255, 0.15); color: var(--accent-electric); }
+  .status-manual { background: rgba(251, 191, 36, 0.15); color: var(--accent-warning); }
+
+  /* Enhanced Stats Panel */
+  #stats {
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    z-index: 100;
+    min-width: 280px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .stat-item {
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .stat-value {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent-electric);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Enhanced Inventory System */
+  #inventory {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 100;
+    max-width: 320px;
+  }
+
+  .inventory-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .inventory-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: var(--accent-treat);
+    color: #000;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .inventory-slot {
+    aspect-ratio: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all var(--transition-fast);
+  }
+
+  .inventory-slot.filled {
+    background: rgba(255, 207, 122, 0.2);
+    border-color: var(--accent-treat);
+  }
+
+  .inventory-slot:hover {
+    transform: scale(1.1);
+    background: var(--hover-glow);
+  }
+
+  .inventory-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* Enhanced Log System */
+  #log {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    z-index: 100;
+    max-width: min(500px, 90vw);
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .log-entry {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 13px;
+    line-height: 1.4;
+    animation: slideIn 0.3s ease-out;
+  }
+
+  .log-entry:last-child { border-bottom: none; }
+  .log-timestamp { color: var(--fg-muted); font-size: 11px; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Floating Hints */
+  #hint {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--fg-secondary);
+    font-size: 16px;
+    font-weight: 600;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.8);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  #hint.show { opacity: 0.7; }
+
+  /* Drag Drop Enhancement */
+  #dropZone {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    border: 3px dashed transparent;
+    transition: all var(--transition-smooth);
+    z-index: 200;
+  }
+
+  #dropZone.active {
+    background: rgba(0, 229, 255, 0.05);
+    border-color: var(--accent-cyan);
+    box-shadow: inset 0 0 0 3px rgba(0, 229, 255, 0.3);
+  }
+
+  /* Toggle Switches */
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 24px;
+  }
+
+  .toggle-input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    transition: all var(--transition-smooth);
+  }
+
+  .toggle-slider::before {
+    position: absolute;
+    content: '';
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background: var(--fg-muted);
+    border-radius: 50%;
+    transition: all var(--transition-smooth);
+  }
+
+  .toggle-input:checked + .toggle-slider {
+    background: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+  }
+
+  .toggle-input:checked + .toggle-slider::before {
+    transform: translateX(24px);
+    background: #000;
+  }
+
+  /* Media Library */
+  .media-library {
+    margin-top: 16px;
+  }
+
+  .media-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    margin: 4px 0;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    font-size: 12px;
+    transition: all var(--transition-fast);
+  }
+
+  .media-item:hover {
+    background: var(--hover-glow);
+    transform: translateX(4px);
+  }
+
+  .media-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    #hud, #stats, #inventory, #log {
+      position: relative;
+      max-width: 100%;
+      margin: 10px;
+    }
+    
+    .hud-section {
+      justify-content: center;
+    }
+    
+    .btn {
+      padding: 12px 16px;
+      font-size: 14px;
+    }
+  }
+
+  /* Animation Classes */
+  .pulse {
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .glow {
+    box-shadow: 0 0 20px currentColor;
+  }
+
+  /* Loading States */
+  .loading {
+    position: relative;
+    pointer-events: none;
+  }
+
+  .loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(122, 240, 255, 0.1);
+    border-radius: inherit;
+    animation: loading 1s ease-in-out infinite;
+  }
+
+  @keyframes loading {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Enhanced HUD System -->
+<div id="hud">
+  <!-- System Status -->
+  <div class="glass-panel">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="font-size: 20px;">🤖</div>
+      <div>
+        <div style="font-weight: 700; font-size: 16px;">P.O.P.S. Legacy System</div>
+        <div style="font-size: 12px; color: var(--fg-muted);">Charles 5 + Max Autonomous Framework</div>
+      </div>
+      <div class="status-indicator status-online">
+        <div class="pulse" style="width: 6px; height: 6px; background: var(--accent-success); border-radius: 50%;"></div>
+        Online
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera Controls -->
+  <div class="hud-section">
+    <button id="btnFP" class="btn">👁️ First Person</button>
+    <button id="btnTP" class="btn">🎥 Third Person</button>
+  </div>
+
+  <!-- Control Mode -->
+  <div class="hud-section">
+    <button id="btnManual" class="btn-secondary">🕹️ Manual</button>
+    <button id="btnAuto" class="btn-primary">🤖 Autonomous</button>
+  </div>
+
+  <!-- Behavior Controls -->
+  <div class="hud-section">
+    <button id="btnFocus" class="btn">🎯 Focus Mode</button>
+    <button id="btnTired" class="btn">😴 Rest Mode</button>
+    <button id="btnSolar" class="btn">🔆 Solar Charge</button>
+    <button id="btnDance" class="btn">💃 Dance Protocol</button>
+  </div>
+
+  <!-- Interaction Systems -->
+  <div class="hud-section">
+    <button id="btnTreat" class="btn-secondary">🍖 Deploy Treat</button>
+    <button id="btnFeed" class="btn-secondary">👨‍🔧 Feed Max</button>
+    <button id="btnFetch" class="btn-primary">🥎 Fetch Command</button>
+  </div>
+
+  <!-- System Settings -->
+  <div class="hud-section">
+    <button id="btnTheater" class="btn">🎬 Hologram Theater</button>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 12px; color: var(--fg-muted);">Shader:</span>
+      <label class="toggle-switch">
+        <input id="shaderToggle" type="checkbox" class="toggle-input">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 12px; color: var(--fg-muted);">Voice:</span>
+      <label class="toggle-switch">
+        <input id="voiceToggle" type="checkbox" class="toggle-input">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Voice & Data -->
+  <div class="hud-section">
+    <button id="btnListen" class="btn">🎤 Voice Command</button>
+    <button id="btnSave" class="btn">💾 Save Profile</button>
+  </div>
+</div>
+
+<!-- Enhanced Stats Panel -->
+<div id="stats" class="glass-panel">
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h3 style="margin: 0; font-size: 16px;">System Status</h3>
+    <div id="statusMode" class="status-indicator status-auto">AUTO</div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-item">
+      <span id="statTreats" class="stat-value">0</span>
+      <span class="stat-label">Treats</span>
+    </div>
+    <div class="stat-item">
+      <span id="statMode" class="stat-value">IDLE</span>
+      <span class="stat-label">Mode</span>
+    </div>
+    <div class="stat-item">
+      <span id="statDistance" class="stat-value">0m</span>
+      <span class="stat-label">Distance</span>
+    </div>
+    <div class="stat-item">
+      <span id="statUptime" class="stat-value">0s</span>
+      <span class="stat-label">Uptime</span>
+    </div>
+  </div>
+</div>
+
+<!-- Enhanced Inventory System -->
+<div id="inventory" class="glass-panel">
+  <div class="inventory-header">
+    <h3 style="margin: 0; font-size: 16px;">🧺 Inventory</h3>
+    <div class="inventory-count">
+      <span>🍖</span>
+      <span id="treatCount">0</span>
+    </div>
+  </div>
+  
+  <div id="inventoryGrid" class="inventory-grid"></div>
+  
+  <div class="inventory-actions">
+    <button id="invAdd" class="btn btn-secondary">➕ Add 5</button>
+    <button id="invUse" class="btn">➖ Use 1</button>
+    <button id="invClear" class="btn btn-danger">🗑️ Clear</button>
+  </div>
+
+  <div class="media-library">
+    <details>
+      <summary style="cursor: pointer; padding: 8px; font-weight: 600;">🎞️ Media Library</summary>
+      <div id="mediaList" style="max-height: 150px; overflow-y: auto; margin-top: 8px;"></div>
+    </details>
+  </div>
+</div>
+
+<!-- Enhanced Log System -->
+<div id="log" class="glass-panel">
+  <h4 style="margin: 0 0 12px 0; font-size: 14px; color: var(--fg-muted);">System Log</h4>
+  <div id="logEntries"></div>
+</div>
+
+<!-- Floating Elements -->
+<div id="hint">
+  Drop an <strong>.mp3</strong> or <strong>.mp4</strong> file to play in hologram theater<br>
+  <small>Use WASD + mouse to control • Voice commands: "max follow", "feed max", "fetch"</small>
+</div>
+
+<div id="dropZone"></div>
+
+<!-- Enhanced Three.js Implementation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+
+// ============= CORE SYSTEM ARCHITECTURE =============
+class POPSCore {
+  constructor() {
+    this.modules = new Map();
+    this.eventBus = new EventTarget();
+    this.state = {
+      initialized: false,
+      startTime: performance.now(),
+      frameCount: 0,
+      lastUpdate: performance.now()
+    };
+  }
+
+  registerModule(name, module) {
+    this.modules.set(name, module);
+    module.core = this;
+    if (module.init) module.init();
+  }
+
+  getModule(name) {
+    return this.modules.get(name);
+  }
+
+  emit(event, data) {
+    this.eventBus.dispatchEvent(new CustomEvent(event, { detail: data }));
+  }
+
+  on(event, callback) {
+    this.eventBus.addEventListener(event, callback);
+  }
+
+  update(deltaTime) {
+    this.state.frameCount++;
+    this.state.lastUpdate = performance.now();
+    
+    for (const [name, module] of this.modules) {
+      if (module.update) {
+        try {
+          module.update(deltaTime);
+        } catch (error) {
+          console.error(`Error in module ${name}:`, error);
+        }
+      }
+    }
+  }
+
+  getUptime() {
+    return Math.floor((performance.now() - this.state.startTime) / 1000);
+  }
+}
+
+// ============= UTILITY FUNCTIONS =============
+const Utils = {
+  clamp: (value, min, max) => Math.max(min, Math.min(max, value)),
+  lerp: (a, b, t) => a + (b - a) * t,
+  smoothstep: (edge0, edge1, x) => {
+    const t = Utils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
+    return t * t * (3 - 2 * t);
+  },
+  randomRange: (min, max) => Math.random() * (max - min) + min,
+  formatTime: (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${secs}s`;
+    return `${secs}s`;
+  }
+};
+
+// ============= RENDERER MODULE =============
+class RendererModule {
+  init() {
+    this.setupRenderer();
+    this.setupScene();
+    this.setupEnvironment();
+    this.core.emit('renderer:ready');
+  }
+
+  setupRenderer() {
+    const app = document.getElementById('app');
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2000);
+    this.camera.position.set(1.5, 2, 5);
+    
+    this.renderer = new THREE.WebGLRenderer({ 
+      antialias: true, 
+      powerPreference: 'high-performance',
+      alpha: false
+    });
+    
+    this.renderer.setSize(innerWidth, innerHeight);
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    
+    app.appendChild(this.renderer.domElement);
+    
+    // Handle resize
+    window.addEventListener('resize', () => this.handleResize());
+  }
+
+  setupScene() {
+    // Enhanced lighting system
+    this.ambientLight = new THREE.HemisphereLight(0x87ceeb, 0x0f1525, 0.6);
+    this.scene.add(this.ambientLight);
+    
+    this.directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    this.directionalLight.position.set(8, 12, 5);
+    this.directionalLight.castShadow = true;
+    this.directionalLight.shadow.mapSize.setScalar(2048);
+    this.directionalLight.shadow.camera.near = 0.1;
+    this.directionalLight.shadow.camera.far = 50;
+    this.directionalLight.shadow.camera.left = -20;
+    this.directionalLight.shadow.camera.right = 20;
+    this.directionalLight.shadow.camera.top = 20;
+    this.directionalLight.shadow.camera.bottom = -20;
+    this.scene.add(this.directionalLight);
+    
+    // Atmospheric effects
+    this.setupAtmosphere();
+  }
+
+  setupEnvironment() {
+    // Enhanced ground with better materials
+    const groundGeometry = new THREE.PlaneGeometry(1000, 1000, 300, 300);
+    groundGeometry.rotateX(-Math.PI / 2);
+    
+    // Procedural height displacement
+    const vertices = groundGeometry.attributes.position.array;
+    for (let i = 0; i < vertices.length; i += 3) {
+      const x = vertices[i];
+      const z = vertices[i + 2];
+      vertices[i + 1] = (Math.sin(x * 0.02) + Math.cos(z * 0.018)) * 0.4 +
+                        Math.sin(x * 0.1) * Math.cos(z * 0.1) * 0.1;
+    }
+    groundGeometry.computeVertexNormals();
+    
+    const groundMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1a2332,
+      roughness: 0.9,
+      metalness: 0.1
+    });
+    
+    this.ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    this.ground.receiveShadow = true;
+    this.scene.add(this.ground);
+    
+    // Enhanced prop system
+    this.createInstancedProps();
+  }
+
+  setupAtmosphere() {
+    // Volumetric light beams
+    this.lightBeams = new THREE.Group();
+    this.scene.add(this.lightBeams);
+    
+    for (let i = 0; i < 8; i++) {
+      const geometry = new THREE.CylinderGeometry(1, 2, 8, 16, 1, true);
+      const material = new THREE.MeshBasicMaterial({
+        color: 0xffffcc,
+        transparent: true,
+        opacity: 0.08,
+        depthWrite: false
+      });
+      
+      const beam = new THREE.Mesh(geometry, material);
+      beam.position.set(
+        Utils.randomRange(-50, 50),
+        4,
+        Utils.randomRange(-50, 50)
+      );
+      beam.rotation.x = Math.PI / 2;
+      this.lightBeams.add(beam);
+    }
+  }
+
+  createInstancedProps() {
+    // Pillars with variation
+    const pillarGeometries = [
+      new THREE.CylinderGeometry(0.2, 0.3, Utils.randomRange(2, 4), 12),
+      new THREE.BoxGeometry(0.4, Utils.randomRange(2, 5), 0.4),
+      new THREE.ConeGeometry(0.25, Utils.randomRange(1.5, 3), 8)
+    ];
+    
+    const pillarMaterial = new THREE.MeshStandardMaterial({
+      color: 0x2a3f5f,
+      roughness: 0.8,
+      metalness: 0.2
+    });
+    
+    this.instancedPillars = [];
+    
+    pillarGeometries.forEach((geo, index) => {
+      const count = 400;
+      const mesh = new THREE.InstancedMesh(geo, pillarMaterial, count);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < count; i++) {
+        dummy.position.set(
+          Utils.randomRange(-400, 400),
+          0,
+          Utils.randomRange(-400, 400)
+        );
+        dummy.rotation.y = Math.random() * Math.PI * 2;
+        dummy.scale.setScalar(Utils.randomRange(0.8, 1.2));
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      }
+      
+      mesh.instanceMatrix.needsUpdate = true;
+      this.scene.add(mesh);
+      this.instancedPillars.push(mesh);
+    });
+  }
+
+  handleResize() {
+    this.camera.aspect = innerWidth / innerHeight;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(innerWidth, innerHeight);
+  }
+
+  update(deltaTime) {
+    // Animate light beams
+    this.lightBeams.children.forEach((beam, i) => {
+      beam.rotation.z += 0.003 + i * 0.0008;
+      beam.material.opacity = 0.05 + Math.sin(performance.now() * 0.001 + i) * 0.03;
+    });
+  }
+
+  render() {
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+// ============= ENHANCED MATERIALS SYSTEM =============
+class MaterialsModule {
+  init() {
+    this.shaderMode = false;
+    this.materials = new Map();
+    this.createMaterials();
+  }
+
+  createMaterials() {
+    // Toon materials
+    this.materials.set('charles_body', new THREE.MeshToonMaterial({
+      color: 0x2a3558,
+      emissive: 0x000000,
+      emissiveIntensity: 0.1
+    }));
+
+    this.materials.set('charles_head', new THREE.MeshToonMaterial({
+      color: 0x3a4f86,
+      emissive: 0x001122,
+      emissiveIntensity: 0.2
+    }));
+
+    this.materials.set('max_body', new THREE.MeshToonMaterial({
+      color: 0xd61d39,
+      emissive: 0x330000,
+      emissiveIntensity: 0.1
+    }));
+
+    // LED material
+    this.materials.set('led', new THREE.MeshStandardMaterial({
+      color: 0x22293f,
+      emissive: 0x00e0ff,
+      emissiveIntensity: 1,
+      roughness: 0.3,
+      metalness: 0.8
+    }));
+
+    // Treat material with emission
+    this.materials.set('treat', new THREE.MeshStandardMaterial({
+      color: 0xffcf7a,
+      emissive: 0x332200,
+      emissiveIntensity: 0.3,
+      roughness: 0.7
+    }));
+  }
+
+  createToonShader(color = 0x32406a) {
+    const col = new THREE.Color(color);
+    const vertexShader = `
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      
+      void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+    
+    const fragmentShader = `
+      uniform vec3 uColor;
+      uniform vec3 uLightDirection;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      
+      void main() {
+        float NdotL = max(dot(normalize(vNormal), normalize(uLightDirection)), 0.0);
+        
+        // Toon shading levels
+        float brightness = step(0.7, NdotL) * 1.0 +
+                          step(0.35, NdotL) * 0.6 +
+                          step(0.1, NdotL) * 0.3;
+        
+        // Rim lighting
+        vec3 viewDirection = normalize(-vPosition);
+        float rimAmount = 1.0 - max(dot(viewDirection, vNormal), 0.0);
+        float rimThreshold = 0.716;
+        float rimIntensity = rimAmount * pow(NdotL, rimThreshold);
+        rimIntensity = smoothstep(0.5, 1.0, rimIntensity);
+        
+        vec3 rim = vec3(0.2, 0.6, 1.0) * rimIntensity;
+        
+        gl_FragColor = vec4(uColor * brightness + rim, 1.0);
+      }
+    `;
+    
+    return new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader,
+      uniforms: {
+        uColor: { value: col },
+        uLightDirection: { value: new THREE.Vector3(1, 1, 1) }
+      }
+    });
+  }
+
+  getMaterial(name) {
+    return this.materials.get(name);
+  }
+
+  toggleShaderMode() {
+    this.shaderMode = !this.shaderMode;
+    this.core.emit('materials:shader-toggled', { enabled: this.shaderMode });
+    return this.shaderMode;
+  }
+
+  createOutlinedMesh(geometry, material, outlineColor = 0x070b12, scale = 1.03) {
+    const group = new THREE.Group();
+    
+    // Main mesh
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    
+    // Outline mesh
+    const outlineMaterial = new THREE.MeshBasicMaterial({
+      color: outlineColor,
+      side: THREE.BackSide
+    });
+    const outline = new THREE.Mesh(geometry, outlineMaterial);
+    outline.scale.multiplyScalar(scale);
+    
+    group.add(outline, mesh);
+    return group;
+  }
+}
+
+// ============= CHARACTER SYSTEM =============
+class CharacterModule {
+  init() {
+    this.characters = new Map();
+    this.animations = new Map();
+    this.createCharles();
+    this.createMax();
+    
+    const renderer = this.core.getModule('renderer');
+    if (renderer) {
+      renderer.scene.add(this.characters.get('charles'));
+      renderer.scene.add(this.characters.get('max'));
+    }
+  }
+
+  createCharles() {
+    const materials = this.core.getModule('materials');
+    const charles = new THREE.Group();
+    charles.position.set(0, 0.6, 0);
+    charles.userData = { type: 'charles', health: 100, energy: 100 };
+
+    // Enhanced torso with details
+    const torsoGeo = new THREE.BoxGeometry(0.9, 0.6, 0.45);
+    const torso = materials.createOutlinedMesh(torsoGeo, materials.getMaterial('charles_body'));
+    charles.add(torso);
+
+    // Articulated neck system
+    const neckGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.18, 24);
+    const neck = materials.createOutlinedMesh(neckGeo, materials.getMaterial('charles_body'));
+    neck.position.y = 0.45;
+    torso.add(neck);
+
+    // Enhanced head with expression capability
+    const headGeo = new THREE.BoxGeometry(0.55, 0.32, 0.32);
+    const head = materials.createOutlinedMesh(headGeo, materials.getMaterial('charles_head'));
+    head.position.y = 0.18;
+    neck.add(head);
+
+    // Advanced LED system
+    const ledCount = 24;
+    const ledGeo = new THREE.SphereGeometry(0.025, 12, 12);
+    const leds = new THREE.InstancedMesh(ledGeo, materials.getMaterial('led'), ledCount);
+    
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < ledCount; i++) {
+      const angle = (i / ledCount) * Math.PI * 2;
+      dummy.position.set(
+        Math.cos(angle) * 0.4,
+        0.08 + Math.sin(i * 0.5) * 0.02,
+        Math.sin(angle) * 0.2 + 0.2
+      );
+      dummy.updateMatrix();
+      leds.setMatrixAt(i, dummy.matrix);
+    }
+    leds.instanceMatrix.needsUpdate = true;
+    torso.add(leds);
+
+    // Expressive eyes with tracking
+    const eyeGeo = new THREE.SphereGeometry(0.06, 16, 16);
+    const eyeMaterial = new THREE.MeshStandardMaterial({
+      color: 0x10131a,
+      emissive: 0x77ddff,
+      emissiveIntensity: 1.2,
+      roughness: 0.1,
+      metalness: 0.3
+    });
+    
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMaterial);
+    const eyeR = eyeL.clone();
+    eyeL.position.set(-0.12, 0.03, 0.15);
+    eyeR.position.set(0.12, 0.03, 0.15);
+    head.add(eyeL, eyeR);
+
+    // Articulated arms with joints
+    const armL = this.createArm(-1, materials);
+    const armR = this.createArm(1, materials);
+    torso.add(armL, armR);
+
+    // Store references
+    charles.userData.components = {
+      head: head,
+      leds: leds,
+      eyes: { left: eyeL, right: eyeR },
+      arms: { left: armL, right: armR }
+    };
+
+    this.characters.set('charles', charles);
+  }
+
+  createArm(side, materials) {
+    const armGroup = new THREE.Group();
+    
+    // Shoulder joint
+    const shoulderGeo = new THREE.SphereGeometry(0.10, 16, 16);
+    const shoulder = materials.createOutlinedMesh(shoulderGeo, materials.getMaterial('charles_body'));
+    shoulder.position.set(0.50 * side, 0.18, 0);
+    
+    // Upper arm with enhanced geometry
+    const upperGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.36, 16);
+    const upper = materials.createOutlinedMesh(upperGeo, materials.getMaterial('charles_body'));
+    upper.rotation.z = Math.PI / 2 * 0.08 * side;
+    upper.position.set(0, -0.22, 0);
+    shoulder.add(upper);
+    
+    // Elbow joint
+    const elbowGeo = new THREE.SphereGeometry(0.08, 16, 16);
+    const elbow = materials.createOutlinedMesh(elbowGeo, materials.getMaterial('charles_body'));
+    elbow.position.set(0, -0.2, 0);
+    upper.add(elbow);
+    
+    // Forearm
+    const foreGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.32, 16);
+    const forearm = materials.createOutlinedMesh(foreGeo, materials.getMaterial('charles_body'));
+    forearm.position.set(0, -0.20, 0);
+    elbow.add(forearm);
+    
+    // Enhanced claw with articulation
+    const clawGeo = new THREE.BoxGeometry(0.10, 0.10, 0.18);
+    const claw = materials.createOutlinedMesh(clawGeo, materials.getMaterial('charles_head'));
+    claw.position.set(0, -0.18, 0.02);
+    forearm.add(claw);
+    
+    armGroup.add(shoulder);
+    armGroup.userData.joints = { shoulder, upper, elbow, forearm, claw };
+    
+    return armGroup;
+  }
+
+  createMax() {
+    const materials = this.core.getModule('materials');
+    const max = new THREE.Group();
+    max.position.set(-2, 0.6, 0);
+    max.userData = { type: 'max', mood: 'happy', energy: 100, loyalty: 100 };
+
+    // Enhanced body with breathing animation capability
+    const bodyGeo = new THREE.SphereGeometry(0.35, 24, 24);
+    const body = materials.createOutlinedMesh(bodyGeo, materials.getMaterial('max_body'));
+    max.add(body);
+
+    // Belly with soft deformation
+    const bellyGeo = new THREE.SphereGeometry(0.42, 24, 24);
+    const belly = materials.createOutlinedMesh(bellyGeo, materials.getMaterial('max_body'));
+    belly.scale.set(1.2, 0.8, 1.6);
+    belly.position.set(0, -0.1, 0);
+    body.add(belly);
+
+    // Articulated head and neck
+    const neckGeo = new THREE.CylinderGeometry(0.10, 0.12, 0.22, 16);
+    const neck = materials.createOutlinedMesh(neckGeo, materials.getMaterial('max_body'));
+    neck.position.set(0, 0.18, 0.25);
+    body.add(neck);
+
+    const headGeo = new THREE.SphereGeometry(0.22, 24, 24);
+    const head = materials.createOutlinedMesh(headGeo, materials.getMaterial('max_body'));
+    head.position.set(0, 0.14, 0.12);
+    neck.add(head);
+
+    // Expressive features
+    const noseGeo = new THREE.SphereGeometry(0.08, 16, 16);
+    const noseMaterial = new THREE.MeshStandardMaterial({
+      color: 0x111111,
+      roughness: 0.8,
+      metalness: 0.1
+    });
+    const nose = new THREE.Mesh(noseGeo, noseMaterial);
+    nose.position.set(0, 0.02, 0.18);
+    head.add(nose);
+
+    // Animated ears
+    const earGeo = new THREE.SphereGeometry(0.10, 16, 16);
+    const earL = materials.createOutlinedMesh(earGeo, materials.getMaterial('max_body'));
+    const earR = earL.clone();
+    earL.scale.set(0.6, 1.0, 0.6);
+    earR.scale.set(0.6, 1.0, 0.6);
+    earL.position.set(-0.18, 0.05, 0);
+    earR.position.set(0.18, 0.05, 0);
+    head.add(earL, earR);
+
+    // Legs with joint system
+    const legGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.35, 16);
+    const legs = [];
+    const legPositions = [
+      [0.18, -0.28, 0.22], [-0.18, -0.28, 0.22],
+      [0.18, -0.28, -0.22], [-0.18, -0.28, -0.22]
+    ];
+    
+    legPositions.forEach((pos, i) => {
+      const leg = materials.createOutlinedMesh(legGeo, materials.getMaterial('max_body'));
+      leg.position.set(...pos);
+      leg.castShadow = true;
+      max.add(leg);
+      legs.push(leg);
+    });
+
+    // Animated tail
+    const tailGeo = new THREE.CylinderGeometry(0.03, 0.05, 0.36, 12);
+    const tail = materials.createOutlinedMesh(tailGeo, materials.getMaterial('max_body'));
+    tail.position.set(0, -0.05, -0.46);
+    tail.rotation.x = -Math.PI / 3;
+    max.add(tail);
+
+    // Store references
+    max.userData.components = {
+      head: head,
+      tail: tail,
+      ears: { left: earL, right: earR },
+      legs: legs,
+      body: body,
+      mode: 'heel',
+      mouthHold: null
+    };
+
+    this.characters.set('max', max);
+  }
+
+  // Enhanced animation system
+  animateHeadNod(character = 'charles') {
+    const char = this.characters.get(character);
+    if (!char) return;
+
+    const head = char.userData.components.head;
+    if (!head) return;
+
+    let time = 0;
+    const animate = () => {
+      time += 0.08;
+      head.rotation.x = Math.sin(time) * 0.25 * Math.sin(time * 0.5);
+      
+      if (time < Math.PI * 3) {
+        requestAnimationFrame(animate);
+      } else {
+        head.rotation.x = 0;
+      }
+    };
+    animate();
+  }
+
+  animateWaveArm(character = 'charles', arm = null) {
+    const char = this.characters.get(character);
+    if (!char) return;
+
+    const armSide = arm || (Math.random() < 0.5 ? 'left' : 'right');
+    const armObj = char.userData.components.arms[armSide];
+    if (!armObj) return;
+
+    const joints = armObj.userData.joints;
+    let time = 0;
+    
+    const animate = () => {
+      time += 0.12;
+      joints.shoulder.rotation.z = Math.sin(time) * 0.8;
+      joints.elbow.rotation.z = Math.cos(time * 1.5) * 0.6;
+      joints.forearm.rotation.x = Math.sin(time * 2) * 0.3;
+      
+      if (time < Math.PI * 4) {
+        requestAnimationFrame(animate);
+      } else {
+        joints.shoulder.rotation.set(0, 0, 0);
+        joints.elbow.rotation.set(0, 0, 0);
+        joints.forearm.rotation.set(0, 0, 0);
+      }
+    };
+    animate();
+  }
+
+  animateDance(character = 'charles') {
+    const char = this.characters.get(character);
+    if (!char) return;
+
+    this.animateWaveArm(character, 'left');
+    
+    setTimeout(() => {
+      char.rotation.y += Math.PI / 6;
+      this.animateWaveArm(character, 'right');
+    }, 400);
+    
+    setTimeout(() => {
+      char.rotation.y += Math.PI / 6;
+      this.animateHeadNod(character);
+    }, 800);
+  }
+
+  animateTailWag(character = 'max', intensity = 1) {
+    const char = this.characters.get(character);
+    if (!char) return;
+
+    const tail = char.userData.components.tail;
+    if (!tail) return;
+
+    let time = 0;
+    const animate = () => {
+      time += 0.15 * intensity;
+      tail.rotation.y = Math.sin(time) * 0.6 * intensity;
+      tail.rotation.x = -Math.PI / 3 + Math.cos(time * 0.7) * 0.2 * intensity;
+      
+      if (time < Math.PI * 8) {
+        requestAnimationFrame(animate);
+      } else {
+        tail.rotation.y = 0;
+        tail.rotation.x = -Math.PI / 3;
+      }
+    };
+    animate();
+  }
+
+  getCharacter(name) {
+    return this.characters.get(name);
+  }
+
+  update(deltaTime) {
+    // Update character breathing and idle animations
+    for (const [name, character] of this.characters) {
+      if (character.userData.components) {
+        // Breathing animation
+        const breathe = Math.sin(performance.now() * 0.002) * 0.02 + 1;
+        if (character.userData.components.body) {
+          character.userData.components.body.scale.y = breathe;
+        }
+        
+        // LED animations for Charles
+        if (name === 'charles' && character.userData.components.leds) {
+          this.updateLEDs(character.userData.components.leds, deltaTime);
+        }
+      }
+    }
+  }
+
+  updateLEDs(leds, deltaTime) {
+    const time = performance.now() * 0.001;
+    const ledCount = leds.count;
+    const dummy = new THREE.Object3D();
+    
+    for (let i = 0; i < ledCount; i++) {
+      const angle = (i / ledCount) * Math.PI * 2 + time * 0.5;
+      const wave = Math.sin(time * 2 + i * 0.3) * 0.5 + 0.5;
+      
+      dummy.position.set(
+        Math.cos(angle) * 0.4,
+        0.08 + Math.sin(i * 0.5 + time) * 0.03,
+        Math.sin(angle) * 0.2 + 0.2
+      );
+      dummy.scale.setScalar(0.8 + wave * 0.4);
+      dummy.updateMatrix();
+      leds.setMatrixAt(i, dummy.matrix);
+    }
+    
+    leds.instanceMatrix.needsUpdate = true;
+    
+    // Dynamic LED intensity based on system state
+    const core = this.core;
+    const stateModule = core.getModule('state');
+    if (stateModule) {
+      const mode = stateModule.getMode();
+      let intensity = 1.0;
+      
+      switch (mode) {
+        case 'focus': intensity = 1.8; break;
+        case 'tired': intensity = 0.3; break;
+        case 'solar': intensity = 0.5; break;
+        case 'playful': intensity = 1.5; break;
+        default: intensity = 1.0;
+      }
+      
+      leds.material.emissiveIntensity = Utils.lerp(
+        leds.material.emissiveIntensity || 1,
+        intensity,
+        0.1
+      );
+    }
+  }
+}
+
+// ============= STATE MANAGEMENT MODULE =============
+class StateModule {
+  init() {
+    this.state = {
+      mode: 'idle',
+      lastModeChange: performance.now(),
+      autoMode: true,
+      cameraMode: 'third-person',
+      curiousDelay: 30000,
+      playfulTimer: 0,
+      distance: 0,
+      lastPosition: new THREE.Vector3()
+    };
+    
+    this.maxState = {
+      mode: 'heel',
+      mood: 'happy',
+      lastAction: performance.now()
+    };
+    
+    this.core.on('ui:mode-change', (e) => this.setMode(e.detail.mode));
+    this.core.on('ui:max-command', (e) => this.setMaxMode(e.detail.mode));
+  }
+
+  setMode(newMode) {
+    if (this.state.mode !== newMode) {
+      this.state.mode = newMode;
+      this.state.lastModeChange = performance.now();
+      this.state.playfulTimer = 0;
+      
+      this.core.emit('state:mode-changed', { 
+        mode: newMode, 
+        auto: this.state.autoMode 
+      });
+    }
+  }
+
+  setMaxMode(newMode) {
+    if (this.maxState.mode !== newMode) {
+      this.maxState.mode = newMode;
+      this.maxState.lastAction = performance.now();
+      
+      this.core.emit('state:max-mode-changed', { mode: newMode });
+    }
+  }
+
+  getMode() { return this.state.mode; }
+  getMaxMode() { return this.maxState.mode; }
+  isAutoMode() { return this.state.autoMode; }
+  getCameraMode() { return this.state.cameraMode; }
+
+  toggleAutoMode() {
+    this.state.autoMode = !this.state.autoMode;
+    this.core.emit('state:auto-toggled', { auto: this.state.autoMode });
+    return this.state.autoMode;
+  }
+
+  toggleCameraMode() {
+    this.state.cameraMode = this.state.cameraMode === 'first-person' ? 'third-person' : 'first-person';
+    this.core.emit('state:camera-toggled', { mode: this.state.cameraMode });
+    return this.state.cameraMode;
+  }
+
+  update(deltaTime) {
+    const now = performance.now();
+    
+    // Auto mode transitions
+    if (this.state.autoMode) {
+      const timeSinceChange = now - this.state.lastModeChange;
+      
+      if (this.state.mode === 'idle' && timeSinceChange > this.state.curiousDelay) {
+        this.setMode('curious');
+      } else if (this.state.mode === 'curious' && timeSinceChange > 15000) {
+        this.setMode('idle');
+      }
+    }
+    
+    // Playful mode timer
+    if (this.state.mode === 'playful') {
+      this.state.playfulTimer += deltaTime;
+      if (this.state.playfulTimer > 5) {
+        this.setMode('idle');
+      }
+    }
+    
+    // Update distance tracking
+    const charles = this.core.getModule('character')?.getCharacter('charles');
+    if (charles) {
+      const currentPos = charles.position.clone();
+      const distance = currentPos.distanceTo(this.state.lastPosition);
+      this.state.distance += distance;
+      this.state.lastPosition.copy(currentPos);
+    }
+  }
+
+  getDistance() {
+    return Math.round(this.state.distance * 10) / 10;
+  }
+}
+
+// ============= ENHANCED UI MODULE =============
+class UIModule {
+  init() {
+    this.setupEventListeners();
+    this.setupInventorySystem();
+    this.setupLogSystem();
+    this.updateLoop();
+    
+    // Show hint initially
+    setTimeout(() => this.showHint(), 2000);
+    setTimeout(() => this.hideHint(), 8000);
+  }
+
+  setupEventListeners() {
+    // Camera controls
+    document.getElementById('btnFP').onclick = () => {
+      const state = this.core.getModule('state');
+      state.state.cameraMode = 'first-person';
+      this.log('👁️ First-person view activated');
+      this.core.emit('camera:mode-changed', { mode: 'first-person' });
+    };
+
+    document.getElementById('btnTP').onclick = () => {
+      const state = this.core.getModule('state');
+      state.state.cameraMode = 'third-person';
+      this.log('🎥 Third-person view activated');
+      this.core.emit('camera:mode-changed', { mode: 'third-person' });
+    };
+
+    // Control modes
+    document.getElementById('btnManual').onclick = () => {
+      const state = this.core.getModule('state');
+      state.state.autoMode = false;
+      this.log('🕹️ Manual control engaged');
+      this.updateStatusIndicators();
+    };
+
+    document.getElementById('btnAuto').onclick = () => {
+      const state = this.core.getModule('state');
+      state.state.autoMode = true;
+      this.log('🤖 Autonomous mode engaged');
+      this.updateStatusIndicators();
+    };
+
+    // Behavior controls
+    document.getElementById('btnFocus').onclick = () => {
+      this.core.emit('ui:mode-change', { mode: 'focus' });
+      this.log('🎯 Focus mode activated - enhanced performance');
+    };
+
+    document.getElementById('btnTired').onclick = () => {
+      this.core.emit('ui:mode-change', { mode: 'tired' });
+      this.log('😴 Rest mode activated - conserving energy');
+    };
+
+    document.getElementById('btnSolar').onclick = () => {
+      this.core.emit('ui:mode-change', { mode: 'solar' });
+      this.log('🔆 Solar charging mode - stationary power collection');
+    };
+
+    document.getElementById('btnDance').onclick = () => {
+      const characters = this.core.getModule('character');
+      if (characters) {
+        characters.animateDance('charles');
+        this.core.emit('ui:mode-change', { mode: 'playful' });
+        this.log('💃 Dance protocol executed!');
+      }
+    };
+
+    // Interaction systems
+    document.getElementById('btnTreat').onclick = () => {
+      this.core.emit('inventory:deploy-treat');
+    };
+
+    document.getElementById('btnFeed').onclick = () => {
+      this.core.emit('inventory:feed-max');
+    };
+
+    document.getElementById('btnFetch').onclick = () => {
+      this.core.emit('game:fetch-start');
+    };
+
+    // System settings
+    document.getElementById('btnTheater').onclick = () => {
+      this.core.emit('media:toggle-theater');
+    };
+
+    document.getElementById('shaderToggle').onchange = (e) => {
+      const materials = this.core.getModule('materials');
+      if (materials) {
+        materials.toggleShaderMode();
+        this.log(e.target.checked ? '✨ Enhanced shader mode enabled' : '🎨 Standard rendering mode enabled');
+      }
+    };
+
+    document.getElementById('voiceToggle').onchange = (e) => {
+      localStorage.setItem('pops_voice_enabled', e.target.checked);
+      this.log(e.target.checked ? '🎤 Voice commands enabled' : '🔇 Voice commands disabled');
+    };
+
+    // Voice and data
+    document.getElementById('btnListen').onclick = () => {
+      this.startVoiceRecognition();
+    };
+
+    document.getElementById('btnSave').onclick = () => {
+      this.saveProfile();
+    };
+
+    // Inventory controls
+    document.getElementById('invAdd').onclick = () => this.addTreats(5);
+    document.getElementById('invUse').onclick = () => this.useTreat();
+    document.getElementById('invClear').onclick = () => this.clearInventory();
+  }
+
+  setupInventorySystem() {
+    this.inventory = {
+      treats: 0,
+      items: []
+    };
+    this.updateInventoryDisplay();
+  }
+
+  setupLogSystem() {
+    this.logEntries = [];
+    this.maxLogEntries = 50;
+  }
+
+  log(message, type = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const entry = { message, type, timestamp, id: Date.now() };
+    
+    this.logEntries.unshift(entry);
+    if (this.logEntries.length > this.maxLogEntries) {
+      this.logEntries.pop();
+    }
+    
+    this.updateLogDisplay();
+    console.log(`[POPS] ${message}`);
+  }
+
+  updateLogDisplay() {
+    const container = document.getElementById('logEntries');
+    container.innerHTML = this.logEntries.slice(0, 10).map(entry => 
+      `<div class="log-entry">
+        <span class="log-timestamp">${entry.timestamp}</span> ${entry.message}
+      </div>`
+    ).join('');
+  }
+
+  updateInventoryDisplay() {
+    document.getElementById('treatCount').textContent = this.inventory.treats;
+    
+    const grid = document.getElementById('inventoryGrid');
+    grid.innerHTML = '';
+    
+    const maxSlots = 20;
+    for (let i = 0; i < maxSlots; i++) {
+      const slot = document.createElement('div');
+      slot.className = 'inventory-slot';
+      if (i < this.inventory.treats) {
+        slot.classList.add('filled');
+        slot.textContent = '🍖';
+      }
+      grid.appendChild(slot);
+    }
+  }
+
+  addTreats(count = 5) {
+    this.inventory.treats += count;
+    for (let i = 0; i < count; i++) {
+      this.inventory.items.push({
+        id: crypto.randomUUID(),
+        type: 'treat',
+        name: 'Nutritious Treat'
+      });
+    }
+    this.updateInventoryDisplay();
+    this.log(`➕ Added ${count} treats to inventory`);
+    this.core.emit('inventory:updated', { treats: this.inventory.treats });
+  }
+
+  useTreat(count = 1) {
+    if (this.inventory.treats <= 0) {
+      this.log('❌ No treats available', 'warning');
+      return false;
+    }
+    
+    this.inventory.treats = Math.max(0, this.inventory.treats - count);
+    this.inventory.items.splice(0, Math.min(count, this.inventory.items.length));
+    this.updateInventoryDisplay();
+    this.log(`➖ Used ${count} treat(s)`);
+    this.core.emit('inventory:updated', { treats: this.inventory.treats });
+    return true;
+  }
+
+  clearInventory() {
+    this.inventory.treats = 0;
+    this.inventory.items = [];
+    this.updateInventoryDisplay();
+    this.log('🗑️ Inventory cleared');
+    this.core.emit('inventory:updated', { treats: this.inventory.treats });
+  }
+
+  updateStatusIndicators() {
+    const state = this.core.getModule('state');
+    if (!state) return;
+
+    const statusMode = document.getElementById('statusMode');
+    statusMode.className = 'status-indicator';
+    statusMode.textContent = state.isAutoMode() ? 'AUTO' : 'MANUAL';
+    statusMode.classList.add(state.isAutoMode() ? 'status-auto' : 'status-manual');
+  }
+
+  showHint() {
+    const hint = document.getElementById('hint');
+    hint.classList.add('show');
+  }
+
+  hideHint() {
+    const hint = document.getElementById('hint');
+    hint.classList.remove('show');
+  }
+
+  startVoiceRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      this.log('❌ Speech recognition not supported', 'error');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      this.log('🎤 Listening for voice commands...');
+      document.getElementById('btnListen').classList.add('loading');
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript.toLowerCase();
+      this.log(`🎧 Voice command: "${transcript}"`);
+      this.processVoiceCommand(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      this.log(`❌ Voice recognition error: ${event.error}`, 'error');
+    };
+
+    recognition.onend = () => {
+      document.getElementById('btnListen').classList.remove('loading');
+    };
+
+    recognition.start();
+  }
+
+  processVoiceCommand(command) {
+    const characters = this.core.getModule('character');
+    
+    if (command.includes('dance')) {
+      if (characters) characters.animateDance('charles');
+      this.core.emit('ui:mode-change', { mode: 'playful' });
+      this.speak('Dancing protocol activated!');
+    } else if (command.includes('first person') || command.includes('first-person')) {
+      this.core.getModule('state').state.cameraMode = 'first-person';
+      this.speak('First person view engaged');
+    } else if (command.includes('third person') || command.includes('third-person')) {
+      this.core.getModule('state').state.cameraMode = 'third-person';
+      this.speak('Third person view engaged');
+    } else if (command.includes('auto')) {
+      this.core.getModule('state').state.autoMode = true;
+      this.speak('Autonomous mode activated');
+    } else if (command.includes('manual')) {
+      this.core.getModule('state').state.autoMode = false;
+      this.speak('Manual control engaged');
+    } else if (command.includes('focus')) {
+      this.core.emit('ui:mode-change', { mode: 'focus' });
+      this.speak('Focus mode engaged');
+    } else if (command.includes('tired') || command.includes('rest')) {
+      this.core.emit('ui:mode-change', { mode: 'tired' });
+      this.speak('Rest mode activated');
+    } else if (command.includes('solar') || command.includes('charge')) {
+      this.core.emit('ui:mode-change', { mode: 'solar' });
+      this.speak('Solar charging initiated');
+    } else if (command.includes('max follow')) {
+      this.core.emit('ui:max-command', { mode: 'follow' });
+      this.speak('Max, follow command acknowledged');
+    } else if (command.includes('max heel')) {
+      this.core.emit('ui:max-command', { mode: 'heel' });
+      this.speak('Max, heel position');
+    } else if (command.includes('max sit')) {
+      this.core.emit('ui:max-command', { mode: 'sit' });
+      this.speak('Max, sit command');
+    } else if (command.includes('treat') || command.includes('snack')) {
+      this.core.emit('inventory:deploy-treat');
+      this.speak('Treat deployed');
+    } else if (command.includes('fetch')) {
+      this.core.emit('game:fetch-start');
+      this.speak('Fetch game initiated! Go get it!');
+    } else if (command.includes('feed max')) {
+      this.core.emit('inventory:feed-max');
+      this.speak('Feeding Max');
+    } else {
+      this.speak('Command not recognized. Try: dance, focus, tired, solar, max follow, treat, or fetch');
+    }
+  }
+
+  speak(text) {
+    const voiceEnabled = document.getElementById('voiceToggle').checked;
+    if (!voiceEnabled) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.1;
+    utterance.pitch = 1.05;
+    utterance.volume = 0.8;
+    
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+  }
+
+  saveProfile() {
+    const profileData = {
+      inventory: this.inventory,
+      settings: {
+        shaderMode: document.getElementById('shaderToggle').checked,
+        voiceEnabled: document.getElementById('voiceToggle').checked,
+        cameraMode: this.core.getModule('state')?.getCameraMode(),
+        autoMode: this.core.getModule('state')?.isAutoMode()
+      }
+    };
+
+    localStorage.setItem('pops_profile', JSON.stringify(profileData));
+    this.log('💾 Profile saved successfully');
+  }
+
+  loadProfile() {
+    try {
+      const saved = localStorage.getItem('pops_profile');
+      if (saved) {
+        const profileData = JSON.parse(saved);
+        
+        // Restore inventory
+        if (profileData.inventory) {
+          this.inventory = profileData.inventory;
+          this.updateInventoryDisplay();
+        }
+        
+        // Restore settings
+        if (profileData.settings) {
+          const settings = profileData.settings;
+          document.getElementById('shaderToggle').checked = settings.shaderMode || false;
+          document.getElementById('voiceToggle').checked = settings.voiceEnabled || false;
+          
+          if (this.core.getModule('state')) {
+            this.core.getModule('state').state.cameraMode = settings.cameraMode || 'third-person';
+            this.core.getModule('state').state.autoMode = settings.autoMode !== false;
+          }
+        }
+        
+        this.log('💾 Profile loaded successfully');
+      }
+    } catch (error) {
+      this.log('⚠️ Error loading profile', 'warning');
+      console.error('Profile load error:', error);
+    }
+  }
+
+  updateLoop() {
+    const updateStats = () => {
+      const state = this.core.getModule('state');
+      if (state) {
+        document.getElementById('statTreats').textContent = this.inventory.treats;
+        document.getElementById('statMode').textContent = state.getMode().toUpperCase();
+        document.getElementById('statDistance').textContent = `${state.getDistance()}m`;
+        document.getElementById('statUptime').textContent = Utils.formatTime(this.core.getUptime());
+      }
+      
+      requestAnimationFrame(updateStats);
+    };
+    updateStats();
+  }
+}
+
+// ============= MOVEMENT & PHYSICS MODULE =============
+class MovementModule {
+  init() {
+    this.setupInput();
+    this.setupPhysics();
+    
+    this.core.on('state:mode-changed', (e) => this.onModeChanged(e.detail));
+    this.core.on('state:auto-toggled', (e) => this.onAutoToggled(e.detail));
+  }
+
+  setupInput() {
+    this.keys = {};
+    this.mouse = { yaw: 0, pitch: 0 };
+    
+    window.addEventListener('keydown', (e) => this.keys[e.code] = true);
+    window.addEventListener('keyup', (e) => this.keys[e.code] = false);
+    
+    const renderer = this.core.getModule('renderer');
+    if (renderer) {
+      renderer.renderer.domElement.addEventListener('click', () => {
+        renderer.renderer.domElement.requestPointerLock();
+      });
+      
+      window.addEventListener('mousemove', (e) => {
+        if (document.pointerLockElement === renderer.renderer.domElement) {
+          this.mouse.yaw -= (e.movementX || 0) * 0.002;
+          this.mouse.pitch = Utils.clamp(
+            this.mouse.pitch - (e.movementY || 0) * 0.002,
+            -Math.PI / 2 + 0.1,
+            Math.PI / 2 - 0.1
+          );
+        }
+      });
+    }
+  }
+
+  setupPhysics() {
+    this.velocity = new THREE.Vector3();
+    this.maxVelocity = new THREE.Vector3();
+    this.groundRay = new THREE.Raycaster();
+    this.waypoint = null;
+    
+    this.MAP_BOUNDS = 400;
+  }
+
+  onModeChanged(data) {
+    // Adjust movement parameters based on mode
+    switch (data.mode) {
+      case 'tired':
+        this.baseSpeed = 1.5;
+        break;
+      case 'focus':
+        this.baseSpeed = 3.5;
+        break;
+      case 'solar':
+        this.baseSpeed = 0;
+        break;
+      default:
+        this.baseSpeed = 2.8;
+    }
+  }
+
+  onAutoToggled(data) {
+    if (data.auto && !this.waypoint) {
+      this.generateWaypoint();
+    }
+  }
+
+  generateWaypoint() {
+    this.waypoint = new THREE.Vector3(
+      Utils.randomRange(-this.MAP_BOUNDS * 0.8, this.MAP_BOUNDS * 0.8),
+      0,
+      Utils.randomRange(-this.MAP_BOUNDS * 0.8, this.MAP_BOUNDS * 0.8)
+    );
+  }
+
+  seekPosition(entity, target, deltaTime, speed = 2.8, responsiveness = 0.8) {
+    if (!entity || !target) return;
+
+    const desired = new THREE.Vector3()
+      .subVectors(target, entity.position)
+      .setY(0)
+      .normalize()
+      .multiplyScalar(speed);
+    
+    const steering = new THREE.Vector3()
+      .subVectors(desired, this.velocity)
+      .multiplyScalar(responsiveness);
+    
+    this.velocity.add(steering.multiplyScalar(deltaTime));
+    this.velocity.setLength(Math.min(speed, this.velocity.length()));
+    
+    entity.position.add(this.velocity.clone().multiplyScalar(deltaTime));
+    
+    // Update rotation to face movement direction
+    if (this.velocity.lengthSq() > 0.01) {
+      entity.rotation.y = Math.atan2(this.velocity.x, this.velocity.z);
+    }
+  }
+
+  snapToGround(object, height = 0.6) {
+    const renderer = this.core.getModule('renderer');
+    if (!renderer) return;
+
+    const origin = new THREE.Vector3(object.position.x, 100, object.position.z);
+    this.groundRay.set(origin, new THREE.Vector3(0, -1, 0));
+    
+    const intersects = this.groundRay.intersectObject(renderer.ground);
+    if (intersects.length > 0) {
+      object.position.y = intersects[0].point.y + height;
+    }
+  }
+
+  wrapPosition(object) {
+    const bounds = this.MAP_BOUNDS;
+    if (object.position.x > bounds) object.position.x = -bounds;
+    if (object.position.x < -bounds) object.position.x = bounds;
+    if (object.position.z > bounds) object.position.z = -bounds;
+    if (object.position.z < -bounds) object.position.z = bounds;
+  }
+
+  handleManualMovement(character, deltaTime) {
+    if (!character) return;
+
+    const direction = new THREE.Vector3();
+    const forward = new THREE.Vector3(
+      Math.sin(this.mouse.yaw), 0, -Math.cos(this.mouse.yaw)
+    );
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0));
+
+    const speed = this.baseSpeed || 2.8;
+
+    if (this.keys['KeyW']) direction.add(forward);
+    if (this.keys['KeyS']) direction.sub(forward);
+    if (this.keys['KeyA']) direction.sub(right);
+    if (this.keys['KeyD']) direction.add(right);
+
+    if (direction.lengthSq() > 0) {
+      direction.normalize().multiplyScalar(speed * deltaTime);
+      character.position.add(direction);
+      character.rotation.y = Math.atan2(direction.x, direction.z);
+    }
+  }
+
+  handleAutonomousMovement(character, deltaTime) {
+    if (!character) return;
+
+    const state = this.core.getModule('state');
+    if (!state || state.getMode() === 'solar') return;
+
+    if (!this.waypoint) this.generateWaypoint();
+
+    const distanceToWaypoint = character.position.distanceTo(this.waypoint);
+    if (distanceToWaypoint < 3) {
+      this.generateWaypoint();
+    }
+
+    this.seekPosition(character, this.waypoint, deltaTime, this.baseSpeed || 2.8);
+  }
+
+  update(deltaTime) {
+    const characters = this.core.getModule('character');
+    const state = this.core.getModule('state');
+    
+    if (!characters || !state) return;
+
+    const charles = characters.getCharacter('charles');
+    const max = characters.getCharacter('max');
+
+    if (charles) {
+      if (state.isAutoMode()) {
+        this.handleAutonomousMovement(charles, deltaTime);
+      } else {
+        this.handleManualMovement(charles, deltaTime);
+      }
+      
+      this.snapToGround(charles, 0.6);
+      this.wrapPosition(charles);
+    }
+
+    if (max) {
+      this.handleMaxMovement(max, charles, deltaTime);
+      this.snapToGround(max, 0.55);
+      this.wrapPosition(max);
+    }
+  }
+
+  handleMaxMovement(max, charles, deltaTime) {
+    if (!max || !charles) return;
+
+    const state = this.core.getModule('state');
+    const maxMode = state.getMaxMode();
+
+    switch (maxMode) {
+      case 'heel':
+        const heelPosition = new THREE.Vector3()
+          .copy(charles.position)
+          .add(new THREE.Vector3(1.2, 0, 0.6).applyAxisAngle(new THREE.Vector3(0, 1, 0), charles.rotation.y));
+        this.seekPosition(max, heelPosition, deltaTime, 3.2, 0.9);
+        break;
+        
+      case 'follow':
+        const followDistance = 2.5;
+        const distance = max.position.distanceTo(charles.position);
+        if (distance > followDistance) {
+          this.seekPosition(max, charles.position, deltaTime, 3.5, 0.8);
+        }
+        break;
+        
+      case 'sit':
+        this.maxVelocity.multiplyScalar(0.8); // Gradual stop
+        break;
+        
+      case 'roam':
+        // Max roams independently
+        if (!this.maxWaypoint || max.position.distanceTo(this.maxWaypoint) < 2) {
+          this.maxWaypoint = new THREE.Vector3(
+            charles.position.x + Utils.randomRange(-15, 15),
+            0,
+            charles.position.z + Utils.randomRange(-15, 15)
+          );
+        }
+        this.seekPosition(max, this.maxWaypoint, deltaTime, 2.2, 0.6);
+        break;
+    }
+  }
+}
+
+// ============= CAMERA SYSTEM MODULE =============
+class CameraModule {
+  init() {
+    this.setupCamera();
+    this.core.on('camera:mode-changed', (e) => this.onModeChanged(e.detail));
+  }
+
+  setupCamera() {
+    const renderer = this.core.getModule('renderer');
+    if (!renderer) return;
+
+    this.camera = renderer.camera;
+    this.mode = 'third-person';
+    this.smoothing = 0.1;
+    this.offset = new THREE.Vector3(0, 2, 5);
+    this.target = new THREE.Vector3();
+  }
+
+  onModeChanged(data) {
+    this.mode = data.mode;
+  }
+
+  update(deltaTime) {
+    const characters = this.core.getModule('character');
+    const movement = this.core.getModule('movement');
+    
+    if (!characters || !movement) return;
+
+    const charles = characters.getCharacter('charles');
+    if (!charles) return;
+
+    if (this.mode === 'first-person') {
+      this.updateFirstPerson(charles, movement);
+    } else {
+      this.updateThirdPerson(charles, movement);
+    }
+  }
+
+  updateFirstPerson(charles, movement) {
+    const head = charles.userData.components?.head;
+    if (!head) return;
+
+    // Get head world position
+    const headPosition = new THREE.Vector3();
+    head.getWorldPosition(headPosition);
+    
+    this.camera.position.copy(headPosition).add(new THREE.Vector3(0, 0.1, 0));
+    
+    // Look direction based on mouse
+    const direction = new THREE.Vector3(
+      Math.sin(movement.mouse.yaw),
+      Math.sin(movement.mouse.pitch),
+      -Math.cos(movement.mouse.yaw)
+    );
+    
+    this.target.copy(headPosition).add(direction.multiplyScalar(10));
+    this.camera.lookAt(this.target);
+  }
+
+  updateThirdPerson(charles, movement) {
+    // Calculate desired camera position
+    const cameraOffset = new THREE.Vector3(0, 2.5, 4.5);
+    cameraOffset.applyEuler(new THREE.Euler(movement.mouse.pitch, movement.mouse.yaw, 0));
+    
+    const targetPosition = new THREE.Vector3()
+      .copy(charles.position)
+      .add(new THREE.Vector3(0, 1.2, 0))
+      .add(cameraOffset);
+    
+    // Smooth camera movement
+    this.camera.position.lerp(targetPosition, this.smoothing);
+    
+    // Look at Charles with slight offset
+    this.target.copy(charles.position).add(new THREE.Vector3(0, 1, 0));
+    this.camera.lookAt(this.target);
+  }
+}
+
+// ============= MAIN INITIALIZATION =============
+const popsCore = new POPSCore();
+
+// Register all modules
+popsCore.registerModule('renderer', new RendererModule());
+popsCore.registerModule('materials', new MaterialsModule());
+popsCore.registerModule('character', new CharacterModule());
+popsCore.registerModule('state', new StateModule());
+popsCore.registerModule('ui', new UIModule());
+popsCore.registerModule('movement', new MovementModule());
+popsCore.registerModule('camera', new CameraModule());
+
+// Main game loop
+let lastTime = performance.now();
+
+function gameLoop(currentTime) {
+  const deltaTime = Math.min(0.05, (currentTime - lastTime) / 1000);
+  lastTime = currentTime;
+  
+  // Update all modules
+  popsCore.update(deltaTime);
+  
+  // Render
+  const renderer = popsCore.getModule('renderer');
+  if (renderer) {
+    renderer.render();
+  }
+  
+  requestAnimationFrame(gameLoop);
+}
+
+// Boot sequence
+async function initializeSystem() {
+  console.log('🚀 P.O.P.S. Legacy System initializing...');
+  
+  // Load saved profile
+  const ui = popsCore.getModule('ui');
+  if (ui) {
+    ui.loadProfile();
+    ui.log('🤖 P.O.P.S. Legacy System online');
+    ui.log('✨ Charles 5 + Max Autonomous Framework ready');
+  }
+  
+  // Start the main loop
+  requestAnimationFrame(gameLoop);
+  
+  console.log('✅ P.O.P.S. Legacy System fully operational');
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeSystem);
+} else {
+  initializeSystem();
+}
+
+// Global error handling
+window.addEventListener('error', (event) => {
+  console.error('P.O.P.S. System Error:', event.error);
+  const ui = popsCore.getModule('ui');
+  if (ui) {
+    ui.log(`❌ System error: ${event.error.message}`, 'error');
+  }
+});
+
+})();
+</script>
+</body>
+</html>
