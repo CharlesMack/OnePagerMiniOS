@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>P.O.P.S. — Charles 5 + Max (Waypoints • Treats • Fetch • Offline)</title>
+<style>
+  :root{--bg:#0a0d14;--fg:#eaf0ff;--rim:#1e2a45;--muted:#9aacbf;--accent:#7af0ff;--hot:#ff5c7a;--max:#d61d39;--treat:#ffcf7a}
+  *{box-sizing:border-box}html,body{height:100%;margin:0;background:radial-gradient(1200px 700px at 70% -20%,#1b2440 0%,#0a0d14 60%)}
+  #app{position:fixed;inset:0}canvas{display:block}
+  #hud{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip,button,label.toggle,details{border:1px solid var(--rim);border-radius:12px;background:linear-gradient(180deg,#141a2b,#0f1525);
+    color:var(--fg);padding:8px 12px;font:600 12px/1.1 Inter,ui-sans-serif,system-ui;box-shadow:0 8px 24px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04)}
+  button{cursor:pointer}button:hover{filter:brightness(1.08)}
+  #log{position:fixed;left:12px;bottom:12px;max-width:min(820px,86vw);padding:10px 12px;border:1px solid var(--rim);border-radius:12px;background:#0d1222;color:var(--muted);font:500 12px/1.35 Inter,ui-sans-serif;white-space:pre-wrap}
+  #stats{position:fixed;right:12px;top:12px;z-index:10;color:#cfe2ff;font:600 12px/1.35 Inter,ui-sans-serif;background:#0d1222a8;border:1px solid var(--rim);border-radius:12px;padding:8px 12px}
+  #hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:#c7d2fe;font:700 16px Inter;text-shadow:0 2px 12px rgba(0,0,0,.6);opacity:.0;transition:opacity .6s ease}
+  #drop{position:fixed;inset:0;pointer-events:none;border:2px dashed transparent}
+  #drop.active{pointer-events:none;border-color:#67e8f9;box-shadow:inset 0 0 0 2px #67e8f9aa}
+  #inv{position:fixed;right:12px;bottom:12px;max-width:300px}
+  #inv ul{margin:.4rem 0 0;padding-left:1.2rem;max-height:180px;overflow:auto}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud">
+  <div class="chip">💾 <b>P.O.P.S.</b> C5 + Max — Offline</div>
+  <button id="btnFP">👁️ FP</button>
+  <button id="btnTP">🎥 TP</button>
+  <button id="btnManual">🕹️ Manual</button>
+  <button id="btnAuto">🤖 Auto</button>
+  <button id="btnFocus">🎯 Focus</button>
+  <button id="btnTired">😴 Tired</button>
+  <button id="btnSolar">🔆 Sunbathe</button>
+  <button id="btnDance">💃 Dance</button>
+  <button id="btnTheater">🪩 Theater On/Off</button>
+  <button id="btnTreat">🍖 Drop Treat</button>
+  <button id="btnFeed">🧑‍🔧 Feed Max</button>
+  <button id="btnFetch">🥎 Fetch!</button>
+  <label class="toggle"><input id="shaderToggle" type="checkbox"> Shader Look</label>
+  <label class="toggle"><input id="voiceToggle" type="checkbox"> Voice</label>
+  <button id="btnListen">🎤 Listen</button>
+  <button id="btnSave">💾 Save</button>
+</div>
+
+<details id="inv">
+  <summary>🧺 Treat Inventory <span id="invCount">(0)</span></summary>
+  <ul id="invList"></ul>
+  <div style="display:flex;gap:8px;margin-top:.4rem">
+    <button id="invAdd">➕ Add 5</button>
+    <button id="invUse">➖ Use 1</button>
+    <button id="invClear">🗑️ Clear</button>
+  </div>
+  <details style="margin-top:.5rem">
+    <summary>🎞️ Media Library (offline)</summary>
+    <ul id="mediaList" style="max-height:120px;overflow:auto;margin-top:.4rem"></ul>
+  </details>
+</details>
+
+<div id="stats"></div>
+<div id="hint">Drop an <b>.mp3</b> or <b>.mp4</b> anywhere to play in the sky · WASD+mouse · say: “max follow”, “feed max”, “fetch”</div>
+<div id="log">ready.</div>
+<div id="drop"></div>
+
+<!-- Vendor (mirror locally later for 100% self-hosted) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(()=>{
+// ============= Service Worker registration (offline) =============
+if('serviceWorker' in navigator){
+  // Register once app loads; SW precaches this page and libs. :contentReference[oaicite:4]{index=4}
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(console.error));
+}
+
+// ===== Prevent browser from opening dropped files in a new tab =====
+window.addEventListener('dragover', e => e.preventDefault(), false);
+window.addEventListener('drop',     e => e.preventDefault(), false);
+
+// ===== Utils =====
+const logEl = document.getElementById('log'); const statsEl = document.getElementById('stats'); const hintEl = document.getElementById('hint');
+const invCountEl = document.getElementById('invCount'); const invListEl = document.getElementById('invList');
+const mediaListEl = document.getElementById('mediaList');
+const log = (s)=>logEl.textContent=s; const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)); const lerp=(a,b,t)=>a+(b-a)*t;
+const MAP_BOUNDS = 360;
+
+// ===== Renderer / Scene / Camera =====
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 2000);
+camera.position.set(1.2,1.2,4.2);
+const renderer = new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setSize(innerWidth,innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.outputEncoding = THREE.sRGBEncoding;
+app.appendChild(renderer.domElement);
+
+// ===== Day/Night + Solar Beams =====
+const hemi = new THREE.HemisphereLight(0xaed8ff,0x0a0d14,.7); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff,.9); sun.position.set(6,8,4); scene.add(sun);
+let dayClock=0, DAY_LEN=120;
+const solarGroup = new THREE.Group(); scene.add(solarGroup);
+function makeSolarBeam(){
+  const geo = new THREE.CylinderGeometry(0.8,1.6,6,16,1,true);
+  const mat = new THREE.MeshBasicMaterial({color:0xffffaa,transparent:true,opacity:0.12,depthWrite:false});
+  const m = new THREE.Mesh(geo,mat); m.rotation.x=Math.PI/2; return m;
+}
+const beams=[]; for(let i=0;i<6;i++){ const b=makeSolarBeam(); b.position.set((Math.random()-0.5)*40,3,(Math.random()-0.5)*40); solarGroup.add(b); beams.push(b); }
+function updateDayNight(dt){
+  dayClock=(dayClock+dt)%DAY_LEN; const phase=dayClock/DAY_LEN; const ang=phase*Math.PI*2;
+  sun.position.set(Math.cos(ang)*18, Math.sin(ang)*18, 6);
+  const daylight = clamp(Math.sin(ang)*0.5+0.5, 0.08, 1.0);
+  sun.intensity = lerp(0.1,1.0,daylight); hemi.intensity=lerp(0.08,0.7,daylight);
+  beams.forEach((b,i)=>{ b.rotation.z += 0.002 + i*0.0005; b.material.opacity = 0.06 + (1.0-daylight)*0.16; });
+  return daylight;
+}
+
+// ===== Ground + Instanced Props =====
+const ggeo = new THREE.PlaneGeometry(800,800,200,200); ggeo.rotateX(-Math.PI/2);
+for(let i=0;i<ggeo.attributes.position.count;i++){ const x=ggeo.attributes.position.getX(i), z=ggeo.attributes.position.getZ(i);
+  const h=(Math.sin(x*0.02)+Math.cos(z*0.018))*0.35; ggeo.attributes.position.setY(i,h); }
+ggeo.computeVertexNormals();
+const gmat = new THREE.MeshStandardMaterial({color:0x0f1525,roughness:0.96});
+const ground = new THREE.Mesh(ggeo,gmat); scene.add(ground);
+const pillarGeo = new THREE.CylinderGeometry(0.25,0.25,Math.random()*3+2,14);
+const pillarMat = new THREE.MeshStandardMaterial({color:0x1e2a49,roughness:.9});
+const PCOUNT=1200; const pillars=new THREE.InstancedMesh(pillarGeo,pillarMat,PCOUNT);
+const dummy = new THREE.Object3D();
+for(let i=0;i<PCOUNT;i++){ dummy.position.set((Math.random()-0.5)*760,0,(Math.random()-0.5)*760); dummy.rotation.y=Math.random()*Math.PI*2; dummy.updateMatrix(); pillars.setMatrixAt(i,dummy.matrix); }
+pillars.instanceMatrix.needsUpdate=true; scene.add(pillars);
+
+// ===== Materials & helpers =====
+const toon=(c,em=0x000000)=>new THREE.MeshToonMaterial({color:c,emissive:em,emissiveIntensity:.8});
+function makeToonShader(color=0x32406a){
+  const col=new THREE.Color(color);
+  const vsh=`varying vec3 n;void main(){n=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} `;
+  const fsh=`uniform vec3 uC;uniform vec3 uL;varying vec3 n;void main(){float d=max(dot(normalize(n),normalize(uL)),0.0);
+    float b=step(.7,d)*1.0+step(.35,d)*.6+step(.08,d)*.35; gl_FragColor=vec4(uC*b,1.0);} `;
+  return new THREE.ShaderMaterial({vertexShader:vsh,fragmentShader:fsh,uniforms:{uC:{value:col},uL:{value:new THREE.Vector3(1,1,1)}},lights:false});
+}
+function outlined(mesh,color=0x070b12,scale=1.03){ const o=mesh.clone(); o.material=new THREE.MeshBasicMaterial({color,side:THREE.BackSide}); o.scale.multiplyScalar(scale);
+  const g=new THREE.Group(); g.add(o,mesh); return g; }
+let useShaderLook=false;
+
+// ===== Charles 5 (procedural) =====
+let Charles, CHead, LEDs, armL, armR;
+const LED_COUNT=16;
+function buildCharles(){
+  const C = new THREE.Group(); C.position.y=0.6;
+  const torso = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.9,0.6,0.45), useShaderLook?makeToonShader(0x2a3558):toon(0x2a3558))); C.add(torso);
+  const neck  = outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.18,24), useShaderLook?makeToonShader(0x3a4a78):toon(0x3a4a78))); neck.position.y=0.45; torso.add(neck);
+  const head  = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.55,0.32,0.32), useShaderLook?makeToonShader(0x3a4f86):toon(0x3a4f86))); head.position.y=0.18; neck.add(head); CHead=head;
+  const eyeMat=new THREE.MeshStandardMaterial({color:0x10131a,emissive:0x77ddff,emissiveIntensity:1.2,roughness:.4});
+  const eyeL=new THREE.Mesh(new THREE.SphereGeometry(0.06,24,24),eyeMat), eyeR=eyeL.clone(); eyeL.position.set(-0.12,0.03,0.15); eyeR.position.set(0.12,0.03,0.15); head.add(eyeL,eyeR);
+  const jaw = outlined(new THREE.Mesh(new THREE.BoxGeometry(0.5,0.05,0.25), useShaderLook?makeToonShader(0x2b385e):toon(0x2b385e))); jaw.position.set(0,-0.20,0.03); head.add(jaw);
+  const ledGeo=new THREE.SphereGeometry(0.025,12,12), ledMat=new THREE.MeshStandardMaterial({color:0x22293f,emissive:0x00e0ff,emissiveIntensity:1});
+  LEDs=new THREE.InstancedMesh(ledGeo,ledMat,LED_COUNT); const d=new THREE.Object3D();
+  for(let i=0;i<LED_COUNT;i++){ d.position.set(-0.42+i*(0.84/(LED_COUNT-1)),0.08,0.23); d.updateMatrix(); LEDs.setMatrixAt(i,d.matrix); }
+  LEDs.instanceMatrix.needsUpdate=true; torso.add(LEDs);
+  const limbMat=useShaderLook?makeToonShader(0x2b3a66):toon(0x2b3a66);
+  function arm(side=1){ const s=outlined(new THREE.Mesh(new THREE.SphereGeometry(0.10,24,24), useShaderLook?makeToonShader(0x32406a):toon(0x32406a)));
+    s.position.set(0.50*side,0.18,0.0); const up=outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.08,0.36,24), limbMat)); up.rotation.z=Math.PI/2*0.08*side; up.position.set(0,-0.22,0); s.add(up);
+    const el=outlined(new THREE.Mesh(new THREE.SphereGeometry(0.08,24,24), limbMat)); el.position.set(0,-0.2,0); up.add(el);
+    const fo=outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.32,24), limbMat)); fo.position.set(0,-0.20,0); el.add(fo);
+    const cl=outlined(new THREE.Mesh(new THREE.BoxGeometry(0.10,0.10,0.18), useShaderLook?makeToonShader(0x3b4a78):toon(0x3b4a78))); cl.position.set(0,-0.18,0.02); fo.add(cl);
+    s.userData.joints={shoulder:s,upper:up,elbow:el,fore:fo,claw:cl}; return s;}
+  armL=arm(-1); armR=arm(1); torso.add(armL,armR);
+  return C;
+}
+Charles = buildCharles(); scene.add(Charles);
+
+// ===== Max (procedural dog) =====
+function buildMax(){
+  const M=new THREE.Group(); M.position.set(-1,0.6,0);
+  const body=outlined(new THREE.Mesh(new THREE.SphereGeometry(0.35,24,24), toon(0xd61d39))); M.add(body);
+  const belly=outlined(new THREE.Mesh(new THREE.SphereGeometry(0.42,24,24), toon(0xcf1b36))); belly.scale.set(1.2,0.8,1.6); belly.position.set(0,-0.1,0); body.add(belly);
+  const neck=outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.10,0.12,0.22,16), toon(0xd61d39))); neck.position.set(0,0.18,0.25); body.add(neck);
+  const head=outlined(new THREE.Mesh(new THREE.SphereGeometry(0.22,24,24), toon(0xd61d39))); head.position.set(0,0.14,0.12); neck.add(head);
+  const nose=new THREE.Mesh(new THREE.SphereGeometry(0.08,16,16), new THREE.MeshStandardMaterial({color:0x111,roughness:.6})); nose.position.set(0,0.02,0.18); head.add(nose);
+  const earL=outlined(new THREE.Mesh(new THREE.SphereGeometry(0.10,16,16), toon(0xc11830))); earL.scale.set(0.6,1.0,0.6); earL.position.set(-0.18,0.05,0); head.add(earL);
+  const earR=earL.clone(); earR.position.x*=-1; head.add(earR);
+  const legGeo=new THREE.CylinderGeometry(0.06,0.08,0.35,16);
+  function leg(x,z){ const l=outlined(new THREE.Mesh(legGeo, toon(0xd61d39))); l.position.set(x,-0.28,z); return l;}
+  M.add(leg(0.18,0.22),leg(-0.18,0.22),leg(0.18,-0.22),leg(-0.18,-0.22));
+  const tail=outlined(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.05,0.36,12), toon(0xd61d39))); tail.position.set(0,-0.05,-0.46); tail.rotation.x=-Math.PI/3; M.add(tail);
+  M.userData={head,tail,mode:'heel',mouthHold:null}; return M;
+}
+let Max = buildMax(); scene.add(Max);
+
+// ===== Pointer lock & input =====
+renderer.domElement.addEventListener('click',()=>renderer.domElement.requestPointerLock());
+const pointerLocked=()=>document.pointerLockElement===renderer.domElement;
+let yaw=0,pitch=0;
+addEventListener('mousemove',e=>{ if(!pointerLocked()) return; yaw-= (e.movementX||0)*0.002; pitch=clamp(pitch - (e.movementY||0)*0.002, -1.2,1.2); });
+const keys={}; addEventListener('keydown',e=>keys[e.code]=true); addEventListener('keyup',e=>keys[e.code]=false);
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+
+// ===== State / FSM =====
+const state={ mode:'idle', last:performance.now(), curiousDelay:30000, auto:true, modeFP:false, daylight:1, playfulTimer:0 };
+const maxState={ mode:'heel' }; // heel, follow, sit, roam, snack, fetch
+function setMode(m){ state.mode=m; log(`mode: ${m}${state.auto?' + Auto':''}`); }
+function setMaxMode(m){ maxState.mode=m; log(`Max: ${m}`); }
+
+// ===== Movement helpers, seek & waypoint roaming =====
+const vel=new THREE.Vector3(), acc=new THREE.Vector3(), vM=new THREE.Vector3();
+const groundRay = new THREE.Raycaster(); const DOWN = new THREE.Vector3(0,-1,0);
+function snapToGround(obj, hover=0.6){ const origin = new THREE.Vector3(obj.position.x, 100, obj.position.z);
+  groundRay.set(origin, DOWN); const hit = groundRay.intersectObject(ground, false)[0]; if(hit) obj.position.y = hit.point.y + hover; }
+function clampWrap(obj){ const b=MAP_BOUNDS; if(obj.position.x>b) obj.position.x=-b; if(obj.position.x<-b) obj.position.x=b; if(obj.position.z>b) obj.position.z=-b; if(obj.position.z<-b) obj.position.z=b; }
+function seek(entityVel, entityPos, target, dt, speed=2.8, gain=0.6){
+  const desired=new THREE.Vector3().subVectors(target,entityPos).setY(0).normalize().multiplyScalar(speed);
+  acc.copy(desired.sub(entityVel)).multiplyScalar(gain);
+  entityVel.addScaledVector(acc,dt).setLength(Math.min(speed, entityVel.length()+speed*dt));
+  entityPos.addScaledVector(entityVel,dt);
+}
+let c5Waypoint=null; function pickWaypoint(){ c5Waypoint=new THREE.Vector3((Math.random()*2-1)*(MAP_BOUNDS*0.9),0,(Math.random()*2-1)*(MAP_BOUNDS*0.9)); }
+function autoRoamCharles(dt){ if(!c5Waypoint) pickWaypoint(); const toWP=new THREE.Vector3().subVectors(c5Waypoint,Charles.position); if(toWP.length()<2) pickWaypoint();
+  seek(vel,Charles.position,c5Waypoint,dt,(state.mode==='tired'?1.6:2.6),0.6); if(vel.lengthSq()>1e-4) Charles.rotation.y=Math.atan2(vel.x,vel.z); }
+
+// ===== Camera =====
+function setFP(){ state.modeFP=true; log("👁️ FP"); } function setTP(){ state.modeFP=false; log("🎥 TP"); }
+function updateCamera(){ const dir=new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw)), up=new THREE.Vector3(0,1,0);
+  if(state.modeFP && CHead){ const headPos=new THREE.Vector3().setFromMatrixPosition(CHead.matrixWorld); camera.position.copy(headPos).add(new THREE.Vector3(0,0.1,0)); const look=new THREE.Vector3().copy(headPos).addScaledVector(dir,5).addScaledVector(up,pitch*0.5); camera.lookAt(look);}
+  else{ const back=new THREE.Vector3(0,0,3.2).applyEuler(new THREE.Euler(pitch,yaw,0)); const anchor=new THREE.Vector3().copy(Charles.position).add(new THREE.Vector3(0,0.9,0));
+    camera.position.lerp(new THREE.Vector3().copy(anchor).add(back),0.1); camera.lookAt(anchor);} }
+
+// ===== Actions (animations) =====
+function headNod(){ if(!CHead) return; let t=0;(function a(){t+=0.055;CHead.rotation.x=Math.sin(t)*0.18;if(t<Math.PI*2)requestAnimationFrame(a);else CHead.rotation.x=0;})();}
+function waveArm(){ const j=Math.random()<0.5?armL.userData.joints:armR.userData.joints; let t=0;(function a(){t+=0.09;j.shoulder.rotation.z=Math.sin(t)*0.6;j.elbow.rotation.z=Math.cos(t*1.3)*0.5;if(t<Math.PI*3)requestAnimationFrame(a);else{j.shoulder.rotation.z=0;j.elbow.rotation.z=0;}})();}
+function dance(){ waveArm(); setTimeout(()=>{Charles.rotation.y+=Math.PI/8; waveArm();},260); }
+
+// ===== Treats + Inventory (IndexedDB) =====
+const DB='c5max', STORE='profile', STORE_MEDIA='media';
+let db=null; async function openDB(){ return await new Promise((res,rej)=>{ const r=indexedDB.open(DB,2);
+  r.onupgradeneeded=(e)=>{ const db=e.target.result; if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE,{keyPath:'id'}); if(!db.objectStoreNames.contains(STORE_MEDIA)) db.createObjectStore(STORE_MEDIA,{keyPath:'name'}); };
+  r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+let inventory = { treats: 0, items: [] }; // items = [{id,label}]
+function refreshInvUI(){ invCountEl.textContent='('+inventory.treats+')'; invListEl.innerHTML = inventory.items.map(i=>`<li>${i.label}</li>`).join('') || '<li>(empty)</li>'; }
+async function saveProfile(){ if(!db) db=await openDB(); const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put({id:'default',shader:useShaderLook,voice:voiceToggle.checked,cam:state.modeFP?'FP':'TP',auto:state.auto,inventory}); }
+async function loadProfile(){ db=await openDB(); const tx=db.transaction(STORE,'readonly'); await new Promise((res)=>{ const g=tx.objectStore(STORE).get('default'); g.onsuccess=()=>{ const p=g.result; if(p){ useShaderLook=p.shader; shaderToggle.checked=useShaderLook; voiceToggle.checked=p.voice; state.modeFP=(p.cam==='FP'); state.auto=!!p.auto; inventory=p.inventory||inventory; refreshInvUI(); } res(); }; }); }
+
+// Treat meshes & logic
+const treatsScene = []; const treatGeo = new THREE.BoxGeometry(0.16,0.08,0.08);
+const treatMat = new THREE.MeshStandardMaterial({color:0xffcf7a, roughness:0.8});
+function spawnTreat(pos=null){
+  if(inventory.treats<=0){ log("🍖 No treats left; add in inventory panel"); return; }
+  const t = new THREE.Mesh(treatGeo, treatMat);
+  if(!pos){ const dir=new THREE.Vector3(Math.sin(Charles.rotation.y),0,Math.cos(Charles.rotation.y)); t.position.copy(Charles.position).addScaledVector(dir,0.8).add(new THREE.Vector3(0,0.4,0)); }
+  else t.position.copy(pos);
+  scene.add(t); treatsScene.push(t);
+  useTreat(1); // consume from inventory
+  log("🍖 Treat dropped");
+}
+function nearestTreat(to, maxDist=7){ let best=null, bd=maxDist; for(const t of treatsScene){ const d=t.position.distanceTo(to); if(d<bd){ bd=d; best=t; } } return best; }
+function chewAnimation(){ const mouth = Max.userData.head; let t=0; (function a(){ t+=0.14; mouth.rotation.x = Math.sin(t)*0.18; if(t<Math.PI*3) requestAnimationFrame(a); else mouth.rotation.x=0; })();}
+function updateTreats(dt){
+  if(!Max.userData.mouthHold){ const snack = nearestTreat(Max.position, 10); if(snack){ seek(vM, Max.position, snack.position, dt, 3.2, 0.9);
+      if(Max.position.distanceTo(snack.position) < 0.5){ Max.userData.mouthHold = snack; snack.position.set(0,0.0,0.22); Max.userData.head.add(snack); chewAnimation();
+        setTimeout(()=>{ if(Max.userData.mouthHold){ scene.remove(Max.userData.mouthHold); const idx=treatsScene.indexOf(Max.userData.mouthHold); if(idx>=0) treatsScene.splice(idx,1); Max.userData.mouthHold=null; setMaxMode('follow'); } }, 3000);
+      } } }
+}
+
+// Inventory helpers
+function addTreat(n=5){ inventory.treats+=n; for(let i=0;i<n;i++) inventory.items.push({id:crypto.randomUUID(),label:'Treat'}); refreshInvUI(); saveProfile(); }
+function useTreat(n=1){ inventory.treats=Math.max(0,inventory.treats-n); inventory.items.splice(0,Math.min(n,inventory.items.length)); refreshInvUI(); saveProfile(); }
+function clearTreats(){ inventory.treats=0; inventory.items=[]; refreshInvUI(); saveProfile(); }
+
+// ===== Fetch mini‑game =====
+let ball=null, ballVel=new THREE.Vector3();
+function throwBall(){
+  // consume one treat as reward bait; then spawn a ball and throw
+  if(inventory.treats<=0){ log("🥎 Add treats first (inventory)"); return; }
+  useTreat(1);
+  if(ball){ scene.remove(ball); ball=null; }
+  const mat=new THREE.MeshStandardMaterial({color:0xffe07a, roughness:.6, metalness:.05});
+  ball=new THREE.Mesh(new THREE.SphereGeometry(0.12,18,18), mat);
+  const forward=new THREE.Vector3(Math.sin(Charles.rotation.y),0,Math.cos(Charles.rotation.y));
+  ball.position.copy(Charles.position).add(new THREE.Vector3(0,0.9,0)).addScaledVector(forward,0.6);
+  scene.add(ball);
+  // simple throw arc
+  ballVel.set(forward.x*6, 3.8, forward.z*6);
+  setMaxMode('fetch');
+}
+function updateBall(dt){
+  if(!ball) return;
+  // gravity + move
+  ballVel.y -= 9.8*0.85*dt;
+  ball.position.addScaledVector(ballVel, dt);
+  // ground snap/stop
+  const origin=new THREE.Vector3(ball.position.x,100,ball.position.z); groundRay.set(origin,DOWN);
+  const hit=groundRay.intersectObject(ground,false)[0]; if(hit && ball.position.y <= hit.point.y+0.12){ ball.position.y = hit.point.y+0.12; ballVel.set(0,0,0); }
+  // Max retrieves
+  if(!Max.userData.mouthHold && maxState.mode==='fetch'){
+    seek(vM, Max.position, ball.position, dt, 3.3, 0.9);
+    if(Max.position.distanceTo(ball.position) < 0.5){
+      Max.userData.mouthHold = ball; ball.position.set(0,0.0,0.22); Max.userData.head.add(ball);
+    }
+  }else if(Max.userData.mouthHold===ball){
+    // return to Charles
+    const givePos = new THREE.Vector3().copy(Charles.position).add(new THREE.Vector3(0.2,0,0.2));
+    seek(vM, Max.position, givePos, dt, 3.2, 0.9);
+    if(Max.position.distanceTo(givePos) < 0.6){
+      // drop ball & reward with a spawned treat
+      Max.userData.head.remove(ball); ball.position.copy(givePos).add(new THREE.Vector3(0,0.1,0)); scene.add(ball);
+      spawnTreat(givePos.add(new THREE.Vector3(0,0.5,0))); // reward
+      setTimeout(()=>{ if(ball){ scene.remove(ball); ball=null; } }, 1500);
+      Max.userData.mouthHold=null; setMaxMode('follow');
+    }
+  }
+}
+
+// ===== Hologram theater + Media Library (IndexedDB blobs) =====
+let audioCtx=null, analyser=null, audioSrc=null, audioEl=null, videoEl=null, videoTex=null, holo=null;
+const dropBox=document.getElementById('drop');
+['dragenter','dragover'].forEach(ev=>dropBox.addEventListener(ev,(e)=>{e.preventDefault();dropBox.classList.add('active');}));
+['dragleave','drop'].forEach(ev=>dropBox.addEventListener(ev,(e)=>{e.preventDefault();dropBox.classList.remove('active'); if(ev==='drop') handleDrop(e);}));
+// Drag-and-drop & DataTransfer per MDN. :contentReference[oaicite:5]{index=5}
+function ensureHolo(){ if(holo) return; const geo=new THREE.PlaneGeometry(12,6.75);
+  const mat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.95,side:THREE.DoubleSide});
+  holo=new THREE.Mesh(geo,mat); holo.position.set(0,10,-10); holo.rotation.x=-0.2; scene.add(holo); }
+function playAudio(url){ ensureHolo();
+  if(videoEl){ videoEl.pause(); videoEl.src=''; videoEl=null; if(videoTex){ videoTex.dispose(); videoTex=null; } }
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(!audioEl){ audioEl=new Audio(); audioEl.loop=true; }
+  audioEl.src=url; audioEl.play();
+  if(audioSrc) audioSrc.disconnect(); audioSrc = audioCtx.createMediaElementSource(audioEl);
+  analyser = new AnalyserNode(audioCtx,{fftSize:256}); audioSrc.connect(analyser).connect(audioCtx.destination);
+  log("🎵 Audio hologram playing (LED reactive)");
+}
+function playVideo(url){ ensureHolo();
+  if(!videoEl){ videoEl=document.createElement('video'); videoEl.muted=false; videoEl.loop=true; videoEl.playsInline=true; }
+  videoEl.src=url; videoEl.play().catch(()=>{});
+  if(videoTex) videoTex.dispose(); videoTex = new THREE.VideoTexture(videoEl); // three.js docs :contentReference[oaicite:6]{index=6}
+  holo.material.map=videoTex; holo.material.needsUpdate=true; log("🎬 Video hologram playing");
+}
+async function saveMediaBlob(name, blob){
+  if(!db) db=await openDB(); const tx=db.transaction(STORE_MEDIA,'readwrite'); await new Promise(res=>{ const put=tx.objectStore(STORE_MEDIA).put({name, blob}); put.onsuccess=res; });
+  renderMediaList();
+}
+async function renderMediaList(){
+  if(!db) db=await openDB(); const tx=db.transaction(STORE_MEDIA,'readonly'); const store=tx.objectStore(STORE_MEDIA);
+  const items=[]; await new Promise(res=>{ const req=store.openCursor(); req.onsuccess=(ev)=>{ const cur=ev.target.result; if(cur){ items.push(cur.value.name); cur.continue(); } else res(); }; });
+  mediaListEl.innerHTML = items.map(n=>`<li><button data-play="${n}">Play</button> ${n}</li>`).join('') || '<li>(none saved)</li>';
+  mediaListEl.querySelectorAll('button[data-play]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const name = btn.getAttribute('data-play'); const tx2=db.transaction(STORE_MEDIA,'readonly');
+      const get=tx2.objectStore(STORE_MEDIA).get(name); get.onsuccess=()=>{ const rec=get.result; if(rec){ const url=URL.createObjectURL(rec.blob); // create blob URL locally :contentReference[oaicite:7]{index=7}
+        if(rec.blob.type.startsWith('audio')) playAudio(url); else if(rec.blob.type.startsWith('video')) playVideo(url);
+        setTimeout(()=>URL.revokeObjectURL(url), 60000); // clean up :contentReference[oaicite:8]{index=8}
+      } };
+    };
+  });
+}
+async function handleDrop(e){
+  const f = e.dataTransfer.files?.[0]; if(!f) return;
+  const url = URL.createObjectURL(f);
+  if(f.type.startsWith('audio')) playAudio(url); else if(f.type.startsWith('video')) playVideo(url); else { log("Unsupported file. Drop mp3/mp4."); return; }
+  // persist blob so it’s playable offline later (SW can’t cache local file objects) :contentReference[oaicite:9]{index=9}
+  const buf = await f.arrayBuffer(); await saveMediaBlob(f.name, new Blob([buf], {type:f.type}));
+}
+
+// ===== LEDs =====
+let ledIndex=0; function updateLEDs(dt, daylight){
+  if(!LEDs) return;
+  let intensity = (state.mode==='solar'||state.mode==='tired') ? 0.25 : (state.mode==='focus'||state.mode==='playful') ? 1.4 : lerp(0.4, 1.0, daylight);
+  if(analyser){ const arr=new Uint8Array(analyser.frequencyBinCount); analyser.getByteTimeDomainData(arr); let avg=0; for(let i=0;i<arr.length;i++) avg += Math.abs(arr[i]-128); avg/=arr.length; intensity += avg/128*0.6; }
+  LEDs.material.emissiveIntensity = lerp(LEDs.material.emissiveIntensity||1, intensity, 0.12);
+  const idx=Math.floor((performance.now()/120)%LED_COUNT);
+  if(idx!==ledIndex){ const d=new THREE.Object3D(); for(let k=0;k<LED_COUNT;k++){ d.position.set(-0.42+k*(0.84/(LED_COUNT-1)),0.08,0.23); d.scale.setScalar(k===idx?1.8:1.0); d.updateMatrix(); LEDs.setMatrixAt(k,d.matrix); } LEDs.instanceMatrix.needsUpdate=true; ledIndex=idx; }
+}
+
+// ===== Manual/Auto, Max following, ground & loop =====
+const keysVec=new THREE.Vector3(); let distance=0; let lastPos=Charles.position.clone();
+function manualMove(dt){ keysVec.set(0,0,0); const speed = state.mode==='tired' ? 1.2 : 2.6;
+  const dir=new THREE.Vector3(Math.sin(yaw),0,-Math.cos(yaw)), right=new THREE.Vector3().crossVectors(dir,new THREE.Vector3(0,1,0)).negate();
+  if(keys['KeyW']) keysVec.addScaledVector(dir,speed*dt); if(keys['KeyS']) keysVec.addScaledVector(dir,-speed*dt);
+  if(keys['KeyA']) keysVec.addScaledVector(right,-speed*dt); if(keys['KeyD']) keysVec.addScaledVector(right,speed*dt);
+  Charles.position.add(keysVec); if(keysVec.lengthSq()>1e-6) Charles.rotation.y=Math.atan2(keysVec.x,keysVec.z); }
+function followHeel(dt){
+  // Max default behavior (heel/follow/sit handled elsewhere)
+  if(maxState.mode==='heel'){
+    const side = new THREE.Vector3().copy(Charles.position).add(new THREE.Vector3(0.8,0,0.4).applyAxisAngle(new THREE.Vector3(0,1,0), Charles.rotation.y));
+    seek(vM, Max.position, side, dt, 3.0, 0.8);
+  }else if(maxState.mode==='follow' || maxState.mode==='fetch'){
+    const tgt = (maxState.mode==='fetch' && ball && !Max.userData.mouthHold) ? ball.position : Charles.position;
+    seek(vM, Max.position, tgt, dt, 3.2, 0.9);
+  }else if(maxState.mode==='sit'){ vM.multiplyScalar(0.9); }
+}
+const ray=new THREE.Raycaster(), pt=new THREE.Vector2();
+renderer.domElement.addEventListener('pointerdown',(e)=>{
+  const r=renderer.domElement.getBoundingClientRect(); pt.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(pt,camera); const hit=ray.intersectObjects([Charles,Max],true)[0]?.object; if(!hit) return;
+  state.last = performance.now();
+  if(hit===CHead || CHead.children.includes(hit)) { headNod(); state.mode='playful'; }
+  else if(hit.parent?.userData?.joints){ waveArm(); state.mode='playful'; }
+  else { maxState.mode = (maxState.mode==='sit' ? 'follow' : 'sit'); }
+});
+
+// ===== Voice, UI =====
+const voiceToggle=document.getElementById('voiceToggle'); voiceToggle.checked = localStorage.getItem('c5.voice')==='1';
+voiceToggle.onchange=()=>localStorage.setItem('c5.voice', voiceToggle.checked?'1':'0');
+function speak(text){ if(!voiceToggle.checked) { log("💬 (voice off)"); return; } const u=new SpeechSynthesisUtterance(text); u.rate=1.04; u.pitch=1.05; speechSynthesis.cancel(); speechSynthesis.speak(u); }
+document.getElementById('btnListen').onclick=()=>{
+  const R=window.SpeechRecognition||window.webkitSpeechRecognition; if(!R){ log("🎤 SpeechRecognition not supported"); return; }
+  const rec=new R(); rec.lang='en-US'; rec.interimResults=false; rec.maxAlternatives=1; rec.onresult=(ev)=>{
+    const t=ev.results[0][0].transcript.toLowerCase(); log("🎧 "+t);
+    if(t.includes('dance')) { dance(); setMode('playful'); speak("Dancing!"); }
+    else if(t.includes('first')) setFP(); else if(t.includes('third')) setTP();
+    else if(t.includes('auto')) { state.auto=true; speak("Autonomous patrol engaged"); }
+    else if(t.includes('manual')) { state.auto=false; speak("Manual control ready"); }
+    else if(t.includes('focus')) { setMode('focus'); } else if(t.includes('tired')) { setMode('tired'); }
+    else if(t.includes('sun')||t.includes('charge')) { setMode('solar'); }
+    else if(t.includes('max follow')) { setMaxMode('follow'); }
+    else if(t.includes('max heel')) { setMaxMode('heel'); }
+    else if(t.includes('max sit')) { setMaxMode('sit'); }
+    else if(t.includes('feed')) { spawnTreat(new THREE.Vector3().copy(Max.position).add(new THREE.Vector3(0,0.5,0))); speak("Snack time!"); }
+    else if(t.includes('treat')) { spawnTreat(); }
+    else if(t.includes('fetch')) { throwBall(); speak("Go get it!"); }
+    else if(t.includes('theater')) { if(holo) holo.visible=!holo.visible; }
+  }; rec.start(); log("🎙️ listening…");
+};
+document.getElementById('btnFP').onclick=setFP; document.getElementById('btnTP').onclick=setTP;
+document.getElementById('btnManual').onclick=()=>{state.auto=false;log("🕹️ Manual");};
+document.getElementById('btnAuto').onclick=()=>{state.auto=true;log("🤖 Auto");};
+document.getElementById('btnFocus').onclick=()=>setMode('focus');
+document.getElementById('btnTired').onclick=()=>setMode('tired');
+document.getElementById('btnSolar').onclick=()=>setMode('solar');
+document.getElementById('btnDance').onclick=()=>{dance();setMode('playful');};
+document.getElementById('btnTreat').onclick=()=>spawnTreat();
+document.getElementById('btnFeed').onclick=()=>{ spawnTreat(new THREE.Vector3().copy(Max.position).add(new THREE.Vector3(0,0.5,0))); };
+document.getElementById('btnFetch').onclick=()=>throwBall();
+const shaderToggle=document.getElementById('shaderToggle'); shaderToggle.onchange=()=>{ useShaderLook = shaderToggle.checked; scene.remove(Charles); Charles=buildCharles(); scene.add(Charles); };
+
+// Inventory UI
+document.getElementById('invAdd').onclick=()=>addTreat(5);
+document.getElementById('invUse').onclick=()=>useTreat(1);
+document.getElementById('invClear').onclick=()=>clearTreats();
+
+// Save/Load profile
+document.getElementById('btnSave').onclick=()=>{ saveProfile().then(()=>log("💾 profile saved")).catch(e=>log(String(e))); };
+
+// ===== Boot & Loop =====
+let last=performance.now(); (async function boot(){ await loadProfile(); await renderMediaList(); hintEl.style.opacity=.22; requestAnimationFrame(loop); })();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  const daylight=updateDayNight(dt); state.daylight=daylight;
+
+  // FSM timers
+  if(state.mode==='idle' && (now-state.last)>state.curiousDelay) setMode('curious');
+  if(state.mode==='curious' && (now-state.last)>state.curiousDelay+15000) { setMode('idle'); state.last=now; }
+  if(state.mode==='playful'){ state.playfulTimer+=dt; if(state.playfulTimer>4){ state.playfulTimer=0; setMode('idle'); } }
+
+  // Movement + fetch system
+  if(state.mode!=='solar'){ if(state.auto) autoRoamCharles(dt); else manualMove(dt); }
+  followHeel(dt);
+  updateTreats(dt);
+  updateBall(dt);
+
+  // Wrap + ground
+  clampWrap(Charles); clampWrap(Max); if(ball) clampWrap(ball);
+  snapToGround(Charles,0.6); snapToGround(Max,0.55);
+
+  // LEDs + camera
+  updateLEDs(dt, daylight); updateCamera();
+
+  renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+  statsEl.innerHTML=`Mode: <b>${state.mode}${state.auto?' + Auto':''}${state.modeFP?' + FP':' + TP'}</b> · Treats: ${inventory.treats}`;
+}
+})();
+</script>
+</body>
+</html>
