@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dev Tools — HTML/JS Editor & Previewer</title>
+<meta name="color-scheme" content="dark light">
+<style>
+  :root {
+    --bg:#0b0f16; --panel:#121828; --muted:#9aa4b2; --fg:#e9ecf1; --accent:#7be3ff; --accent2:#7fff95; --rim:#1c2336; --hot:#ff6b6b;
+  }
+  * { box-sizing:border-box; }
+  html, body { height:100%; margin:0; background:var(--bg); color:var(--fg); font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; }
+  .app { height:100%; display:flex; flex-direction:column; }
+  header {
+    display:flex; gap:10px; align-items:center; padding:10px 12px; background:linear-gradient(180deg, #0f1524, #0c1220);
+    border-bottom:1px solid var(--rim); position:sticky; top:0; z-index:5;
+  }
+  header .title { font-weight:700; letter-spacing:0.3px; }
+  header .chip { font-size:12px; color:var(--muted); margin-left:6px; }
+  .row { display:flex; min-height:0; flex:1; }
+  .left, .right { min-width:120px; min-height:120px; }
+  .left { width:52%; background:var(--panel); border-right:1px solid var(--rim); display:flex; flex-direction:column; }
+  .tabs { display:flex; gap:6px; padding:8px; border-bottom:1px solid var(--rim); background:#0f1628; }
+  .tab { padding:8px 10px; border:1px solid var(--rim); border-bottom:none; border-radius:8px 8px 0 0; background:#0e1524; color:var(--muted); cursor:pointer; }
+  .tab.active { color:var(--fg); background:#121b31; border-color:#243358; }
+  .editor-wrap { position:relative; flex:1; }
+  textarea.code {
+    position:absolute; inset:0; width:100%; height:100%; resize:none; background:#0c1220; color:var(--fg);
+    border:0; padding:12px 14px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    outline:none; tab-size:2;
+  }
+  .toolbar {
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:8px; border-top:1px solid var(--rim); background:#0f1628;
+  }
+  button, .btn {
+    background:#0f1524; color:var(--fg); border:1px solid #1e2a45; padding:8px 10px; border-radius:10px; cursor:pointer;
+  }
+  button:hover { border-color:#2c3d66; }
+  .btn-dim { color:var(--muted); }
+  .btn-accent { border-color:#2b5b7d; background:#10223a; }
+  .btn-hot { border-color:#6b1e1e; background:#1b0d0d; color:#ffdcdc; }
+  select, input[type="text"] {
+    background:#0b1222; color:var(--fg); border:1px solid #1f294b; border-radius:10px; padding:6px 8px;
+  }
+  .right { position:relative; flex:1; display:flex; flex-direction:column; background:#0b111e; }
+  .right-head { display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid var(--rim); background:#0f1628; }
+  iframe.preview {
+    flex:1; width:100%; border:0; background:#0a0f1a; border-top:1px solid #0a1324;
+  }
+  .splitter {
+    width:6px; cursor:col-resize; background:linear-gradient(180deg,#0c1322,#0d1426);
+    border-left:1px solid #0e1730; border-right:1px solid #0e1730;
+  }
+  .hint { color:var(--muted); font-size:12px; }
+  .statusline { font-size:12px; color:var(--muted); padding:4px 8px; border-top:1px solid var(--rim); background:#0c1220; }
+  .kbd { border:1px solid #2a3660; padding:1px 6px; border-radius:6px; font-size:12px; color:#c6d3ff; }
+  .pill { padding:4px 8px; border:1px solid #1e2a45; border-radius:20px; color:var(--muted); }
+  .hidden { display:none !important; }
+  .console {
+    position:absolute; right:10px; bottom:10px; width:40%; max-width:520px; min-width:200px; max-height:35%;
+    background:#0c1324; border:1px solid #22325f; border-radius:12px; overflow:auto; font:12px ui-monospace, monospace; color:#dfe8ff;
+    box-shadow:0 10px 22px rgba(0,0,0,0.35); padding:8px;
+  }
+  .console h4 { margin:0 0 6px 0; font-size:12px; color:#9fb7ff; }
+  .console pre { margin:0; white-space:pre-wrap; }
+  .tagbar { display:flex; gap:6px; flex-wrap:wrap; }
+  .ok { color:var(--accent2); }
+  .err { color:#ff9aa6; }
+  .sr { position:absolute; left:-9999px; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header>
+    <div class="title">Dev Tools — HTML/JS Editor & Previewer</div>
+    <span class="chip">AppDrop</span>
+    <div class="tagbar">
+      <span class="pill">Offline-first</span>
+      <span class="pill">Live Preview</span>
+      <span class="pill">ZIP Export</span>
+      <span class="pill">Panel Memory</span>
+      <span class="pill">Voice</span>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+      <label class="hint"><input type="checkbox" id="liveToggle" checked /> Live preview</label>
+      <button id="voiceBtn" class="btn-accent" title="Roger voice-launch">🎙️ Voice</button>
+    </div>
+  </header>
+
+  <div class="row" id="row">
+    <div class="left" id="left">
+      <div class="tabs" role="tablist" aria-label="Editors">
+        <button class="tab active" data-tab="html" role="tab" aria-selected="true">📄 HTML</button>
+        <button class="tab" data-tab="css" role="tab" aria-selected="false">🎨 CSS</button>
+        <button class="tab" data-tab="js" role="tab" aria-selected="false">⚙️ JS</button>
+      </div>
+      <div class="editor-wrap">
+        <textarea id="html" class="code" spellcheck="false" aria-label="HTML editor"></textarea>
+        <textarea id="css" class="code hidden" spellcheck="false" aria-label="CSS editor"></textarea>
+        <textarea id="js" class="code hidden" spellcheck="false" aria-label="JS editor"></textarea>
+      </div>
+      <div class="toolbar">
+        <input id="snippetName" type="text" placeholder="Snippet name…" style="min-width:180px;">
+        <button id="saveSnippet">💾 Save</button>
+        <select id="snippetList" title="Saved snippets" style="min-width:200px;"></select>
+        <button id="loadSnippet" class="btn">📂 Load</button>
+        <button id="deleteSnippet" class="btn-hot">🗑️ Delete</button>
+        <span class="hint">Tip: <span class="kbd">Ctrl/⌘+S</span> save • <span class="kbd">Ctrl/⌘+Enter</span> preview</span>
+      </div>
+      <div class="toolbar">
+        <button id="exportJSON">📤 Export JSON</button>
+        <label class="btn">
+          📥 Import JSON
+          <input id="importJSON" type="file" accept="application/json" class="sr">
+        </label>
+        <button id="exportZIP" class="btn-accent" title="Export current snippet as AppDrop ZIP">💿 Export ZIP</button>
+        <label class="btn">
+          📦 Import ZIP
+          <input id="importZIP" type="file" accept=".zip,application/zip" class="sr">
+        </label>
+        <button id="newSnippet" class="btn-dim">➕ New</button>
+        <button id="previewNow">🔄 Update Preview</button>
+      </div>
+      <div class="statusline" id="status">Ready.</div>
+    </div>
+
+    <div class="splitter" id="splitter" title="Drag to resize"></div>
+
+    <div class="right" id="right">
+      <div class="right-head">
+        <div>Preview <span class="hint">(sandboxed)</span></div>
+        <div class="hint">Errors → preview console</div>
+      </div>
+      <iframe id="preview" class="preview" sandbox="allow-scripts allow-modals" referrerpolicy="no-referrer"></iframe>
+      <div class="console" id="console" aria-live="polite">
+        <h4>Preview Console</h4>
+        <pre id="log"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========= Storage Keys ========= */
+const LS_STATE   = 'appdrop_dev_editor_state_v1';
+const LS_SNIPS   = 'appdrop_dev_editor_snippets_v1';
+/* ========= Utilities ========= */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const td = new TextDecoder();
+const te = new TextEncoder();
+
+function slugify(s){ return s.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'snippet'; }
+
+function downloadBlob(filename, blob){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 2000);
+}
+
+function saveState(){
+  const state = {
+    activeTab: document.querySelector('.tab.active')?.dataset.tab || 'html',
+    live: $('#liveToggle').checked,
+    splitPct: Math.round(100 * (parseFloat(getComputedStyle($('#left')).width) || $('#left').offsetWidth)/$('#row').offsetWidth),
+    current: app.current,
+  };
+  localStorage.setItem(LS_STATE, JSON.stringify(state));
+}
+
+function loadState(){
+  try { return JSON.parse(localStorage.getItem(LS_STATE)||'{}'); } catch(e){ return {}; }
+}
+
+function saveSnips(snips){
+  localStorage.setItem(LS_SNIPS, JSON.stringify(snips));
+}
+
+function loadSnips(){
+  try {
+    const v = JSON.parse(localStorage.getItem(LS_SNIPS)||'null');
+    if (v && typeof v==='object') return v;
+  } catch(e){}
+  // Seed defaults
+  const now = Date.now();
+  const defaults = {
+    'hello-panel': {
+      name:'Hello Panel',
+      html:`<main style="display:grid;place-items:center;height:100vh;font:16px/1.4 system-ui;background:#0b0f16;color:#e8eef9">
+  <div style="text-align:center">
+    <h1 style="margin:0 0 8px 0">Hello AppDrop 👋</h1>
+    <p>Edit this in the HTML/JS Editor & Previewer.</p>
+    <button onclick="alert('🚀 Ready to ship!')">Run Action</button>
+  </div>
+</main>`,
+      css:`:root{--accent:#7be3ff} button{background:#0f1524;color:#e8eef9;border:1px solid #1f294b;padding:10px 12px;border-radius:10px;cursor:pointer}`,
+      js:`console.log('Hello from AppDrop snippet');`,
+      updatedAt: now
+    }
+  };
+  saveSnips(defaults);
+  return defaults;
+}
+
+/* ========= App State ========= */
+const app = {
+  snips: loadSnips(),
+  current: null,
+  liveTimer: null,
+  // editor elements
+  htmlEl: $('#html'), cssEl: $('#css'), jsEl: $('#js'),
+  logEl: $('#log'), consoleEl: $('#console'),
+  iframe: $('#preview'),
+};
+
+/* ========= Tabs ========= */
+function setTab(tab){
+  $$('.tab').forEach(t=>{
+    const on = t.dataset.tab===tab;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', String(on));
+  });
+  [app.htmlEl, app.cssEl, app.jsEl].forEach(el => el.classList.add('hidden'));
+  ({html:app.htmlEl, css:app.cssEl, js:app.jsEl}[tab]).classList.remove('hidden');
+  saveState();
+}
+
+/* ========= Snippets ========= */
+function refreshSnippetList(){
+  const sel = $('#snippetList');
+  sel.innerHTML = '';
+  Object.entries(app.snips).forEach(([id,s])=>{
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = s.name + ' — ' + new Date(s.updatedAt).toLocaleString();
+    sel.appendChild(opt);
+  });
+  if (app.current && app.snips[app.current]) sel.value = app.current;
+}
+
+function loadSnippet(id){
+  const s = app.snips[id]; if (!s) return;
+  app.current = id;
+  $('#snippetName').value = s.name;
+  app.htmlEl.value = s.html;
+  app.cssEl.value  = s.css;
+  app.jsEl.value   = s.js;
+  refreshSnippetList();
+  status(`Loaded “${s.name}”.`);
+  if ($('#liveToggle').checked) schedulePreview(); else buildPreview();
+  saveState();
+}
+
+function saveSnippet(){
+  const name = ($('#snippetName').value || 'Untitled').trim();
+  const id = app.current || slugify(name);
+  app.snips[id] = {
+    name,
+    html: app.htmlEl.value,
+    css:  app.cssEl.value,
+    js:   app.jsEl.value,
+    updatedAt: Date.now()
+  };
+  app.current = id;
+  saveSnips(app.snips);
+  refreshSnippetList();
+  status(`Saved “${name}”.`);
+}
+
+/* ========= Preview ========= */
+function buildDoc(html, css, js) {
+  const safeJS = `
+    (function(){
+      const O = console;
+      const _log = (...a)=>parent.postMessage({__previewLog: a.map(String).join(' ')}, '*');
+      ['log','warn','error','info'].forEach(k=>{
+        const orig = O[k].bind(O);
+        console[k] = function(){ _log('['+k.toUpperCase()+'] ' + Array.from(arguments).map(String).join(' ')); orig.apply(O, arguments); }
+      });
+      window.onerror = function(msg, src, line, col, err){
+        _log('[ERROR] ' + msg + ' @' + (src||'preview') + ':' + line + ':' + col);
+      };
+    })();\n` + js;
+  return `<!doctype html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>${css||''}</style>
+</head><body>
+${html||''}
+<script>${safeJS||''}<\/script>
+</body></html>`;
+}
+
+function buildPreview(){
+  const doc = buildDoc(app.htmlEl.value, app.cssEl.value, app.jsEl.value);
+  // Use srcdoc for simplicity; sandbox restricts parent access
+  app.iframe.srcdoc = doc;
+}
+
+function schedulePreview(){
+  clearTimeout(app.liveTimer);
+  app.liveTimer = setTimeout(buildPreview, 350);
+}
+
+/* ========= Status / Console ========= */
+function status(msg){ $('#status').textContent = msg; }
+window.addEventListener('message', (ev)=>{
+  const d = ev.data || {};
+  if (d && d.__previewLog){
+    app.logEl.textContent += d.__previewLog + '\n';
+    app.consoleEl.scrollTop = app.consoleEl.scrollHeight;
+  }
+});
+
+/* ========= Splitter (Panel Memory) ========= */
+(function splitter(){
+  const left = $('#left'), right = $('#right'), row = $('#row'), split = $('#splitter');
+  let dragging=false, startX=0, startW=0;
+  split.addEventListener('mousedown', (e)=>{ dragging=true; startX=e.clientX; startW=left.getBoundingClientRect().width; document.body.style.userSelect='none'; });
+  window.addEventListener('mousemove', (e)=>{
+    if(!dragging) return;
+    const dx = e.clientX - startX;
+    let newW = Math.max(200, Math.min(row.offsetWidth-200, startW+dx));
+    left.style.width = newW+'px';
+  });
+  window.addEventListener('mouseup', ()=>{
+    if(dragging){ dragging=false; document.body.style.userSelect=''; saveState(); }
+  });
+})();
+
+/* ========= Keyboard Shortcuts ========= */
+window.addEventListener('keydown', (e)=>{
+  if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); saveSnippet(); }
+  if ((e.ctrlKey||e.metaKey) && e.key === 'Enter'){ e.preventDefault(); buildPreview(); }
+});
+
+/* ========= Buttons / Inputs ========= */
+$$('.tab').forEach(t=>t.addEventListener('click', ()=> setTab(t.dataset.tab)));
+[app.htmlEl, app.cssEl, app.jsEl].forEach(el=>{
+  el.addEventListener('input', ()=>{
+    if ($('#liveToggle').checked) schedulePreview();
+  });
+});
+$('#liveToggle').addEventListener('change', ()=>{ saveState(); if($('#liveToggle').checked) buildPreview(); });
+
+$('#saveSnippet').addEventListener('click', saveSnippet);
+$('#loadSnippet').addEventListener('click', ()=> loadSnippet($('#snippetList').value));
+$('#deleteSnippet').addEventListener('click', ()=>{
+  const id = $('#snippetList').value;
+  if (id && app.snips[id]){
+    const name = app.snips[id].name;
+    delete app.snips[id];
+    saveSnips(app.snips);
+    const first = Object.keys(app.snips)[0] || null;
+    status(`Deleted “${name}”.`);
+    if (first) loadSnippet(first); else { app.current=null; app.htmlEl.value=''; app.cssEl.value=''; app.jsEl.value=''; buildPreview(); refreshSnippetList(); }
+  }
+});
+$('#newSnippet').addEventListener('click', ()=>{
+  $('#snippetName').value = 'Untitled ' + (Object.keys(app.snips).length+1);
+  app.htmlEl.value = '<main><h1>New AppDrop</h1></main>';
+  app.cssEl.value = 'body{font:16px/1.5 system-ui}';
+  app.jsEl.value = "console.log('New snippet ready');";
+  app.current = null;
+  if ($('#liveToggle').checked) schedulePreview(); else buildPreview();
+  status('New snippet initialized.');
+});
+$('#previewNow').addEventListener('click', buildPreview);
+
+/* ========= JSON Export/Import ========= */
+$('#exportJSON').addEventListener('click', ()=>{
+  const payload = { version:1, exportedAt: new Date().toISOString(), snippets: app.snips };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  downloadBlob('dev-editor-snippets.json', blob);
+});
+$('#importJSON').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const txt = await f.text();
+  try{
+    const data = JSON.parse(txt);
+    if (data && data.snippets && typeof data.snippets==='object'){
+      // merge; overwrite same ids
+      app.snips = { ...app.snips, ...data.snippets };
+      saveSnips(app.snips);
+      refreshSnippetList();
+      status('Imported JSON snippets.');
+    } else { alert('Invalid JSON format.'); }
+  } catch(err){ alert('Failed to parse JSON.'); }
+  e.target.value='';
+});
+
+/* ========= Minimal ZIP (store-only) ========= */
+/* Tiny ZIP writer (store method, UTF-8). Also includes simple reader for our own zips. */
+function crc32Uint8(u8){
+  // table
+  if (!crc32Uint8.tbl){
+    crc32Uint8.tbl = new Uint32Array(256).map((_,n)=>{
+      let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320 ^ (c>>>1) : (c>>>1);
+      return c>>>0;
+    });
+  }
+  let c = 0xFFFFFFFF; const T = crc32Uint8.tbl;
+  for (let i=0;i<u8.length;i++) c = T[(c^u8[i]) & 0xFF] ^ (c>>>8);
+  return (c ^ 0xFFFFFFFF)>>>0;
+}
+function dosTimeDate(d=new Date()){
+  const sec = Math.floor(d.getSeconds()/2);
+  const min = d.getMinutes();
+  const hr  = d.getHours();
+  const day = d.getDate();
+  const mon = d.getMonth()+1;
+  const yr  = d.getFullYear()-1980;
+  const time = (hr<<11) | (min<<5) | sec;
+  const date = (yr<<9) | (mon<<5) | day;
+  return {time, date};
+}
+function writeLE(arr, n, bytes){
+  for (let i=0;i<bytes;i++) arr.push((n>>> (8*i)) & 0xFF);
+}
+function zipStore(files /* [{name, data:Uint8Array}] */){
+  const out = []; const cd = []; let offset = 0;
+  const now = dosTimeDate();
+  for (const f of files){
+    const nameU8 = te.encode(f.name);
+    const data   = f.data instanceof Uint8Array ? f.data : te.encode(String(f.data));
+    const crc = crc32Uint8(data);
+    // local header
+    writeLE(out, 0x04034b50, 4); // sig
+    writeLE(out, 20, 2); // ver needed
+    writeLE(out, 0, 2);  // flags
+    writeLE(out, 0, 2);  // method 0 = store
+    writeLE(out, now.time, 2);
+    writeLE(out, now.date, 2);
+    writeLE(out, crc, 4);
+    writeLE(out, data.length, 4);
+    writeLE(out, data.length, 4);
+    writeLE(out, nameU8.length, 2);
+    writeLE(out, 0, 2); // extra len
+    // name
+    for (const b of nameU8) out.push(b);
+    // data
+    for (const b of data) out.push(b);
+    // central directory entry
+    const start = offset;
+    offset = out.length;
+    const cdrec = [];
+    writeLE(cdrec, 0x02014b50, 4);
+    writeLE(cdrec, 20, 2); // ver made
+    writeLE(cdrec, 20, 2); // ver needed
+    writeLE(cdrec, 0, 2);  // flags
+    writeLE(cdrec, 0, 2);  // method
+    writeLE(cdrec, now.time, 2);
+    writeLE(cdrec, now.date, 2);
+    writeLE(cdrec, crc, 4);
+    writeLE(cdrec, data.length, 4);
+    writeLE(cdrec, data.length, 4);
+    writeLE(cdrec, nameU8.length, 2);
+    writeLE(cdrec, 0, 2); // extra len
+    writeLE(cdrec, 0, 2); // comment len
+    writeLE(cdrec, 0, 2); // disk start
+    writeLE(cdrec, 0, 2); // int attrs
+    writeLE(cdrec, 0, 4); // ext attrs
+    writeLE(cdrec, start, 4); // local header offset
+    for (const b of nameU8) cdrec.push(b);
+    cd.push(...cdrec);
+  }
+  const cdStart = out.length;
+  out.push(...cd);
+  const cdEnd = out.length;
+  // end of central dir
+  writeLE(out, 0x06054b50, 4);
+  writeLE(out, 0, 2); // disk num
+  writeLE(out, 0, 2); // cd start disk
+  writeLE(out, files.length, 2);
+  writeLE(out, files.length, 2);
+  writeLE(out, cdEnd - cdStart, 4);
+  writeLE(out, cdStart, 4);
+  writeLE(out, 0, 2); // comment length
+  return new Blob([new Uint8Array(out)], {type:'application/zip'});
+}
+// Super-simple unzip for our own store-only zips (reads local headers in order)
+async function unzipStoredOnly(file){
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const files = {};
+  let p = 0;
+  while (p + 4 <= buf.length && (buf[p]|(buf[p+1]<<8)|(buf[p+2]<<16)|(buf[p+3]<<24)) === 0x04034b50){
+    p += 4;
+    const ver = buf[p]|(buf[p+1]<<8); p+=2;
+    const flags = buf[p]|(buf[p+1]<<8); p+=2;
+    const method = buf[p]|(buf[p+1]<<8); p+=2;
+    const mtime = buf[p]|(buf[p+1]<<8); p+=2;
+    const mdate = buf[p]|(buf[p+1]<<8); p+=2;
+    const crc = buf[p]|(buf[p+1]<<8)|(buf[p+2]<<16)|(buf[p+3]<<24); p+=4;
+    const csize = buf[p]|(buf[p+1]<<8)|(buf[p+2]<<16)|(buf[p+3]<<24); p+=4;
+    const usize = buf[p]|(buf[p+1]<<8)|(buf[p+2]<<16)|(buf[p+3]<<24); p+=4;
+    const nlen = buf[p]|(buf[p+1]<<8); p+=2;
+    const xlen = buf[p]|(buf[p+1]<<8); p+=2;
+    const name = td.decode(buf.slice(p, p+nlen)); p += nlen + xlen;
+    if (method !== 0){ throw new Error('Only store method supported'); }
+    const data = buf.slice(p, p+csize); p += csize;
+    files[name] = data;
+  }
+  return files;
+}
+
+/* ========= AppDrop ZIP Export ========= */
+function buildIndexHTMLFromCurrent(){
+  return buildDoc(app.htmlEl.value, app.cssEl.value, app.jsEl.value);
+}
+function buildSnippetManifest(name, entry){
+  return {
+    id: 'snippet.' + slugify(name),
+    name: name,
+    version: '1.0.0',
+    entry: entry,
+    category: 'Dev',
+    tags: ['editor','appdrop','snippet'],
+    icon: 'icon.svg',
+    permissions: []
+  };
+}
+function defaultIconSVG(){
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#7be3ff"/><stop offset="1" stop-color="#7fff95"/></linearGradient></defs>
+  <rect width="256" height="256" rx="36" fill="#0b0f16"/>
+  <rect x="28" y="28" width="200" height="200" rx="18" fill="none" stroke="url(#g)" stroke-width="6"/>
+  <path d="M64 96l32 32-32 32M192 96l-32 32 32 32M108 176h40" stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="128" y="56" text-anchor="middle" font-family="monospace" font-size="20" fill="#cfe8ff">APPDROP</text>
+</svg>`;
+}
+$('#exportZIP').addEventListener('click', ()=>{
+  const name = ($('#snippetName').value || 'Untitled').trim();
+  const entry = 'index.html';
+  const files = [
+    {name: 'index.html', data: te.encode(buildIndexHTMLFromCurrent())},
+    {name: 'app.json',   data: te.encode(JSON.stringify(buildSnippetManifest(name, entry), null, 2))},
+    {name: 'icon.svg',   data: te.encode(defaultIconSVG())},
+  ];
+  const zip = zipStore(files);
+  downloadBlob(slugify(name)+'.appdrop.zip', zip);
+  status(`Exported ZIP for “${name}”.`);
+});
+
+/* ========= Import ZIP (our store-only format) ========= */
+$('#importZIP').addEventListener('change', async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  try{
+    const files = await unzipStoredOnly(file);
+    const appJsonU8 = files['app.json'];
+    const indexU8   = files['index.html'];
+    if (!appJsonU8 || !indexU8) throw new Error('Missing app.json or index.html');
+    const manifest = JSON.parse(td.decode(appJsonU8));
+    const index = td.decode(indexU8);
+    // naive extraction: first <style> and first <script>
+    const cssMatch = index.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+    const jsMatch  = index.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+    const bodyMatch= index.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const name = manifest.name || 'Imported AppDrop';
+    $('#snippetName').value = name;
+    app.cssEl.value = cssMatch ? cssMatch[1] : '';
+    app.jsEl.value  = jsMatch  ? jsMatch[1]  : '';
+    app.htmlEl.value= bodyMatch? bodyMatch[1]: index;
+    app.current = null;
+    if ($('#liveToggle').checked) schedulePreview(); else buildPreview();
+    status(`Imported ZIP → new snippet “${name}”.`);
+  } catch(err){
+    console.error(err);
+    alert('Failed to import ZIP: ' + err.message);
+  }
+  e.target.value='';
+});
+
+/* ========= Voice (Roger-style triggers) ========= */
+let recognizer = null; let listening = false;
+function startVoice(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR){ alert('SpeechRecognition not available in this browser.'); return; }
+  recognizer = new SR(); recognizer.continuous = false; recognizer.lang = 'en-US';
+  recognizer.onresult = (ev)=>{
+    const s = (ev.results[0] && ev.results[0][0] && ev.results[0][0].transcript || '').toLowerCase().trim();
+    status('Heard: “' + s + '”');
+    if (s.includes('open dev editor')) { window.focus(); }
+    if (s.includes('preview my code') || s.includes('update preview')) buildPreview();
+    if (s.includes('save snippet')) saveSnippet();
+    if (s.includes('export zip')) $('#exportZIP').click();
+    if (s.includes('toggle live')) $('#liveToggle').click();
+    if (s.includes('switch to html')) setTab('html');
+    if (s.includes('switch to css')) setTab('css');
+    if (s.includes('switch to js') || s.includes('switch to javascript')) setTab('js');
+  };
+  recognizer.onend=()=>{ listening=false; $('#voiceBtn').textContent='🎙️ Voice'; };
+  recognizer.start(); listening=true; $('#voiceBtn').textContent='🟢 Listening…';
+}
+$('#voiceBtn').addEventListener('click', ()=> listening? recognizer.stop() : startVoice());
+
+/* ========= Init ========= */
+(function init(){
+  // Restore state
+  const state = loadState();
+  // Load snippets and initial selection
+  refreshSnippetList();
+  const first = Object.keys(app.snips)[0];
+  const toLoad = app.current || state.current || first;
+  loadSnippet(toLoad);
+
+  // Tabs
+  setTab(state.activeTab || 'html');
+
+  // Live toggle
+  $('#liveToggle').checked = state.live ?? true;
+
+  // Split
+  if (state.splitPct && !isNaN(state.splitPct)){
+    const pct = Math.max(18, Math.min(82, state.splitPct));
+    const row = $('#row');
+    $('#left').style.width = (row.offsetWidth * pct / 100) + 'px';
+  }
+  // Immediate preview
+  buildPreview();
+
+  // Persist state periodically
+  window.addEventListener('beforeunload', saveState);
+  // Change selects
+  $('#snippetList').addEventListener('change', saveState);
+})();
+</script>
+</body>
+</html>
