@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Viewria – Offline Media Viewer</title>
+  <style>
+    body, html { margin:0; padding:0; width:100%; height:100vh; display:flex; flex-direction:column; background:#111; color:#eee; }
+    #toolbar { background:#222; padding:8px; display:flex; gap:10px; align-items:center; }
+    #viewer { flex:1; display:flex; justify-content:center; align-items:center; overflow:hidden; position:relative; }
+    video, img { max-width:100%; max-height:100%; }
+    button { padding:6px 10px; cursor:pointer; background:#444; border:none; color:#eee; border-radius:4px; }
+    #fileList { flex:1; overflow-y:auto; margin-top:8px; padding:4px; }
+    #fileList button { width:100%; text-align:left; margin-bottom:4px; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <input type="file" id="fileInput" accept="video/mp4, image/*" multiple>
+    <button id="fullscreenBtn">⛶ Fullscreen</button>
+    <button id="dayMode">Day</button>
+    <button id="nightMode">Night</button>
+  </div>
+  <div id="fileList"></div>
+  <div id="viewer"></div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const fileList = document.getElementById('fileList');
+    const viewer = document.getElementById('viewer');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const dayMode = document.getElementById('dayMode');
+    const nightMode = document.getElementById('nightMode');
+
+    let files = [], currentMedia = null;
+
+    fileInput.addEventListener('change', e => {
+      files = Array.from(e.target.files);
+      renderFileList();
+    });
+
+    function renderFileList() {
+      fileList.innerHTML = '';
+      files.forEach((file, idx) => {
+        const btn = document.createElement('button');
+        btn.textContent = file.name;
+        btn.onclick = () => showMedia(idx);
+        fileList.appendChild(btn);
+      });
+    }
+
+    function showMedia(idx) {
+      const file = files[idx];
+      const url = URL.createObjectURL(file);
+      viewer.innerHTML = '';
+
+      if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.src = url;
+        video.controls = true;
+        video.autoplay = true;
+        viewer.appendChild(video);
+        currentMedia = video;
+      } else if (file.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = url;
+        viewer.appendChild(img);
+        currentMedia = img;
+      }
+    }
+
+    fullscreenBtn.addEventListener('click', () => {
+      const el = currentMedia || viewer;
+      if (!document.fullscreenElement) {
+        el.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+      fullscreenBtn.textContent = document.fullscreenElement ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
+    });
+
+    dayMode.onclick = () => {
+      document.body.style.background = '#fff';
+      document.body.style.color = '#000';
+    };
+    nightMode.onclick = () => {
+      document.body.style.background = '#000';
+      document.body.style.color = '#eee';
+    };
+  </script>
+</body>
+</html>
