@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>P.O.P.S. — MPC Drop (One‑Page Standalone Sequencer)</title>
+  <style>
+    :root {
+      --bg:#0b0f17; --panel:#12192a; --rim:#1e2a45; --ui:#1a2240; --ink:#eaf1ff; --muted:#9bb0cd;
+      --hot:#ff5c7a; --accent:#00e5ff; --electric:#7af0ff; --pad:#19233f; --pad-lit:#2a3b6a; --ok:#4ade80;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 800px at 70% -20%, #1b2440 0%, var(--bg) 55%);color:var(--ink);
+      font:500 13px/1.35 system-ui, Inter, Segoe UI, Roboto;}
+    #app{position:fixed;inset:0;display:grid;grid-template-columns: 420px 1fr;grid-template-rows: 64px 1fr 170px;gap:10px;padding:12px}
+    .bar{grid-column:1 / span 2;display:flex;align-items:center;gap:10px;border:1px solid var(--rim);border-radius:14px;padding:10px 12px;background:linear-gradient(180deg,#141a2b,#0f1525);}
+    .bar .title{font-weight:700;letter-spacing:.4px}
+    .chip{border:1px solid var(--rim);background:linear-gradient(180deg,#141a2b,#0f1525);border-radius:12px;padding:6px 10px;display:inline-flex;gap:8px;align-items:center}
+    .btn{cursor:pointer;user-select:none}
+    .btn:hover{outline:1px solid var(--electric)}
+    .btn.toggle[aria-pressed="true"]{background:linear-gradient(180deg,#2a334f,#1a2138);box-shadow:inset 0 0 0 1px var(--electric)}
+
+    /* Pads */
+    #pads{grid-row:2/3;grid-column:1/2;border:1px solid var(--rim);border-radius:16px;padding:12px;background:linear-gradient(180deg,#131a30,#0f1628);
+      display:grid;grid-template-rows:auto 1fr auto;gap:8px}
+    .pad-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:88px;gap:10px}
+    .pad{border:1px solid var(--rim);border-radius:14px;background:linear-gradient(180deg,#141c34,#0e1426);position:relative;display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 0 2px #000 inset;cursor:pointer}
+    .pad.active{background:linear-gradient(180deg,#223154,#162447);}
+    .pad .label{position:absolute;bottom:8px;left:10px;color:var(--muted);font-size:11px}
+    .pad .led{position:absolute;top:8px;right:8px;width:10px;height:10px;border-radius:6px;background:#2a355a;box-shadow:0 0 12px rgba(0,0,0,.3)}
+    .pad.lit .led{background:var(--hot);box-shadow:0 0 14px rgba(255,92,122,.9)}
+
+    .pad-tools{display:flex;gap:8px;align-items:center;justify-content:space-between}
+    .pad-tools .bank{display:flex;gap:6px}
+
+    /* Sequencer */
+    #seq{grid-row:2/3;grid-column:2/3;border:1px solid var(--rim);border-radius:16px;padding:12px;background:linear-gradient(180deg,#141a2b,#0f1525);
+      display:grid;grid-template-rows:auto 1fr;gap:8px;}
+    .grid{overflow:auto;border:1px solid var(--rim);border-radius:12px}
+    table{border-collapse:separate;border-spacing:0;width:100%;min-width:900px;background:#0f172a}
+    th,td{border-bottom:1px solid #1d2948}
+    th{position:sticky;top:0;background:#121a33;text-align:center;padding:6px 4px;color:#b8c7e6;font-weight:600}
+    td{padding:0}
+    .cell{height:28px;border-right:1px solid #16223f;position:relative}
+    .cell .step{position:absolute;inset:3px;border:1px solid #1e2b52;border-radius:6px;background:linear-gradient(180deg,#111a33,#0d1426);cursor:pointer}
+    .cell .step.on{background:linear-gradient(180deg,#21345f,#152449);box-shadow:inset 0 0 0 1px var(--electric)}
+    .cell.playhead{background:rgba(0,229,255,.08)}
+    .rowlabel{width:110px;padding:4px 8px;background:#121a33;border-right:1px solid #1d2948}
+
+    /* Mixer */
+    #mixer{grid-row:3/4;grid-column:1/3;border:1px solid var(--rim);border-radius:16px;padding:10px;background:linear-gradient(180deg,#131a30,#0f1526)}
+    .mixgrid{display:grid;grid-template-columns:repeat(9,1fr);gap:10px}
+    .strip{border:1px solid var(--rim);border-radius:12px;background:#0e162a;padding:8px;display:grid;grid-template-rows:auto 1fr auto;gap:6px;text-align:center}
+    /* FIX: use standardized vertical slider styling */
+    .fader{writing-mode: vertical-lr; direction: rtl; appearance: none; height:90px}
+    .strip .name{font-size:11px;color:var(--muted)}
+
+    /* Wave */
+    #wave{height:100px;border:1px dashed var(--rim);border-radius:10px}
+
+    input[type=range]{accent-color:var(--electric)}
+    .kbd{font:600 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;background:#0b1226;border:1px solid #243356;border-radius:6px;padding:2px 6px}
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Top bar -->
+  <div class="bar">
+    <div class="title">🎹 P.O.P.S. MPC Drop — Standalone (Offline‑First)</div>
+    <div class="chip">BPM <input id="bpm" type="range" min="60" max="190" value="96"> <span id="bpmv">96</span></div>
+    <div class="chip">Swing <input id="swing" type="range" min="0" max="60" value="0"> <span id="swingv">0%</span></div>
+    <div class="chip btn" id="play">▶️ Play</div>
+    <div class="chip btn" id="stop">⏹ Stop</div>
+    <div class="chip btn toggle" id="rec" aria-pressed="false">⏺ Rec</div>
+    <div class="chip btn toggle" id="overdub" aria-pressed="false">🔁 Overdub</div>
+    <div class="chip btn toggle" id="metro" aria-pressed="false">🧭 Metronome</div>
+    <div style="margin-left:auto;display:flex;gap:8px">
+      <label class="chip btn" for="kitFile">📦 Import Kit</label>
+      <input id="kitFile" type="file" accept="application/json" hidden>
+      <div class="chip btn" id="export">💾 Export</div>
+      <div class="chip btn" id="save">🧊 Save</div>
+      <div class="chip btn" id="load">🔥 Load</div>
+    </div>
+  </div>
+
+  <!-- Pads -->
+  <section id="pads">
+    <div class="pad-tools">
+      <div class="bank"><span class="chip btn" id="bankA">Bank A</span><span class="chip btn" id="bankB">Bank B</span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="chip btn" id="assign">Assign Sample</button>
+        <input id="audioFile" type="file" accept="audio/*" hidden>
+        <button class="chip btn" id="mic">🎙️ Sample Mic</button>
+      </div>
+    </div>
+    <canvas id="wave"></canvas>
+    <div class="pad-grid" id="padGrid"></div>
+    <small>Tip: drag audio files onto a pad. Keyboard: <span class="kbd">1-4</span>/<span class="kbd">Q-R</span>/<span class="kbd">A-F</span>/<span class="kbd">Z-V</span> map to pads.</small>
+  </section>
+
+  <!-- Sequencer -->
+  <section id="seq">
+    <div style="display:flex;gap:10px;align-items:center;justify-content:space-between">
+      <div>Step Sequencer — 8 tracks × 16 steps (current bank)</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <label class="chip">Quantize <input id="quant" type="range" min="0" max="1" step="1" value="1"> <span id="quantv">1/16</span></label>
+        <label class="chip">Note Repeat <input id="repeat" type="range" min="0" max="3" step="1" value="0"> <span id="repeatv">Off</span></label>
+      </div>
+    </div>
+    <div class="grid"><table id="seqTable"></table></div>
+  </section>
+
+  <!-- Mixer -->
+  <section id="mixer">
+    <div class="mixgrid" id="mixgrid"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  // ---------- Key map (MOVED ABOVE STATE) ----------
+  const keyMap = {
+    0:'1',1:'2',2:'3',3:'4',4:'q',5:'w',6:'e',7:'r',8:'a',9:'s',10:'d',11:'f',12:'z',13:'x',14:'c',15:'v',
+    16:'5',17:'6',18:'7',19:'8',20:'t',21:'y',22:'u',23:'i',24:'g',25:'h',26:'j',27:'k',28:'b',29:'n',30:'m',31:','
+  };
+
+  // ---------- Lazy Audio Engine (FIX FOR AUTOPLAY) ----------
+  let ctx, master, comp, masterOut, clickOsc, clickGain;
+  function ensureAudio(){
+    if(!ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = 0.9;
+      comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -8; comp.knee.value = 18; comp.ratio.value = 3; comp.attack.value = 0.003; comp.release.value = 0.1;
+      masterOut = ctx.createGain(); masterOut.gain.value = 1;
+      master.connect(comp).connect(masterOut).connect(ctx.destination);
+
+      clickOsc = ctx.createOscillator();
+      clickGain = ctx.createGain(); clickGain.gain.value = 0; clickOsc.frequency.value = 1000; clickOsc.start();
+      clickOsc.connect(clickGain).connect(masterOut);
+    }
+    if(ctx.state !== 'running') ctx.resume();
+    return ctx;
+  }
+
+  let bpm = 96, swing = 0; // swing seconds per even 16th (computed later)
+  let isPlaying = false, isRec = false, isOverdub = false, useMetro = false;
+  let currentStep = 0, nextNoteTime = 0; // in AudioContext time
+  const PPQ = 4; // 16th notes per quarter
+  const steps = 16; // per bar
+  const lookahead = 0.1; // schedule ahead
+  let timerID;
+
+  function setBPM(v){ bpm = v; document.getElementById('bpmv').textContent = v; }
+  function setSwing(percent){
+    // percent is 0..60; convert to seconds per 16th at current BPM
+    const secPerBeat = 60/bpm; const base16 = secPerBeat/PPQ; swing = (percent/100)*base16;
+    document.getElementById('swingv').textContent = Math.round(percent) + '%';
+  }
+
+  function nextStepTime(){
+    const secPerBeat = 60.0 / bpm;
+    let stepDur = secPerBeat / PPQ; // 16th
+    const isEven = (currentStep % 2) === 1;
+    return stepDur + (isEven ? swing : 0);
+  }
+
+  function scheduler(){
+    const ac = ensureAudio();
+    while(nextNoteTime < ac.currentTime + lookahead){
+      scheduleStep(currentStep, nextNoteTime);
+      const dt = nextStepTime();
+      nextNoteTime += dt;
+      currentStep = (currentStep + 1) % steps;
+    }
+    timerID = setTimeout(scheduler, 25);
+  }
+
+  function scheduleStep(step, time){
+    if(useMetro && step % 4 === 0){
+      const vol = step===0?0.8:0.45;
+      clickGain.gain.setValueAtTime(vol, time);
+      clickGain.gain.exponentialRampToValueAtTime(0.0001, time+0.03);
+    }
+    const bank = state.bank;
+    const rows = bank===0? state.tracksA : state.tracksB;
+    rows.forEach((row)=>{ if(row.pattern[step]) playPad(row.padIndex, time); });
+    highlightPlayhead(step);
+  }
+
+  function play(){
+    if(isPlaying) return; isPlaying=true; ensureAudio();
+    currentStep = 0; nextNoteTime = ensureAudio().currentTime + 0.05; scheduler();
+    document.getElementById('play').classList.add('toggle');
+  }
+  function stop(){ if(!isPlaying)return; isPlaying=false; clearTimeout(timerID); highlightPlayhead(-1); document.getElementById('play').classList.remove('toggle'); }
+
+  // ---------- State ----------
+  const emptyPattern = ()=> Array(steps).fill(false);
+  const mkTrack = (padIndex)=> ({ padIndex, pattern: emptyPattern(), vol:0.9 });
+  const mkPad = (i)=> ({ name:`Pad ${i+1}`, buffer:null, vol:1, key:keyMap[i]||'', color:'#2a3b6a' });
+
+  const state = {
+    bank:0, // 0=A,1=B
+    pads: Array.from({length:16}, (_,i)=> mkPad(i)),
+    padsB: Array.from({length:16}, (_,i)=> mkPad(i+16)),
+    tracksA: Array.from({length:8}, (_,i)=> mkTrack(i)),
+    tracksB: Array.from({length:8}, (_,i)=> mkTrack(i+16)),
+    master:1,
+    projectName:'Untitled MPC Drop'
+  };
+
+  // ---------- UI Build ----------
+  const padGrid = document.getElementById('padGrid');
+  const wave = document.getElementById('wave'); const wctx = wave.getContext('2d');
+  function buildPads(){
+    padGrid.innerHTML='';
+    const list = state.bank===0? state.pads : state.padsB;
+    list.forEach((pad, idx)=>{
+      const el = document.createElement('div'); el.className='pad'; el.dataset.pad=padIndexOf(idx);
+      el.innerHTML = `<div class="led"></div><div>${pad.name}</div><div class="label">${pad.key||''}</div>`;
+      el.addEventListener('pointerdown', e=>{ ensureAudio(); tapPad(padIndexOf(idx)); el.classList.add('lit'); if(isRec||isOverdub) recordHit(padIndexOf(idx)); });
+      el.addEventListener('pointerup', ()=> el.classList.remove('lit'));
+      el.addEventListener('dragover', ev=>{ev.preventDefault(); el.classList.add('active');});
+      el.addEventListener('dragleave', ()=> el.classList.remove('active'));
+      el.addEventListener('drop', ev=>{ev.preventDefault(); el.classList.remove('active'); const f=ev.dataTransfer.files?.[0]; if(f) loadSampleToPad(f, padIndexOf(idx));});
+      padGrid.appendChild(el);
+    });
+  }
+  function padIndexOf(localIdx){ return state.bank===0? localIdx : localIdx+16; }
+
+  const seqTable = document.getElementById('seqTable');
+  function buildSequencer(){
+    const rows = state.bank===0? state.tracksA : state.tracksB;
+    let thead = '<tr><th class="rowlabel">Track</th>' + Array.from({length:steps}, (_,i)=>`<th>${i+1}</th>`).join('') + '</tr>';
+    let tbody = rows.map((row, r)=>{
+      const label = (state.bank===0? 'A' : 'B') + (r+1);
+      let cells = Array.from({length:steps}, (_,c)=>`<td><div class="cell" data-r="${r}" data-c="${c}"><div class="step ${row.pattern[c]?'on':''}"></div></div></td>`).join('');
+      return `<tr><td class="rowlabel">${label} • ${state.pads[row.padIndex]?.name||''}</td>${cells}</tr>`;
+    }).join('');
+    seqTable.innerHTML = `<thead>${thead}</thead><tbody>${tbody}</tbody>`;
+    seqTable.querySelectorAll('.cell').forEach(cell=>{
+      cell.addEventListener('click', ()=>{
+        const r = +cell.dataset.r, c = +cell.dataset.c;
+        const rows = state.bank===0? state.tracksA : state.tracksB;
+        rows[r].pattern[c] = !rows[r].pattern[c];
+        cell.firstChild.classList.toggle('on');
+      });
+    });
+  }
+
+  function buildMixer(){
+    const container = document.getElementById('mixgrid'); container.innerHTML='';
+    const rows = state.bank===0? state.tracksA : state.tracksB;
+    rows.forEach((row, i)=>{
+      const strip = document.createElement('div'); strip.className='strip';
+      strip.innerHTML = `<div class="name">${(state.bank===0?'A':'B')}${i+1}</div>
+        <input type="range" min="0" max="1" step="0.01" value="${row.vol}" class="fader">
+        <div class="name">Vol</div>`;
+      strip.querySelector('input').addEventListener('input', e=> row.vol = +e.target.value);
+      container.appendChild(strip);
+    });
+    const masterStrip = document.createElement('div'); masterStrip.className='strip';
+    masterStrip.innerHTML = `<div class="name">Master</div><input type="range" min="0" max="1.2" step="0.01" value="${state.master}" class="fader"><div class="name">Out</div>`;
+    masterStrip.querySelector('input').addEventListener('input', e=> { state.master = +e.target.value; ensureAudio(); master.gain.value = state.master; });
+    container.appendChild(masterStrip);
+  }
+
+  function highlightPlayhead(step){
+    seqTable.querySelectorAll('td').forEach(td=> td.classList.remove('playhead'));
+    if(step<0) return; seqTable.querySelectorAll(`tbody tr`).forEach(tr=>{
+      const td = tr.children[step+1]; if(td) td.classList.add('playhead');
+    });
+  }
+
+  // ---------- Pad Playback & Recording ----------
+  document.addEventListener('keydown', (e)=>{
+    const k = e.key.toLowerCase();
+    const idx = Object.entries(keyMap).find(([i,v])=> v===k)?.[0];
+    if(idx!=null){ ensureAudio(); tapPad(+idx); if(isRec||isOverdub) recordHit(+idx); }
+  });
+
+  function getPad(idx){ return idx<16? state.pads[idx] : state.padsB[idx-16]; }
+
+  function playPad(idx, when=0){
+    ensureAudio();
+    const p = getPad(idx); if(!p.buffer) return;
+    const src = ctx.createBufferSource(); src.buffer = p.buffer;
+    const g = ctx.createGain();
+    let row = (state.bank===0? state.tracksA : state.tracksB).find(r=> r.padIndex===idx);
+    const rowVol = row? row.vol : 1;
+    g.gain.value = p.vol * rowVol;
+    src.connect(g).connect(master);
+    if(when===0) src.start(); else src.start(when);
+  }
+  function tapPad(idx){ playPad(idx); flashPad(idx); drawWaveForPad(idx); }
+  function flashPad(idx){
+    const tiles = padGrid.children; const localIdx = (state.bank===0? idx : idx-16);
+    const el = tiles[localIdx]; if(!el) return; el.classList.add('lit'); setTimeout(()=>el.classList.remove('lit'),120);
+  }
+
+  function recordHit(idx){
+    const rows = state.bank===0? state.tracksA : state.tracksB;
+    let row = rows.find(r=> r.padIndex===idx);
+    if(!row){ row = rows.find(r=> !getPad(r.padIndex)?.buffer ) || rows[0]; row.padIndex = idx; }
+    const q = document.getElementById('quant').value|0; // 0=off,1=on(1/16)
+    let step = currentStep;
+    if(q===1){ /* already 16th grid */ }
+    row.pattern[step] = true; buildSequencer();
+  }
+
+  // ---------- Sample Loading ----------
+  async function loadSampleToPad(file, padIndex){
+    ensureAudio();
+    const arr = await file.arrayBuffer();
+    const buffer = await ctx.decodeAudioData(arr);
+    const pad = getPad(padIndex); pad.buffer = buffer; pad.name = file.name.replace(/\.[^/.]+$/, '');
+    buildSequencer(); buildPads(); drawWaveForPad(padIndex);
+    persist();
+  }
+
+  function drawWaveForPad(idx){
+    const pad = getPad(idx); const buffer = pad?.buffer; const W = wave.clientWidth, H = wave.clientHeight;
+    wave.width = W * devicePixelRatio; wave.height = H * devicePixelRatio; wctx.scale(devicePixelRatio, devicePixelRatio);
+    wctx.fillStyle = '#0b1226'; wctx.fillRect(0,0,W,H); wctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--electric');
+    wctx.lineWidth = 1.2; wctx.beginPath();
+    if(!buffer){ wctx.fillStyle = '#223'; wctx.fillRect(8,8,W-16,H-16); wctx.fillStyle = '#9bb0cd'; wctx.fillText('No sample — drop an audio file on a pad or click Assign', 14, 20); return; }
+    const data = buffer.getChannelData(0); const step = Math.ceil(data.length / W);
+    for(let i=0;i<W;i++){
+      let min=1, max=-1; for(let j=0;j<step;j++){ const v = data[i*step+j]||0; if(v<min)min=v; if(v>max)max=v; }
+      const x=i, y1=(1+min)*H/2, y2=(1+max)*H/2; wctx.moveTo(x,y1); wctx.lineTo(x,y2);
+    }
+    wctx.stroke();
+  }
+
+  // ---------- Mic Sampling ----------
+  let mediaStream, recorder, chunks=[];
+  async function startMic(){
+    try{
+      mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+      recorder = new MediaRecorder(mediaStream);
+      chunks=[]; recorder.ondataavailable = e=> chunks.push(e.data);
+      recorder.onstop = async ()=>{
+        const blob = new Blob(chunks, {type:'audio/webm'});
+        const file = new File([blob], 'mic.webm', {type:'audio/webm'});
+        const idx = state.bank===0? 0 : 16; // first pad of bank
+        await loadSampleToPad(file, idx);
+        mediaStream.getTracks().forEach(t=>t.stop());
+      };
+      recorder.start();
+      document.getElementById('mic').textContent = '⏹️ Stop Mic';
+    }catch(e){ alert('Mic error: '+e.message); }
+  }
+  function stopMic(){ if(recorder && recorder.state!=='inactive'){recorder.stop();} document.getElementById('mic').textContent = '🎙️ Sample Mic'; }
+
+  // ---------- Persistence ----------
+  const LSKEY='pops-mpc-drop-v1';
+  function serialize(){
+    const toPads = (pads)=> pads.map(p=> ({name:p.name, vol:p.vol, has: !!p.buffer}));
+    const toTracks = (rows)=> rows.map(r=> ({padIndex:r.padIndex, vol:r.vol, pattern:r.pattern}));
+    return {name:state.projectName,bpm,swing, master:state.master, bank:state.bank,
+      pads:toPads(state.pads), padsB:toPads(state.padsB), tracksA:toTracks(state.tracksA), tracksB:toTracks(state.tracksB)};
+  }
+  function persist(){ localStorage.setItem(LSKEY, JSON.stringify(serialize())); }
+  function restore(){ const s = localStorage.getItem(LSKEY); if(!s) return; try{
+      const d = JSON.parse(s); setBPM(d.bpm||96); document.getElementById('bpm').value = d.bpm||96; setSwing((d.swing||0)*100);
+      state.master = d.master||1; /* master gain set on-demand in mixer */
+      ['tracksA','tracksB'].forEach(k=> d[k] && d[k].forEach((r,i)=> Object.assign(state[k][i], r)) );
+      ['pads','padsB'].forEach(k=> d[k] && d[k].forEach((p,i)=>{ state[k][i].name=p.name; state[k][i].vol=p.vol; }));
+    }catch(e){ console.warn('restore failed',e)}
+  }
+
+  // Export/Import kit
+  function exportProject(){
+    const data = serialize();
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+    const a = Object.assign(document.createElement('a'), {download:`${data.name||'mpc-drop'}.json`, href:URL.createObjectURL(blob)});
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+  function importProject(file){
+    const fr = new FileReader(); fr.onload = ()=>{
+      try{ const d = JSON.parse(fr.result);
+        setBPM(d.bpm||96); document.getElementById('bpm').value = d.bpm||96;
+        state.master = d.master||1;
+        ['tracksA','tracksB'].forEach(k=> d[k] && d[k].forEach((r,i)=> Object.assign(state[k][i], r)) );
+        ['pads','padsB'].forEach(k=> d[k] && d[k].forEach((p,i)=>{ state[k][i].name=p.name; state[k][i].vol=p.vol; }));
+        buildSequencer(); buildMixer(); buildPads();
+      }catch(e){ alert('Invalid kit JSON'); }
+    }; fr.readAsText(file);
+  }
+
+  // Cloud Media Slice interface
+  window.MPCDrop = {
+    loadAudioToPad: async (arrayBuffer, padIndex, name='slice.wav')=>{
+      ensureAudio();
+      const buffer = await ctx.decodeAudioData(arrayBuffer); const pad = getPad(padIndex); pad.buffer=buffer; pad.name=name; buildPads(); drawWaveForPad(padIndex); persist();
+    },
+    exportState: serialize,
+  };
+
+  // ---------- Wiring ----------
+  buildPads(); buildSequencer(); buildMixer(); drawWaveForPad(0);
+  restore(); buildSequencer(); buildMixer(); buildPads();
+
+  document.getElementById('bpm').oninput = e=> setBPM(+e.target.value);
+  document.getElementById('swing').oninput = e=> setSwing(+e.target.value);
+  document.getElementById('quant').oninput = e=> document.getElementById('quantv').textContent = e.target.value==1? '1/16':'Off';
+  document.getElementById('repeat').oninput = e=>{
+    const labels=['Off','1/8','1/16','1/32']; document.getElementById('repeatv').textContent = labels[+e.target.value];
+  };
+
+  document.getElementById('play').onclick = play;
+  document.getElementById('stop').onclick = stop;
+  document.getElementById('rec').onclick = (e)=>{ isRec = !isRec; e.currentTarget.setAttribute('aria-pressed', String(isRec)); };
+  document.getElementById('overdub').onclick = (e)=>{ isOverdub = !isOverdub; e.currentTarget.setAttribute('aria-pressed', String(isOverdub)); };
+  document.getElementById('metro').onclick = (e)=>{ useMetro = !useMetro; e.currentTarget.setAttribute('aria-pressed', String(useMetro)); };
+  document.getElementById('assign').onclick = ()=> document.getElementById('audioFile').click();
+  document.getElementById('audioFile').onchange = async (e)=>{ const f=e.target.files[0]; if(!f) return; const localPad = 0; const idx = padIndexOf(localPad); await loadSampleToPad(f, idx); e.target.value=''; };
+  document.getElementById('mic').onclick = ()=>{ if(!recorder || recorder.state==='inactive') startMic(); else stopMic(); };
+
+  document.getElementById('bankA').onclick = ()=>{ state.bank=0; buildSequencer(); buildMixer(); buildPads(); };
+  document.getElementById('bankB').onclick = ()=>{ state.bank=1; buildSequencer(); buildMixer(); buildPads(); };
+
+  document.getElementById('export').onclick = exportProject;
+  document.getElementById('kitFile').onchange = e=>{ const f=e.target.files[0]; if(f) importProject(f); };
+
+  document.getElementById('save').onclick = ()=>{ persist(); flash('Saved to local storage.'); };
+  document.getElementById('load').onclick = ()=>{ restore(); buildSequencer(); buildMixer(); buildPads(); flash('Loaded.'); };
+
+  function flash(msg){ const d=document.createElement('div'); d.textContent=msg; d.style.position='fixed'; d.style.bottom='14px'; d.style.right='14px'; d.style.padding='10px 12px'; d.style.background='#0f1628'; d.style.border='1px solid var(--rim)'; d.style.borderRadius='10px'; d.style.color='var(--ink)'; d.style.boxShadow='0 6px 30px rgba(0,0,0,.35)'; document.body.appendChild(d); setTimeout(()=>d.remove(), 1400); }
+})();
+</script>
+
+<!--
+AppDrop manifest suggestion (place in app.json next to this file):
+{
+  "id": "mpc-drop",
+  "name": "P.O.P.S. MPC Drop",
+  "entry": "mpc-drop.html",
+  "version": "1.0.0",
+  "category": ["music","production","sampler","sequencer"],
+  "offline": true,
+  "icons": [{"src":"icon.png","sizes":"512x512"}],
+  "description": "Standalone, offline-first 16-pad sampler and 8×16 step sequencer with local save/load and Cloud Media Slice hooks.",
+  "permissions": ["microphone"],
+  "author": "P.O.P.S."
+}
+-->
+</body>
+</html>
