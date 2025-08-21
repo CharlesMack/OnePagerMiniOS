@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Radio Drop — Walkie‑Talkie AppDrop</title>
+<meta name="color-scheme" content="dark light">
+<style>
+:root {
+  --bg:#0b0f16; --panel:#121828; --muted:#9aa4b2; --fg:#e9ecf1; --rim:#1c2336;
+  --accent:#7be3ff; --ok:#7fff95; --warn:#ffd37f; --err:#ff9aa6; --hot:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
+.app{height:100%;display:flex;flex-direction:column}
+header{
+  display:flex;gap:10px;align-items:center;padding:10px 12px;background:linear-gradient(180deg,#0f1524,#0c1220);
+  border-bottom:1px solid var(--rim)
+}
+.title{font-weight:700;letter-spacing:.2px}
+.chip{font-size:12px;color:var(--muted)}
+.pill{padding:4px 8px;border:1px solid #1e2a45;border-radius:18px;color:var(--muted)}
+.row{display:grid;grid-template-columns: 340px 1fr; gap:10px; padding:10px; min-height:0; flex:1}
+.card{
+  background:var(--panel); border:1px solid var(--rim); border-radius:14px; overflow:hidden; display:flex; flex-direction:column; min-height:0;
+}
+.card h3{margin:0;padding:10px 12px;border-bottom:1px solid var(--rim);background:#0e1526;font-size:14px}
+.section{padding:10px;display:grid;gap:8px}
+label,input,textarea,select,button{font:14px/1.4 inherit}
+input,textarea,select{
+  background:#0b1222;color:var(--fg);border:1px solid #1f294b;border-radius:10px;padding:8px 10px;width:100%
+}
+small.hint{color:var(--muted);font-size:12px}
+button{
+  background:#0f1524;color:var(--fg);border:1px solid #1e2a45;padding:8px 10px;border-radius:10px;cursor:pointer
+}
+button:hover{border-color:#2b3e6a}
+.btn-accent{background:#0f2036;border-color:#274a78}
+.btn-hot{background:#1b0d0d;border-color:#5b1e1e;color:#ffdcdc}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+textarea.small{min-height:120px}
+.qr{display:grid;place-items:center;background:#0b1222;border:1px dashed #1f294b;border-radius:10px;min-height:160px;padding:8px}
+.qr canvas{max-width:100%;height:auto}
+.statusline{font-size:12px;color:var(--muted);padding:6px 10px;border-top:1px solid var(--rim);background:#0c1220}
+
+.ptt-area{display:grid;place-items:center;flex:1;padding:10px;gap:16px}
+.ptt{
+  width:220px;height:220px;border-radius:999px;border:2px solid #24345e;background:radial-gradient(100% 100% at 50% 0%,#15203b,#0d1426);
+  display:grid;place-items:center;font-size:18px;user-select:none;box-shadow:inset 0 8px 40px rgba(0,0,0,.35)
+}
+.ptt.active{border-color:#2e7a8e;box-shadow:0 0 0 4px rgba(123,227,255,.12), inset 0 8px 40px rgba(0,0,0,.5)}
+.sigbars{display:flex;gap:6px;align-items:end;height:30px}
+.sigbars span{width:8px;border-radius:3px;background:#192544;transition:height .2s, background .2s}
+.sigbars span.on{background:#4cc3ff}
+.sigbars span.bad{background:#ff9aa6}
+.sigbars span.ok{background:#7fff95}
+.mode{display:flex;gap:8px;align-items:center}
+.inline{display:flex;gap:8px;align-items:center}
+.kbd{border:1px solid #2a3660;padding:1px 6px;border-radius:6px;font-size:12px;color:#c6d3ff}
+.list{overflow:auto}
+.item{display:flex;align-items:center;justify-content:space-between;padding:8px;border-bottom:1px dashed #1b284a}
+.item small{color:var(--muted)}
+.hidden{display:none !important}
+audio{width:100%}
+
+/* Scanner overlay */
+.scan-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.7);
+  display:none; align-items:center; justify-content:center; z-index:99;
+}
+.scan-box{
+  width:min(92vw,640px); background:#0c1320; border:1px solid #23325c; border-radius:14px; overflow:hidden;
+  display:flex; flex-direction:column;
+}
+.scan-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #23325c;background:#0e1526}
+.scan-body{padding:10px; display:grid; gap:10px}
+video#scanVideo{width:100%; border-radius:10px; background:#000}
+canvas#scanCanvas{display:none}
+.badge{font-size:12px;color:#9fb7ff}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header>
+    <div class="title">Radio Drop — Walkie‑Talkie</div>
+    <span class="chip">AppDrop</span>
+    <div class="mode" style="margin-left:auto">
+      <span class="pill">Offline‑first</span>
+      <label class="inline"><input type="checkbox" id="liveMode" checked> WebRTC Mode</label>
+      <button id="micBtn" class="btn-accent">🎙️ Enable Mic</button>
+    </div>
+  </header>
+
+  <div class="row">
+    <!-- LEFT: Connectivity + Pairing + Vault -->
+    <div class="card">
+      <h3>Connectivity & Pairing</h3>
+      <div class="section">
+        <div class="grid2">
+          <div>
+            <label>ICE Servers (JSON)<br><small class="hint">Leave empty for default local discovery. For internet use, supply STUN/TURN.</small></label>
+            <textarea id="iceJson" class="small" placeholder='{"iceServers":[{"urls":"stun:stun.l.google.com:19302"}]}'></textarea>
+          </div>
+          <div>
+            <label>Signaling (optional)</label>
+            <input id="wsUrl" placeholder="wss://your-signal.example/ws">
+            <div class="inline">
+              <input id="roomId" placeholder="Room code e.g., radio-123" style="flex:1">
+              <button id="wsConnect">Connect</button>
+            </div>
+            <small class="hint">If not using WebSocket signaling, use QR/manual pairing below.</small>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div>
+            <h4 style="margin:0 0 6px 0">I’m Calling (Offer)</h4>
+            <div class="toolbar">
+              <button id="makeOffer" class="btn-accent">➕ Create Offer</button>
+              <button id="copyOffer">📋 Copy</button>
+              <button id="showOfferQR">🧾 Show QR</button>
+              <button id="scanAnswerQR">📷 Scan Answer</button>
+            </div>
+            <textarea id="offerOut" class="small" placeholder="Created SDP + candidates will appear here…" readonly></textarea>
+            <div id="offerQR" class="qr"></div>
+          </div>
+          <div>
+            <h4 style="margin:0 0 6px 0">I’m Answering (Answer)</h4>
+            <div class="toolbar">
+              <button id="createAnswer" class="">🛠️ Create Answer</button>
+              <button id="copyAnswer">📋 Copy</button>
+              <button id="showAnswerQR">🧾 Show QR</button>
+              <button id="scanOfferQR">📷 Scan Offer</button>
+            </div>
+            <textarea id="offerIn" class="small" placeholder="Paste or scan other side’s Offer here…"></textarea>
+            <textarea id="answerOut" class="small" placeholder="Your Answer appears here…" readonly></textarea>
+            <div id="answerQR" class="qr"></div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div>
+            <h4 style="margin:0 0 6px 0">Caller: Paste/Scan Answer</h4>
+            <textarea id="answerIn" class="small" placeholder="Paste or scan the Answer from the other side…"></textarea>
+            <button id="applyAnswer">✅ Apply Answer</button>
+          </div>
+          <div>
+            <h4 style="margin:0 0 6px 0">Link Status</h4>
+            <div class="inline"><strong id="connState">idle</strong><span id="connHint" class="muted"></span></div>
+            <div class="inline">
+              <div class="sigbars" title="Signal health">
+                <span id="b1" style="height:6px"></span>
+                <span id="b2" style="height:12px"></span>
+                <span id="b3" style="height:18px"></span>
+                <span id="b4" style="height:24px"></span>
+                <span id="b5" style="height:30px"></span>
+              </div>
+              <small class="hint" id="statsHint" style="margin-left:8px">—</small>
+            </div>
+            <div class="toolbar">
+              <button id="disconnect" class="btn-hot">⛔ Hang Up</button>
+              <button id="reinit">♻️ Re‑Init</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="statusline" id="status">Ready. Grant mic to talk. Hold the big button or press/hold <span class="kbd">V</span>.</div>
+      </div>
+
+      <h3>Vault (Offline “Record & Ping”)</h3>
+      <div class="section">
+        <div class="toolbar">
+          <button id="exportVault">📤 Export Vault (JSON)</button>
+          <label class="inline">
+            <input type="file" id="importVault" accept="application/json">
+          </label>
+          <small class="hint">Saved voice clips are stored locally (IndexedDB).</small>
+        </div>
+        <div class="list" id="clips"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: PTT + Remote audio -->
+    <div class="card">
+      <h3>Walkie‑Talkie Panel</h3>
+      <div class="ptt-area">
+        <div id="ptt" class="ptt" tabindex="0" role="button" aria-pressed="false">Push‑to‑Talk</div>
+        <div class="inline">
+          <label class="inline"><input type="checkbox" id="latch"> Latch (click toggles on/off)</label>
+          <small class="hint">PTT key: <span class="kbd">V</span> • Release to stop • Records offline if not connected</small>
+        </div>
+        <audio id="remoteAudio" autoplay playsinline></audio>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- Safe QR Engine Loader (with offline caching) ---------- -->
+<script>
+const QR_CACHE_KEY = 'radio_qr_engine_v1';
+
+function injectScriptFromText(txt){
+  const s = document.createElement('script');
+  s.type = 'text/javascript';
+  s.text = txt;
+  document.head.appendChild(s);
+}
+
+async function tryLoadQRCodeConstructor(){
+  if (window.QRCode && (window.QRCode.CorrectLevel || typeof window.QRCode === 'function')) return 'ctor';
+
+  try {
+    const cached = localStorage.getItem(QR_CACHE_KEY);
+    if (cached) {
+      injectScriptFromText(cached);
+      if (window.QRCode && (window.QRCode.CorrectLevel || typeof window.QRCode === 'function')) return 'ctor';
+    }
+  } catch {}
+
+  const urls = [
+    'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js',
+  ];
+  for (const url of urls){
+    try{
+      const res = await fetch(url, {cache:'reload'});
+      if (!res.ok) continue;
+      const txt = await res.text();
+      injectScriptFromText(txt);
+      if (window.QRCode && (window.QRCode.CorrectLevel || typeof window.QRCode === 'function')){
+        try { localStorage.setItem(QR_CACHE_KEY, txt); } catch {}
+        return 'ctor';
+      }
+    }catch{}
+  }
+  return null;
+}
+
+async function tryLoadQRCodeModule(){
+  if (window.QRCode && (window.QRCode.toCanvas || window.QRCode.toDataURL)) return 'module';
+  const urls = [
+    'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js'
+  ];
+  for (const url of urls){
+    try{
+      const res = await fetch(url, {cache:'reload'});
+      if (!res.ok) continue;
+      const txt = await res.text();
+      injectScriptFromText(txt);
+      if (window.QRCode && (window.QRCode.toCanvas || window.QRCode.toDataURL)) return 'module';
+    }catch{}
+  }
+  return null;
+}
+
+async function ensureQREngine(){
+  let kind = await tryLoadQRCodeConstructor();
+  if (kind) return kind;
+  kind = await tryLoadQRCodeModule();
+  return kind;
+}
+
+async function renderQR(el, text){
+  el.innerHTML = '';
+  const kind = await ensureQREngine();
+
+  if (kind === 'ctor'){
+    new window.QRCode(el, {
+      text,
+      width: 256,
+      height: 256,
+      colorDark: '#e9ecf1',
+      colorLight: '#0b1222',
+      correctLevel: window.QRCode.CorrectLevel ? window.QRCode.CorrectLevel.M : 0
+    });
+    return true;
+  }
+  if (kind === 'module'){
+    const canvas = document.createElement('canvas');
+    el.appendChild(canvas);
+    await window.QRCode.toCanvas(canvas, text, {
+      width: 256,
+      color: { dark: '#e9ecf1', light: '#0b1222' },
+      errorCorrectionLevel: 'M'
+    });
+    return true;
+  }
+  el.innerHTML = `<small class="hint">QR engine unavailable offline on first run. Connect once to cache, or use Copy / Scan.</small>`;
+  return false;
+}
+
+/* Button helpers */
+function showOfferQR(){
+  const out = document.getElementById('offerOut');
+  const box = document.getElementById('offerQR');
+  async function go(){ await renderQR(box, out.value.trim()); }
+  if (!out.value.trim()){ makeOffer().then(go); } else { go(); }
+}
+function showAnswerQR(){
+  const out = document.getElementById('answerOut');
+  const box = document.getElementById('answerQR');
+  async function go(){ await renderQR(box, out.value.trim()); }
+  if (!out.value.trim()){
+    if (!document.getElementById('offerIn').value.trim()){ alert('Paste/scan an Offer first, then Create Answer.'); return; }
+    acceptOfferAndCreateAnswer().then(go);
+  } else { go(); }
+}
+</script>
+
+<script>
+/* ------------ Storage Keys ------------ */
+const LS_STATE = 'radio_drop_state_v2';
+/* ------------ Quick $ helpers ------------ */
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+/* ------------ App State ------------ */
+const app = {
+  pc: null,
+  dc: null,
+  micStream: null,
+  micTrack: null,
+  remoteStream: null,
+  ws: null,
+  wsRoom: null,
+  isCaller: false,
+  statsTimer: null,
+  recording: null,
+  db: null,
+  clips: [],
+  state: {},
+  scan: { kind:null, target:null, stream:null, raf:0 }
+};
+
+/* ------------ Panel memory ------------ */
+function saveState() {
+  const s = {
+    liveMode: $('#liveMode').checked,
+    iceJson: $('#iceJson').value,
+    wsUrl: $('#wsUrl').value,
+    roomId: $('#roomId').value,
+    latch: $('#latch').checked,
+  };
+  localStorage.setItem(LS_STATE, JSON.stringify(s));
+}
+function loadState() {
+  try { app.state = JSON.parse(localStorage.getItem(LS_STATE)||'{}'); } catch(e){ app.state = {}; }
+  $('#liveMode').checked = app.state.liveMode ?? true;
+  $('#iceJson').value = app.state.iceJson || '';
+  $('#wsUrl').value = app.state.wsUrl || '';
+  $('#roomId').value = app.state.roomId || '';
+  $('#latch').checked = !!app.state.latch;
+}
+
+/* ------------ Status / UI ------------ */
+function status(msg){ $('#status').innerHTML = msg; }
+function setConnState(s,h=''){ $('#connState').textContent = s; $('#connHint').textContent = h; }
+function setBars(level, quality='ok'){
+  const bars = [$('#b1'),$('#b2'),$('#b3'),$('#b4'),$('#b5')];
+  bars.forEach((b,i)=>{
+    const on = i < level;
+    b.classList.toggle('on', on);
+    b.classList.toggle('ok', on && quality==='ok');
+    b.classList.toggle('bad', on && quality==='bad');
+  });
+}
+
+/* ------------ Mic & PTT ------------ */
+async function ensureMic(){
+  if (app.micStream) return;
+  try{
+    app.micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+    });
+    app.micTrack = app.micStream.getAudioTracks()[0];
+    $('#micBtn').textContent = '🎙️ Mic Ready';
+    status('Mic enabled. Hold the big button or press <span class="kbd">V</span>.');
+  }catch(e){
+    alert('Microphone permission denied.');
+  }
+}
+function setMicEnabled(on){
+  if (app.micTrack) app.micTrack.enabled = !!on;
+}
+
+/* ------------ WebRTC Core ------------ */
+function getRTCConfig(){
+  let cfg = {};
+  const t = $('#iceJson').value.trim();
+  if (t) { try { cfg = JSON.parse(t); } catch(e){ alert('ICE JSON invalid'); } }
+  return cfg;
+}
+async function createPC(){
+  if (app.pc) app.pc.close();
+  const pc = new RTCPeerConnection(getRTCConfig());
+  app.remoteStream = new MediaStream();
+  $('#remoteAudio').srcObject = app.remoteStream;
+
+  // Media
+  if (app.micStream){
+    app.micStream.getTracks().forEach(tr=>pc.addTrack(tr, app.micStream));
+  }
+  pc.ontrack = (ev)=> {
+    ev.streams[0].getTracks().forEach(t=> app.remoteStream.addTrack(t));
+  };
+
+  // Data channel (caller creates)
+  if (app.isCaller){
+    app.dc = pc.createDataChannel('ping');
+    app.dc.onopen = ()=> app.dc.send(JSON.stringify({type:'hello'}));
+  } else {
+    pc.ondatachannel = (ev)=>{
+      app.dc = ev.channel;
+      app.dc.onmessage = (e)=>{};
+    };
+  }
+
+  // ICE
+  let gathered = new Promise(resolve=>{
+    if (pc.iceGatheringState === 'complete') return resolve();
+    pc.onicegatheringstatechange = ()=>{ if (pc.iceGatheringState === 'complete') resolve(); };
+  });
+
+  app.pc = pc;
+  return {pc, gathered};
+}
+
+async function makeOffer(){
+  app.isCaller = true;
+  await ensureMic();
+  const {pc, gathered} = await createPC();
+  setConnState('dialing','creating offer…');
+  const offer = await pc.createOffer({offerToReceiveAudio:true});
+  await pc.setLocalDescription(offer);
+  await gathered;
+  const payload = JSON.stringify({sdp: pc.localDescription, role:'caller', t: Date.now()});
+  $('#offerOut').value = payload;
+  status('Offer ready. Share via copy or QR.');
+}
+
+async function acceptOfferAndCreateAnswer(){
+  app.isCaller = false;
+  await ensureMic();
+  const {pc, gathered} = await createPC();
+  const offerTxt = $('#offerIn').value.trim();
+  if (!offerTxt) return alert('Paste/scan the Offer first.');
+  let offer; try{ const o = JSON.parse(offerTxt); offer = o.sdp || o; }catch(e){ return alert('Invalid Offer JSON'); }
+  await pc.setRemoteDescription(offer);
+  const ans = await pc.createAnswer();
+  await pc.setLocalDescription(ans);
+  await gathered;
+  const payload = JSON.stringify({sdp: pc.localDescription, role:'callee', t: Date.now()});
+  $('#answerOut').value = payload;
+  setConnState('answering','share answer back to caller');
+  status('Answer created. Send back to caller (QR/Copy).');
+}
+
+async function applyAnswer(){
+  if (!app.pc) return alert('Create an offer first.');
+  const ansTxt = $('#answerIn').value.trim();
+  if (!ansTxt) return alert('Paste/scan the Answer first.');
+  let ans; try{ const a = JSON.parse(ansTxt); ans = a.sdp || a; }catch(e){ return alert('Invalid Answer JSON'); }
+  await app.pc.setRemoteDescription(ans);
+  setConnState('connecting','negotiating link…');
+}
+
+/* ------------ WebSocket signaling (optional) ------------ */
+function sendWS(obj){ app.ws?.send(JSON.stringify(obj)); }
+function wsConnect(){
+  const url = $('#wsUrl').value.trim();
+  const room = $('#roomId').value.trim();
+  if (!url || !room) return alert('Provide WebSocket URL and Room.');
+  try{ app.ws?.close(); }catch{}
+  const ws = new WebSocket(url);
+  ws.onopen = ()=>{ sendWS({kind:'join', room}); status('WS connected. Room joined.'); };
+  ws.onmessage = async (ev)=>{
+    try{
+      const msg = JSON.parse(ev.data);
+      if (msg.room !== room) return;
+      if (msg.kind === 'offer' && !app.isCaller){
+        $('#offerIn').value = msg.payload;
+        await acceptOfferAndCreateAnswer();
+      } else if (msg.kind === 'answer' && app.isCaller){
+        $('#answerIn').value = msg.payload;
+        await applyAnswer();
+      }
+    }catch{}
+  };
+  ws.onclose = ()=> status('WS disconnected.');
+  app.ws = ws;
+}
+
+/* ------------ Stats / Signal Bars ------------ */
+function startStats(){
+  clearInterval(app.statsTimer);
+  app.statsTimer = setInterval(async ()=>{
+    if (!app.pc) return setBars(0);
+    try{
+      const stats = await app.pc.getStats();
+      let rtt=0, jitter=0;
+      stats.forEach(r=>{
+        if (r.type==='remote-inbound-rtp' && r.kind==='audio'){
+          if (r.roundTripTime) rtt = r.roundTripTime*1000;
+          if (r.jitter) jitter = r.jitter*1000;
+        }
+      });
+      let level = 0; let q='ok';
+      if (app.pc.connectionState==='connected'){
+        level = 5;
+        if (rtt>300 || jitter>30) { q='bad'; level=3; }
+      }
+      setBars(level, q);
+      $('#statsHint').textContent = (app.pc.connectionState||'idle') + (rtt? ` • rtt ${rtt|0}ms`:'') + (jitter? ` • jitter ${jitter|0}ms`:'');
+      setConnState(app.pc.connectionState || 'idle', '');
+    }catch{}
+  }, 1000);
+}
+
+/* ------------ QR SCANNER (BarcodeDetector primary) ------------ */
+function openScanner(kind, targetTextareaId){
+  app.scan.kind = kind;
+  app.scan.target = $(targetTextareaId);
+  $('#scanOverlay').style.display = 'flex';
+  startScanLoop();
+}
+async function startScanLoop(){
+  const video = $('#scanVideo');
+  const canvas = $('#scanCanvas');
+  const ctx = canvas.getContext('2d');
+
+  try{
+    app.scan.stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+  }catch(e){
+    alert('Camera permission denied.');
+    closeScanner(); return;
+  }
+  video.srcObject = app.scan.stream;
+  await video.play();
+
+  const hasBarcode = ('BarcodeDetector' in window) &&
+    (await window.BarcodeDetector.getSupportedFormats?.() || []).includes('qr_code');
+  const detector = hasBarcode ? new window.BarcodeDetector({formats:['qr_code']}) : null;
+  $('#scanBadge').textContent = detector ? 'BarcodeDetector' : 'Camera';
+
+  const tick = async ()=>{
+    if (!video.videoWidth) { app.scan.raf = requestAnimationFrame(tick); return; }
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    let text = null;
+    try{
+      if (detector){
+        const codes = await detector.detect(canvas);
+        if (codes && codes[0]) text = codes[0].rawValue;
+      }
+    }catch{}
+
+    if (text){
+      try{
+        app.scan.target.value = text;
+        status('QR scanned.');
+        closeScanner();
+        if (app.scan.kind==='offer'){ await acceptOfferAndCreateAnswer(); }
+        if (app.scan.kind==='answer'){ await applyAnswer(); }
+        return;
+      }catch(e){}
+    }
+    app.scan.raf = requestAnimationFrame(tick);
+  };
+  app.scan.raf = requestAnimationFrame(tick);
+}
+function closeScanner(){
+  cancelAnimationFrame(app.scan.raf);
+  const tracks = app.scan.stream?.getTracks?.()||[];
+  tracks.forEach(t=>t.stop());
+  app.scan.stream = null;
+  $('#scanOverlay').style.display = 'none';
+}
+
+/* ------------ Hangup / Reinit ------------ */
+function hangup(){
+  if (app.pc){ try{app.pc.close();}catch{} app.pc=null; }
+  if (app.dc){ try{app.dc.close();}catch{} app.dc=null; }
+  setBars(0); setConnState('idle','');
+}
+
+/* ------------ Offline Vault (IndexedDB) ------------ */
+function idb(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open('radio_vault',1);
+    req.onupgradeneeded = ()=> {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('clips')){
+        db.createObjectStore('clips',{keyPath:'id', autoIncrement:true});
+      }
+    };
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function dbInit(){
+  app.db = await idb();
+  await refreshClips();
+}
+function tx(store, mode='readonly'){ return app.db.transaction('clips',mode).objectStore('clips'); }
+function blobToB64(blob){ return new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result.split(',')[1]); fr.readAsDataURL(blob); }); }
+function b64ToBlob(b64, type){ return fetch(`data:${type};base64,${b64}`).then(r=>r.blob()); }
+async function saveClip(blob, meta={}){
+  return new Promise((resolve,reject)=>{
+    const put = tx('clips','readwrite').put({blob, meta:{...meta, ts:Date.now()}});
+    put.onsuccess = async ()=>{ await refreshClips(); resolve(); };
+    put.onerror = ()=>reject(put.error);
+  });
+}
+async function refreshClips(){
+  return new Promise((resolve,reject)=>{
+    const items=[]; const cur = tx('clips').openCursor(null,'prev');
+    cur.onsuccess = ()=>{
+      const c = cur.result;
+      if (c){ items.push({id:c.key, ...c.value}); c.continue(); }
+      else{
+        app.clips = items;
+        renderClips();
+        resolve();
+      }
+    };
+    cur.onerror = ()=>reject(cur.error);
+  });
+}
+function renderClips(){
+  const list = $('#clips');
+  list.innerHTML = app.clips.map(c=>`
+    <div class="item">
+      <div>
+        <strong>Clip #${c.id}</strong> <small>${new Date(c.meta.ts).toLocaleString()}</small>
+      </div>
+      <div class="inline">
+        <button data-play="${c.id}">▶️ Play</button>
+        <button data-del="${c.id}" class="btn-hot">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('') || '<small class="hint">No clips yet. In offline mode, pressing PTT records clips here.</small>';
+  list.querySelectorAll('[data-play]').forEach(b=> b.onclick = async ()=>{
+    const id = +b.dataset.play;
+    const get = tx('clips').get(id);
+    get.onsuccess = ()=>{
+      const v = get.result;
+      if (!v) return;
+      const url = URL.createObjectURL(v.blob);
+      const a = new Audio(url); a.play();
+      a.onended = ()=> URL.revokeObjectURL(url);
+    };
+  });
+  list.querySelectorAll('[data-del]').forEach(b=> b.onclick = ()=>{
+    const id = +b.dataset.del;
+    const del = tx('clips','readwrite').delete(id);
+    del.onsuccess = refreshClips;
+  });
+}
+async function exportVault(){
+  const all = [];
+  await new Promise((resolve)=>{
+    const cur = tx('clips').openCursor();
+    cur.onsuccess = async ()=>{
+      const c = cur.result;
+      if (c){ const b64 = await blobToB64(c.value.blob); all.push({id:c.key, meta:c.value.meta, b64}); c.continue(); }
+      else resolve();
+    };
+  });
+  const blob = new Blob([JSON.stringify({version:1, exportedAt:new Date().toISOString(), clips:all}, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'radio-vault.json'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+async function importVault(file){
+  const txt = await file.text();
+  try{
+    const data = JSON.parse(txt);
+    if (!data || !Array.isArray(data.clips)) throw new Error('bad format');
+    for (const c of data.clips){
+      const blob = await b64ToBlob(c.b64, 'audio/webm');
+      await saveClip(blob, c.meta||{});
+    }
+    status('Vault imported.');
+  }catch(e){ alert('Failed to import vault: '+e.message); }
+}
+
+/* ------------ PTT behavior ------------ */
+let mediaRec=null, chunks=null;
+function pttDown(){
+  const live = $('#liveMode').checked && app.pc && app.pc.connectionState==='connected';
+  $('#ptt').classList.add('active'); $('#ptt').setAttribute('aria-pressed','true');
+  setMicEnabled(true);
+  if (!live){
+    if (!app.micStream) return;
+    chunks = [];
+    try{
+      mediaRec = new MediaRecorder(app.micStream, {mimeType:'audio/webm'});
+    }catch{ mediaRec = new MediaRecorder(app.micStream); }
+    mediaRec.ondataavailable = e=>{ if (e.data.size>0) chunks.push(e.data); };
+    mediaRec.onstop = async ()=>{
+      const blob = new Blob(chunks, {type: chunks[0]?.type || 'audio/webm'});
+      await saveClip(blob, {mode:'offline-ptt'});
+      status('Saved offline clip.');
+    };
+    mediaRec.start(50);
+  }
+}
+function pttUp(){
+  const live = $('#liveMode').checked && app.pc && app.pc.connectionState==='connected';
+  if (!$('#latch').checked){ $('#ptt').classList.remove('active'); $('#ptt').setAttribute('aria-pressed','false'); setMicEnabled(false); }
+  if (!live){
+    try{ mediaRec && mediaRec.state!=='inactive' && mediaRec.stop(); }catch{}
+  }
+}
+
+/* ------------ Events wiring ------------ */
+function wire(){
+  // Panel memory
+  $('#liveMode').onchange = saveState;
+  $('#iceJson').oninput = saveState;
+  $('#wsUrl').oninput = saveState;
+  $('#roomId').oninput = saveState;
+  $('#latch').onchange = saveState;
+
+  $('#micBtn').onclick = ensureMic;
+
+  // WebRTC Pairing
+  $('#makeOffer').onclick = makeOffer;
+  $('#createAnswer').onclick = acceptOfferAndCreateAnswer;
+  $('#applyAnswer').onclick = applyAnswer;
+  $('#copyOffer').onclick = ()=> { navigator.clipboard.writeText($('#offerOut').value||''); status('Offer copied.'); };
+  $('#copyAnswer').onclick = ()=> { navigator.clipboard.writeText($('#answerOut').value||''); status('Answer copied.'); };
+  $('#showOfferQR').onclick = showOfferQR;
+  $('#showAnswerQR').onclick = showAnswerQR;
+
+  // QR scan buttons
+  $('#scanOfferQR').onclick = ()=> openScanner('offer', '#offerIn');
+  $('#scanAnswerQR').onclick = ()=> openScanner('answer', '#answerIn');
+
+  $('#wsConnect').onclick = wsConnect;
+  $('#disconnect').onclick = ()=>{ hangup(); status('Hung up.'); };
+  $('#reinit').onclick = async ()=>{
+    hangup(); await ensureMic(); if ($('#liveMode').checked) { status('Re‑initialized radio. Create/accept a session.'); }
+  };
+
+  // Stats
+  startStats();
+
+  // PTT
+  const ptt = $('#ptt');
+  ptt.addEventListener('mousedown', ()=>{ pttDown(); });
+  window.addEventListener('mouseup', ()=>{ if (!$('#latch').checked) pttUp(); });
+  ptt.addEventListener('click', ()=>{ if ($('#latch').checked){ const on = !ptt.classList.contains('active'); if (on) pttDown(); else pttUp(); } });
+
+  // Keyboard (V to hold)
+  window.addEventListener('keydown', (e)=>{ if (e.key.toLowerCase()==='v' && !e.repeat){ pttDown(); }});
+  window.addEventListener('keyup', (e)=>{ if (e.key.toLowerCase()==='v'){ if (!$('#latch').checked) pttUp(); }});
+
+  // Vault
+  $('#exportVault').onclick = exportVault;
+  $('#importVault').onchange = (e)=>{ const f=e.target.files[0]; if (f) importVault(f); e.target.value=''; };
+}
+
+/* ------------ Boot ------------ */
+(async function init(){
+  loadState();
+  await dbInit();
+  wire();
+  status('Ready. Create an Offer (caller) or scan/paste an Offer to produce an Answer (callee).');
+})();
+</script>
+
+<!-- Scanner overlay HTML -->
+<div id="scanOverlay" class="scan-overlay" aria-modal="true" role="dialog">
+  <div class="scan-box">
+    <div class="scan-head">
+      <strong>Scan QR</strong>
+      <span class="badge" id="scanBadge">Camera</span>
+      <button onclick="closeScanner()">✖</button>
+    </div>
+    <div class="scan-body">
+      <video id="scanVideo" playsinline></video>
+      <canvas id="scanCanvas"></canvas>
+      <small class="hint">Point at the other device’s QR. If scanning fails, use copy/paste.</small>
+    </div>
+  </div>
+</div>
+</body>
+</html>
