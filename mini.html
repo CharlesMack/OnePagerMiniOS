@@ -207,22 +207,39 @@
       btn.onclick = () => bringToFront(panel);
       dock.appendChild(btn);
     }
-    function loadCatalog() {
-      const list = [
-        { name: "P.O.P.S. Media Hub", version: "0.3.2", entry: "appdrops/pops/index.html", type: "iframe", description: "AI-driven music, video & art hub with leaderboard and voice control." },
-        { name: "Offline Encyclopedia", version: "1.0.0", entry: "appdrops/encyclopedia/index.html", type: "iframe", description: "Browse curated offline articles, guides, and resources." },
-        { name: "First Aid Guide", version: "1.0.0", entry: "appdrops/firstaid/index.html", type: "iframe", description: "Offline emergency and medical first aid reference app." },
-        { name: "Pocket Encyclopedia", entry: "appdrops/encyclopedia/index.html", type: "iframe", description: "Lightweight version of the offline knowledge base." },
-        { name: "Offline World Atlas", entry: "appdrops/atlas/index.html", type: "iframe", description: "Explore maps and geographic data offline." },
-        { name: "Stakin' Mula — Lite", entry: "appdrops/stakin-mula-lite/index.html", type: "iframe", description: "Offline runner game with minimal footprint." },
-        { name: "Panel Pong", entry: "appdrops/panel-pong/index.html", type: "iframe", description: "Classic pong game inside a draggable panel." },
-        { name: "Scratchpad", entry: "appdrops/scratchpad/index.html", type: "iframe", description: "Quick notes and ideas, stored offline." },
-        { name: "Image Viewer", entry: "appdrops/image-viewer/index.html", type: "iframe", description: "Browse and preview offline images." },
-        { name: "Planner Lite", entry: "appdrops/planner-lite/index.html", type: "iframe", description: "Simple calendar and task manager." },
-        { name: "Planner Lite + (Gemini-Powered)", entry: "appdrops/planner-gemini/index.html", type: "iframe", description: "Simple Gemini-Powered calendar and task manager Planner Lite + (Api-key optional)." },
-        { name: "Procedural Art", entry: "appdrops/proc-art/index.html", type: "iframe", description: "Generate creative visuals using code." },
-        { name: "Slangtionary Lite", entry: "appdrops/slangtionary/index.html", type: "iframe", description: "Offline urban dictionary for fun definitions." }
-      ];
+    
+function loadCatalog() {
+  const list = [
+   { name: "P.O.P.S. Media Hub", version: "0.3.2", entry: "appdrops/pops/index.html", type: "iframe", description: "AI-driven music, video & art hub with leaderboard and voice control." },
+    { name: "Offline Encyclopedia", version: "1.0.0", entry: "appdrops/encyclopedia/index.html", type: "iframe", description: "Browse curated offline articles, guides, and resources." },
+    { name: "Survivor’s Compass", entry: "appdrops/survivors-compass/index.html", description: "Offline Navigation + Survival Toolkit AppDrop" },
+    { name: "🎵 3D Media Player World", entry: "../3d-media-player-world", description: "A web-based 3D interactive concert and media player experience." },
+    { name: "First Aid Quick-Reference", entry: "appdrops/first-aid-quickref/index.html", description: "First Aid quick-reference mini" },
+    { name: "First Aid Guide", version: "1.0.0", entry: "appdrops/firstaid/index.html", type: "iframe", description: "Offline emergency and medical first aid reference app." },
+    { name: "Offline World Atlas", entry: "appdrops/atlas/index.html", type: "iframe", description: "Explore maps and geographic data offline." },
+    { name: "Scratchpad", entry: "appdrops/scratchpad/index.html", type: "iframe", description: "Quick notes and ideas, stored offline." },
+    { name: "Planner Lite", entry: "appdrops/planner-lite/index.html", description: "Simple task & schedule tracker" },
+    { name: "Planner Lite + (Gemini-Powered)", entry: "appdrops/planner-gemini/index.html", type: "iframe", description: "Simple Gemini-Powered calendar and task manager Planner Lite + (Api-key optional)." }, 
+    { name: "Minor Glitch + (Charles Standby)", entry: "appdrops/charles5-p/index.html", type: "iframe", description: " Charles 5 — Procedural Wave Spin Speak." }, 
+    { name: "Minor Glitch (World Mode) ", entry: "appdrops/charles5-w/index.html", description: " P.O.P.S. Charles 5 — World Mode First‑Person Third‑Person Manual Auto Focus Tired Sunbathe Dance" },
+    { name: "Minor Glitch (Play w/ Max) ", entry: "appdrops/charles5-m/index.html", description: "P.O.P.S. C5 + Max — Offline 👁️ FP 🎥 TP 🕹️ Manual 🤖 Auto 🎯 Focus 😴 Tired 🔆 Sunbathe 💃 Dance 🪩 Theater On/Off 🍖 Drop Treat 🧑‍🔧 Feed Max 🥎 Fetch!" },
+    { name: "Minor Glitch (Max Sidekick) ", entry: "appdrops/charles5-s/index.html", description: "P.O.P.S. Legacy System" },
+    { name: "Minor Glitch (Max Fetch Ball) ", entry: "appdrops/charles5-sf/index.html", description: "P.O.P.S. Legacy System Fetch" },
+    { name: "Fiveseconds Video", entry: "appdrops/fiveseconds-lite/index.html", type: "iframe", description: "Simple Point & shoot Camera 5 sec video recorder Lite +." }, 
+    { name: "Fiveseconds Video + (Cinema- AI Powered Focus)", entry: "appdrops/fiveseconds-cine/index.html", type: "iframe", description: "Simple AI-Powered cinematic focusing panning zooming 5 second video recorder Lite + (AI)." }, 
+    { name: "Aurora  + (Relaxation- AI Powered Focus)", entry: "appdrops/fiveseconds-cine/index.html", type: "iframe", description: "Simple AI-Powered cinematic focusing panning zooming 5 second video recorder Lite + (AI)." }, 
+    { name: "Hearsay Audio Recorder", entry: "appdrops/hearsay/index.html", description: "Record, Replay, Save, Download" },
+    { name: "Hearsay Cinema", entry: "appdrops/hearsay-cinema/index.html", description: " MP4/WebM player with playlist, A-B loop, visualizer" },
+    { name: "Image Viewer", entry: "appdrops/image-viewer/index.html", type: "iframe", description: "Browse and preview offline images." },
+    { name: "Viewria", entry: "appdrops/viewria/index.html", description: "Movie Video player" },
+    { name: "Hobit", entry: "appdrops/dev-editor/index.html", description: "Dev Tools — HTML/JS Editor & Previewer" },
+    { name: "Reader Pro", entry: "appdrops/readerpro/index.html", description: "Ebook PDF Reader" },
+    { name: "Dev Editor", entry: "appdrops/dev-editor/index.html", description: "offline‑first editor with HTML/JS/CSS tabs, a live preview pane +" },
+    { name: "Procedural Art", entry: "appdrops/proc-art/index.html", type: "iframe", description: "Generate creative visuals using code." },
+    { name: "Slangtionary Lite", entry: "appdrops/slangtionary/index.html", type: "iframe", description: "Offline urban dictionary for fun definitions." },
+    { name: "Panel Pong", entry: "appdrops/panel-pong/index.html", description: "Classic pong in panel" }
+  ];
+  
       const catList = document.getElementById('catalogList');
       catList.innerHTML = '';
       for (const app of list) {
