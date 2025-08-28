@@ -1,0 +1,2191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Primary Meta Tags -->
+    <title>3D Media Player World — Interactive 3D Concert & Entertainment Universe</title>
+    <meta name="title" content="3D Media Player World — Interactive 3D Concert & Entertainment Universe" />
+    <meta name="description" content="Step into the 3D Media Player World — an interactive web-based concert and media player. Upload your own music, videos, and images to immersive venues with AI crowds, reactive lighting, and pyrotechnics." />
+    <meta name="keywords" content="3D concert, virtual media player, interactive 3D world, web-based concert, Three.js, immersive entertainment, online concert, music visualizer, AI audience, virtual stage" />
+    <meta name="author" content="Charles Mack III" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#000000" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://charlesmack.github.io/3d-media-player-world/" />
+    <meta property="og:title" content="3D Media Player World — Interactive 3D Concert Experience" />
+    <meta property="og:description" content="Upload music, videos, and images to a fully interactive 3D concert world. Choose venues, control effects, and let the AI audience react to your vibe." />
+    <meta property="og:site_name" content="3D Media Player World" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary" />
+    <meta property="twitter:url" content="https://charlesmack.github.io/3d-media-player-world/" />
+    <meta property="twitter:title" content="3D Media Player World — Interactive 3D Concert Experience" />
+    <meta property="twitter:description" content="An immersive 3D concert and media player world. Upload your media, choose venues, control effects, and enjoy dynamic AI audience reactions." />
+    <meta property="twitter:creator" content="@mackcwm" />
+
+    <!-- GEO SEO -->
+    <meta name="geo.region" content="US" />
+    <meta name="geo.placename" content="New York, United States" />
+    <meta name="geo.position" content="40.7128;-74.0060" />
+    <meta name="ICBM" content="40.7128, -74.0060" />
+
+    <!-- Canonical -->
+    <link rel="canonical" href="https://charlesmack.github.io/3d-media-player-world/" />
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:," />
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/renderers/CSS3DRenderer.min.js" 
+            onerror="handleCSS3DRendererError()"></script>
+    <!-- Fallback local script (uncomment and place CSS3DRenderer.js in js/ directory if needed) -->
+    <!-- <script src="js/CSS3DRenderer.js"></script> -->
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0a0015, #1a1040);
+            font-family: 'Arial', sans-serif;
+            cursor: none;
+        }
+        canvas { display: block; }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        #startMenu {
+            pointer-events: auto;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(255, 0, 255, 0.3);
+            color: white;
+            z-index: 100;
+            border: 2px solid rgba(255, 0, 255, 0.5);
+        }
+        
+        #startMenu h1 { 
+            font-size: 3em; 
+            margin: 0 0 20px; 
+            background: linear-gradient(45deg, #ff00ff, #00ffff, #ffff00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(255, 0, 255, 0.8);
+        }
+        
+        #startMenu p { 
+            font-size: 1.2em; 
+            margin: 0 0 30px; 
+            color: #e0e0e0; 
+        }
+        
+        .venue-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .venue-btn {
+            padding: 12px 24px;
+            background: linear-gradient(45deg, #ff006e, #8338ec);
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 25px;
+            font-size: 1em;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(255, 0, 110, 0.4);
+        }
+        
+        .venue-btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 10px 25px rgba(255, 0, 110, 0.6);
+        }
+        
+        #mediaInput { display: none; }
+        
+        #hud {
+            display: none;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 1.3em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        #controls {
+            pointer-events: auto;
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: none;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+        }
+        
+        .control-btn {
+            margin: 5px;
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 20px;
+            font-size: 1em;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
+        }
+        
+        .control-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(0, 255, 255, 0.6);
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(255,0,255,0.8) 50%, transparent 70%);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.8);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+        }
+
+        #vibePanel {
+            pointer-events: auto;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            display: none;
+            min-width: 200px;
+        }
+        
+        .vibe-slider {
+            width: 100%;
+            margin: 10px 0;
+            background: linear-gradient(90deg, #ff00ff, #00ffff);
+            height: 5px;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        #notifications {
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            width: 300px;
+            pointer-events: none;
+        }
+        
+        .notification {
+            background: linear-gradient(45deg, rgba(255, 0, 255, 0.8), rgba(0, 255, 255, 0.8));
+            padding: 12px;
+            margin: 8px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            color: white;
+            box-shadow: 0 5px 15px rgba(255, 0, 255, 0.4);
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0015, #1a1040);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            color: white;
+            font-size: 2em;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #ff00ff;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Mobile Controls */
+        #mobileControls {
+            display: none;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        .joystick-area {
+            position: absolute;
+            bottom: 20px;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            pointer-events: auto;
+            z-index: 10;
+        }
+        #leftJoystick { left: 20px; }
+        #rightJoystick { right: 20px; }
+
+        .joystick-handle {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #mobileButtons {
+            position: absolute;
+            top: 15%;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: auto;
+        }
+        
+        .mobile-btn {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #ff00ff;
+            color: white;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+            transition: all 0.2s;
+        }
+        .mobile-btn:active {
+            transform: scale(0.9);
+            box-shadow: 0 0 5px rgba(255, 0, 255, 0.8);
+        }
+
+        /* Responsive UI adjustments for small screens */
+        @media (max-width: 768px) {
+            #controls { display: none !important; }
+            #vibePanel {
+                top: auto;
+                bottom: 150px;
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                width: 80%;
+                min-width: unset;
+                padding: 10px;
+            }
+            #hud { display: none; }
+            #crosshair { display: none; }
+            #mobileControls { display: block; }
+        }
+        .credit-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #2c2c2c;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .credit-title {
+            color: #00ccff;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .credit-text {
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        .contact-link {
+            color: #00ffcc;
+            text-decoration: none;
+        }
+        .contact-link:hover {
+            text-decoration: underline;
+        }
+        #appdropSelect { 
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 20px;
+            font-size: 1em;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
+            margin: 5px;
+        }
+        #appdropSelect:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(0, 255, 255, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div>
+            <div class="spinner"></div>
+            <h2>Loading Concert Experience...</h2>
+            <p>Preparing the ultimate venue for you!</p>
+        </div>
+    </div>
+
+    <div id="ui">
+        <div id="startMenu">
+            <h1>🎵 3D Media Player World 🎵</h1>
+            <p>Your Ultimate Concert & Entertainment Universe</p>
+            
+            <div class="venue-buttons">
+                <button class="venue-btn" onclick="startGame('concert')">🎤 Concert Arena</button>
+                <button class="venue-btn" onclick="startGame('beach')">🏖️ Beach Festival</button>
+                <button class="venue-btn" onclick="startGame('office')">🏢 Office Chill</button>
+                <button class="venue-btn" onclick="startGame('yacht')">🛥️ Luxury Yacht</button>
+                <button class="venue-btn" onclick="startGame('mansion')">🏰 Grand Mansion</button>
+                <button class="venue-btn" onclick="startGame('space')">🚀 Space Station</button>
+                <a href="https://github.com/CharlesMack/3d-media-player-world/archive/refs/heads/main.zip" 
+                   class="venue-btn" 
+                   download>
+                   ⬇️ Download Project
+                </a>
+            </div>
+            
+            <input type="file" id="mediaInput" accept="image/*, video/*, audio/*" multiple>
+            <button class="venue-btn" onclick="document.getElementById('mediaInput').click()">
+                📁 Load Your Media
+            </button>
+
+            <div class="credit-container">
+                <div class="credit-title">Creator Credit</div>
+                <div class="credit-text">
+                    This virtual experience, <strong>3D Media Player World</strong>, was created and developed by 
+                    <strong>Charles Mack III</strong>. All original 3D environments, interactive elements, and design concepts 
+                    are the intellectual property of Charles Mack III, unless otherwise noted. This work is licensed under 
+                    a <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">Creative Commons Attribution 4.0 International License</a>, 
+                    which requires attribution to the creator when used or shared.
+                    <br><br>
+                    For inquiries, collaborations, or to request permission for use, please:
+                    follow <a href="https://x.com/mackcwm" class="contact-link" target="_blank">@mackcwm</a> on X.
+                    <br><br>
+                    <em>Last updated: August 28, 2025</em>
+                </div>
+            </div>
+        </div>
+        
+        <div id="hud">
+            <div id="venueInfo">🎪 Venue: Concert Arena</div>
+            <div id="audienceCount">👥 Audience: 0</div>
+            <div id="vibeLevel">⚡ Vibe: 50%</div>
+            <div id="mediaCount">📀 Media: 0</div>
+        </div>
+        
+        <div id="controls">
+            <button class="control-btn" onclick="spawnVehicle('car')">🚗 Spawn Car</button>
+            <button class="control-btn" onclick="spawnVehicle('spaceship')">🚀 Spawn Ship</button>
+            <button class="control-btn" onclick="togglePyro()">🎆 Pyro On/Off</button>
+            <button class="control-btn" onclick="changeWeather()">🌦️ Weather</button>
+            <button class="control-btn" onclick="document.getElementById('mediaInput').click()">📁 Add Media</button>
+            <button class="control-btn" onclick="toggleConcertControl()">🎛️ Toggle Concert Control</button>
+            <select id="appdropSelect" onchange="loadAppdrop(this.value); this.value = ''">
+                <option value="">Load Appdrop (K)</option>
+                <option value="appdrops/atlas/index.html">Atlas</option>
+                <option value="appdrops/aurora/index.html">Aurora</option>
+                <option value="appdrops/charles5-m/index.html">Charles5-M</option>
+                <option value="appdrops/charles5-p/index.html">Charles5-P</option>
+                <option value="appdrops/charles5-s/index.html">Charles5-S</option>
+                <option value="appdrops/charles5-sf/index.html">Charles5-SF</option>
+                <option value="appdrops/charles5-w/index.html">Charles5-W</option>
+                <option value="appdrops/dev-editor/index.html">Dev Editor</option>
+                <option value="appdrops/dj-drop/index.html">DJ Drop</option>
+                <option value="appdrops/encyclopedia/index.html">Encyclopedia</option>
+                <option value="appdrops/first-aid-quickref/index.html">First Aid Quickref</option>
+                <option value="appdrops/firstaid/index.html">Firstaid</option>
+                <option value="appdrops/fiveseconds-cine/index.html">Fiveseconds Cine</option>
+                <option value="appdrops/fiveseconds-lite/index.html">Fiveseconds Lite</option>
+                <option value="appdrops/hearsay-cinema/index.html">Hearsay Cinema</option>
+                <option value="appdrops/hearsay/index.html">Hearsay</option>
+                <option value="appdrops/magifico-room/index.html">Magifico Room</option>
+                <option value="appdrops/magifico-stage/index.html">Magifico Stage</option>
+                <option value="appdrops/mpc-drop/index.html">MPC Drop</option>
+                <option value="appdrops/planner-gemini/index.html">Planner Gemini</option>
+                <option value="appdrops/planner-lite/index.html">Planner Lite</option>
+                <option value="appdrops/pops/index.html">Pops</option>
+                <option value="appdrops/retreat/index.html">Retreat</option>
+                <option value="appdrops/scratchpad/index.html">Scratchpad</option>
+                <option value="appdrops/strobe-hud/index.html">Strobe Hud</option>
+                <option value="appdrops/strobe/index.html">Strobe</option>
+                <option value="appdrops/survivors-compass/index.html">Survivors Compass</option>
+                <option value="appdrops/tap-talk/index.html">Tap Talk</option>
+                <option value="appdrops/viewria/index.html">Viewria</option>
+            </select>
+        </div>
+        
+        <div id="vibePanel">
+            <h3>🎛️ Concert Control</h3>
+            <label>Bass Boost: <input type="range" class="vibe-slider" id="bassBoost" min="0" max="100" value="50"></label>
+            <label>Crowd Energy: <input type="range" class="vibe-slider" id="crowdEnergy" min="0" max="100" value="50"></label>
+            <label>Light Intensity: <input type="range" class="vibe-slider" id="lightIntensity" min="0" max="100" value="50"></label>
+            <label>Pyro Frequency: <input type="range" class="vibe-slider" id="pyroFreq" min="0" max="100" value="30"></label>
+        </div>
+        
+        <div id="notifications"></div>
+
+        <div id="mobileControls">
+            <div id="leftJoystick" class="joystick-area">
+                <div class="joystick-handle"></div>
+            </div>
+            <div id="rightJoystick" class="joystick-area">
+                <div class="joystick-handle"></div>
+            </div>
+            <div id="mobileButtons">
+                <button class="mobile-btn" onclick="handleObjectInteraction()">👆</button>
+                <button class="mobile-btn" onclick="toggleGrabObject()">✋</button>
+                <button class="mobile-btn" onclick="handleObjectDeletion()">🗑️</button>
+                <button class="mobile-btn" onclick="document.getElementById('mediaInput').click()">📁</button>
+                <button class="mobile-btn" onclick="toggleConcertControl()">🎛️</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="crosshair"></div>
+    
+    <script>
+        // Enhanced game state with concert features
+        let scene, camera, renderer, composer;
+        let clock = new THREE.Clock();
+        let listener, audioLoader, audioContext;
+        let gameState = 'menu';
+        let currentVenue = 'concert';
+        
+        // Enhanced collections
+        let mediaObjects = [], audienceBots = [], vehicles = [], spaceships = [], appdrops = [];
+        let concertLights = [], pyroSystems = [], particles = [];
+        let stages = [], concertEffects = [];
+        
+        // Enhanced controls
+        let keys = {}, mouse = { x: 0, y: 0, sensitivity: 0.002 };
+        let moveSpeed = 20, flySpeed = 30;
+        let controlsEnabled = false;
+
+        // Mobile controls
+        let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        let leftJoystick = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, handle: null };
+        let rightJoystick = { active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, handle: null };
+        
+        // Concert-specific variables
+        let vibeLevel = 50, crowdEnergy = 50, bassBoost = 50;
+        let pyroEnabled = true, weatherMode = 'clear';
+        let audioAnalysers = [], globalBeatDetection = null;
+        
+        // Object manipulation
+        const raycaster = new THREE.Raycaster();
+        let selectedObject = null, grabbedObject = null;
+        let grabDistance = 5;
+
+        // Vehicle physics
+        let playerVehicle = null;
+        let vehicleSpeed = 0, maxSpeed = 50;
+        
+        // Lighting and effects
+        let spotlights = [], laserLights = [], smokeMachines = [];
+        let concertStage = null, crowdArea = null;
+
+        // CSS3DRenderer availability
+        let isCSS3DRendererAvailable = false;
+
+        // Handle CSS3DRenderer loading error
+        function handleCSS3DRendererError() {
+            console.error('Failed to load CSS3DRenderer.js. Appdrop functionality disabled.');
+            addNotification('⚠️ Failed to load appdrop renderer. Please check your network or use a local copy of CSS3DRenderer.js.');
+            document.getElementById('appdropSelect').disabled = true;
+            isCSS3DRendererAvailable = false;
+        }
+
+        // Initialize the experience
+        function init() {
+            // Hide loading screen after a moment
+            setTimeout(() => {
+                document.getElementById('loadingScreen').style.display = 'none';
+            }, 2000);
+
+            // Scene setup
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ReinhardToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            document.body.appendChild(renderer.domElement);
+
+            // CSS3DRenderer setup with fallback
+            isCSS3DRendererAvailable = typeof THREE.CSS3DRenderer !== 'undefined';
+            if (isCSS3DRendererAvailable) {
+                try {
+                    composer = new THREE.CSS3DRenderer();
+                    composer.setSize(window.innerWidth, window.innerHeight);
+                    composer.domElement.style.position = 'absolute';
+                    composer.domElement.style.top = '0';
+                    document.body.appendChild(composer.domElement);
+                    console.log('CSS3DRenderer initialized successfully.');
+                    addNotification('📱 Appdrop renderer loaded!');
+                } catch (e) {
+                    console.error('Error initializing CSS3DRenderer:', e);
+                    handleCSS3DRendererError();
+                }
+            } else {
+                handleCSS3DRendererError();
+            }
+
+            // Enhanced audio setup
+            listener = new THREE.AudioListener();
+            camera.add(listener);
+            audioLoader = new THREE.AudioLoader();
+            audioContext = listener.context;
+            
+            // Global beat detection
+            globalBeatDetection = {
+                analyser: null,
+                beatThreshold: 0.3,
+                lastBeat: 0
+            };
+
+            // Event listeners
+            setupEventListeners();
+            
+            // Start with menu
+            camera.position.set(0, 5, 10);
+
+            // Hide/show PC/mobile controls
+            if (isMobile) {
+                document.getElementById('controls').style.display = 'none';
+                document.getElementById('crosshair').style.display = 'none';
+                document.getElementById('mobileControls').style.display = 'block';
+            } else {
+                document.getElementById('mobileControls').style.display = 'none';
+            }
+        }
+
+        function setupEventListeners() {
+            if (isMobile) {
+                setupMobileControls();
+            } else {
+                // Keyboard
+                document.addEventListener('keydown', onKeyDown);
+                document.addEventListener('keyup', onKeyUp);
+                
+                // Mouse
+                document.addEventListener('mousedown', onMouseDown);
+                document.addEventListener('mouseup', onMouseUp);
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('wheel', onMouseWheel);
+                
+                // Pointer lock
+                document.addEventListener('pointerlockchange', () => {
+                    controlsEnabled = document.pointerLockElement === document.body;
+                });
+            }
+            
+            // Shared events
+            window.addEventListener('resize', onWindowResize);
+            document.getElementById('mediaInput').addEventListener('change', handleMediaUpload);
+            document.getElementById('bassBoost').addEventListener('input', updateVibeSettings);
+            document.getElementById('crowdEnergy').addEventListener('input', updateVibeSettings);
+            document.getElementById('lightIntensity').addEventListener('input', updateVibeSettings);
+            document.getElementById('pyroFreq').addEventListener('input', updateVibeSettings);
+        }
+
+        function setupMobileControls() {
+            const leftJoystickArea = document.getElementById('leftJoystick');
+            const rightJoystickArea = document.getElementById('rightJoystick');
+            leftJoystick.handle = leftJoystickArea.querySelector('.joystick-handle');
+            rightJoystick.handle = rightJoystickArea.querySelector('.joystick-handle');
+
+            let touchLookActive = false;
+            let lastTouchX, lastTouchY;
+
+            document.addEventListener('touchstart', (event) => {
+                for (let i = 0; i < event.touches.length; i++) {
+                    const touch = event.touches[i];
+                    
+                    // Left joystick for movement
+                    if (leftJoystickArea.contains(touch.target)) {
+                        leftJoystick.active = true;
+                        leftJoystick.startX = touch.clientX;
+                        leftJoystick.startY = touch.clientY;
+                        leftJoystick.currentX = touch.clientX;
+                        leftJoystick.currentY = touch.clientY;
+                        break;
+                    }
+                    
+                    // Right joystick for camera
+                    if (rightJoystickArea.contains(touch.target)) {
+                        rightJoystick.active = true;
+                        rightJoystick.startX = touch.clientX;
+                        rightJoystick.startY = touch.clientY;
+                        rightJoystick.currentX = touch.clientX;
+                        rightJoystick.currentY = touch.clientY;
+                        break;
+                    }
+
+                    // Look gesture
+                    if (touch.target.tagName === 'CANVAS') {
+                        touchLookActive = true;
+                        lastTouchX = touch.clientX;
+                        lastTouchY = touch.clientY;
+                    }
+                }
+            }, false);
+
+            document.addEventListener('touchmove', (event) => {
+                event.preventDefault(); // Prevent scrolling/zooming
+
+                for (let i = 0; i < event.touches.length; i++) {
+                    const touch = event.touches[i];
+
+                    if (leftJoystick.active) {
+                        leftJoystick.currentX = touch.clientX;
+                        leftJoystick.currentY = touch.clientY;
+                    }
+
+                    if (rightJoystick.active) {
+                        rightJoystick.currentX = touch.clientX;
+                        rightJoystick.currentY = touch.clientY;
+                    }
+                }
+
+                // Camera rotation with a single touch outside of joysticks
+                if (touchLookActive) {
+                    const deltaX = touch.clientX - lastTouchX;
+                    const deltaY = touch.clientY - lastTouchY;
+
+                    camera.rotation.y -= deltaX * mouse.sensitivity * 5; // Increased sensitivity for mobile
+                    camera.rotation.x -= deltaY * mouse.sensitivity * 5;
+                    camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+                    
+                    lastTouchX = touch.clientX;
+                    lastTouchY = touch.clientY;
+                }
+            }, false);
+
+            document.addEventListener('touchend', (event) => {
+                leftJoystick.active = false;
+                rightJoystick.active = false;
+                touchLookActive = false;
+                leftJoystick.handle.style.transform = 'translate(-50%, -50%)';
+                rightJoystick.handle.style.transform = 'translate(-50%, -50%)';
+            }, false);
+            
+            // Interactivity for touch
+            document.addEventListener('click', (event) => {
+                if (event.target.tagName === 'CANVAS') {
+                    // Raycast on click for object interaction
+                    const rect = renderer.domElement.getBoundingClientRect();
+                    const x = (event.clientX - rect.left) / rect.width;
+                    const y = (event.clientY - rect.top) / rect.height;
+                    const coords = new THREE.Vector2(x * 2 - 1, -y * 2 + 1);
+
+                    raycaster.setFromCamera(coords, camera);
+                    const intersects = raycaster.intersectObjects([...mediaObjects, ...vehicles, ...spaceships, ...appdrops]);
+                    
+                    if (intersects.length > 0) {
+                        handleObjectClick(intersects[0].object);
+                    }
+                }
+            }, false);
+        }
+
+        function startGame(venue) {
+            currentVenue = venue;
+            gameState = 'playing';
+            
+            document.getElementById('startMenu').style.display = 'none';
+            document.getElementById('hud').style.display = 'block';
+            document.getElementById('controls').style.display = isMobile ? 'none' : 'block';
+            document.getElementById('vibePanel').style.display = 'block';
+            document.getElementById('crosshair').style.display = isMobile ? 'none' : 'block';
+
+            if (!isMobile) {
+                document.body.requestPointerLock();
+            }
+            
+            const venueNames = {
+                concert: '🎤 Concert Arena',
+                beach: '🏖️ Beach Festival',
+                office: '🏢 Office Space',
+                yacht: '🛥️ Luxury Yacht',
+                mansion: '🏰 Grand Mansion',
+                space: '🚀 Space Station'
+            };
+            document.getElementById('venueInfo').textContent = `🎪 Venue: ${venueNames[venue]}`;
+            
+            setupVenue(venue);
+            spawnAudienceBots(20);
+            setupConcertLighting();
+            setupPyrotechnics();
+            
+            animate();
+            
+            addNotification(`🎉 Welcome to ${venueNames[venue]}!`);
+            addNotification("🎵 Upload your media or load an appdrop to start the concert!");
+        }
+
+        function setupVenue(venue) {
+            scene.clear();
+            scene.add(camera);
+            camera.add(listener);
+            
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+            scene.add(ambientLight);
+            
+            switch(venue) {
+                case 'concert': setupConcertVenue(); break;
+                case 'beach': setupBeachVenue(); break;
+                case 'office': setupOfficeVenue(); break;
+                case 'yacht': setupYachtVenue(); break;
+                case 'mansion': setupMansionVenue(); break;
+                case 'space': setupSpaceVenue(); break;
+            }
+        }
+
+        function setupConcertVenue() {
+            const groundGeometry = new THREE.PlaneGeometry(200, 200);
+            const groundTexture = createCheckerboardTexture();
+            const groundMaterial = new THREE.MeshLambertMaterial({ map: groundTexture, color: 0x222222 });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            
+            const stageGeometry = new THREE.BoxGeometry(30, 2, 20);
+            const stageMaterial = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8, roughness: 0.2 });
+            concertStage = new THREE.Mesh(stageGeometry, stageMaterial);
+            concertStage.position.set(0, 1, -30);
+            concertStage.castShadow = true;
+            scene.add(concertStage);
+            
+            for(let i = 0; i < 5; i++) {
+                const seatGeometry = new THREE.BoxGeometry(60, 2, 8);
+                const seatMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+                const seat = new THREE.Mesh(seatGeometry, seatMaterial);
+                seat.position.set(0, i * 3 + 2, 20 + i * 10);
+                seat.castShadow = true;
+                scene.add(seat);
+            }
+            
+            scene.fog = new THREE.FogExp2(0x000033, 0.005);
+            
+            camera.position.set(0, 15, 40);
+        }
+
+        function setupBeachVenue() {
+            const groundGeometry = new THREE.PlaneGeometry(300, 300);
+            const sandTexture = createSandTexture();
+            const groundMaterial = new THREE.MeshLambertMaterial({ map: sandTexture });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            scene.add(ground);
+            
+            const waterGeometry = new THREE.PlaneGeometry(300, 100);
+            const waterMaterial = new THREE.MeshStandardMaterial({
+                color: 0x006994,
+                transparent: true,
+                opacity: 0.8,
+                roughness: 0.1,
+                metalness: 0.1
+            });
+            const water = new THREE.Mesh(waterGeometry, waterMaterial);
+            water.rotation.x = -Math.PI / 2;
+            water.position.z = -100;
+            scene.add(water);
+            
+            const stageGeometry = new THREE.CylinderGeometry(15, 15, 2, 16);
+            const stageMaterial = new THREE.MeshStandardMaterial({ color: 0xDEB887 });
+            concertStage = new THREE.Mesh(stageGeometry, stageMaterial);
+            concertStage.position.set(0, 1, 0);
+            scene.add(concertStage);
+            
+            for(let i = 0; i < 10; i++) {
+                createPalmTree(
+                    Math.random() * 200 - 100,
+                    Math.random() * 200 - 100
+                );
+            }
+            
+            scene.fog = new THREE.Fog(0x87CEEB, 50, 300);
+            camera.position.set(0, 10, 30);
+        }
+
+        function setupSpaceVenue() {
+            createStarfield();
+            
+            const platformGeometry = new THREE.CylinderGeometry(50, 50, 5, 16);
+            const platformMaterial = new THREE.MeshStandardMaterial({
+                color: 0x333366,
+                metalness: 0.9,
+                roughness: 0.1,
+                emissive: 0x002244,
+                emissiveIntensity: 0.3
+            });
+            const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+            platform.position.y = -2;
+            scene.add(platform);
+            
+            const stageGeometry = new THREE.CylinderGeometry(15, 15, 3, 8);
+            const stageMaterial = new THREE.MeshStandardMaterial({
+                color: 0x666699,
+                metalness: 0.8,
+                roughness: 0.2,
+                emissive: 0x004488,
+                emissiveIntensity: 0.5
+            });
+            concertStage = new THREE.Mesh(stageGeometry, stageMaterial);
+            concertStage.position.y = 2;
+            scene.add(concertStage);
+            
+            for(let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                const deckGeometry = new THREE.BoxGeometry(12, 2, 8);
+                const deckMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x444477,
+                    metalness: 0.7,
+                    roughness: 0.3
+                });
+                const deck = new THREE.Mesh(deckGeometry, deckMaterial);
+                deck.position.set(
+                    Math.cos(angle) * 35,
+                    5 + Math.sin(i) * 3,
+                    Math.sin(angle) * 35
+                );
+                scene.add(deck);
+            }
+            
+            camera.position.set(0, 20, 40);
+            
+            scene.fog = null;
+        }
+
+        function setupOfficeVenue() {
+            const floorGeometry = new THREE.PlaneGeometry(100, 100);
+            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+            
+            for(let x = -40; x <= 40; x += 20) {
+                for(let z = -40; z <= 40; z += 20) {
+                    if(Math.abs(x) < 10 && Math.abs(z) < 10) continue;
+                    
+                    const deskGeometry = new THREE.BoxGeometry(8, 1, 4);
+                    const deskMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+                    const desk = new THREE.Mesh(deskGeometry, deskMaterial);
+                    desk.position.set(x, 1, z);
+                    scene.add(desk);
+                }
+            }
+            
+            const presentationGeometry = new THREE.BoxGeometry(20, 0.5, 15);
+            const presentationMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            concertStage = new THREE.Mesh(presentationGeometry, presentationMaterial);
+            concertStage.position.set(0, 0.5, 0);
+            scene.add(concertStage);
+            
+            camera.position.set(0, 8, 25);
+        }
+
+        function setupYachtVenue() {
+            const oceanGeometry = new THREE.PlaneGeometry(500, 500);
+            const oceanMaterial = new THREE.MeshStandardMaterial({
+                color: 0x006994,
+                transparent: true,
+                opacity: 0.9
+            });
+            const ocean = new THREE.Mesh(oceanGeometry, oceanMaterial);
+            ocean.rotation.x = -Math.PI / 2;
+            ocean.position.y = -5;
+            scene.add(ocean);
+            
+            const hullGeometry = new THREE.BoxGeometry(60, 8, 15);
+            const hullMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+            const hull = new THREE.Mesh(hullGeometry, hullMaterial);
+            hull.position.y = 2;
+            scene.add(hull);
+            
+            const deckGeometry = new THREE.BoxGeometry(55, 2, 12);
+            const deckMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            concertStage = new THREE.Mesh(deckGeometry, deckMaterial);
+            concertStage.position.y = 6;
+            scene.add(concertStage);
+            
+            const superGeometry = new THREE.BoxGeometry(20, 12, 10);
+            const superMaterial = new THREE.MeshStandardMaterial({ color: 0xF5F5F5 });
+            const superstructure = new THREE.Mesh(superGeometry, superMaterial);
+            superstructure.position.set(15, 10, 0);
+            scene.add(superstructure);
+            
+            scene.fog = new THREE.Fog(0x87CEEB, 100, 400);
+            camera.position.set(-20, 15, 25);
+        }
+
+        function setupMansionVenue() {
+            const floorGeometry = new THREE.PlaneGeometry(80, 80);
+            const floorMaterial = new THREE.MeshStandardMaterial({
+                color: 0xF8F8FF,
+                metalness: 0.1,
+                roughness: 0.2
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+            
+            const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xFFD700 });
+            
+            const wallHeight = 15;
+            const walls = [
+                { pos: [0, wallHeight/2, -40], size: [80, wallHeight, 2] },
+                { pos: [0, wallHeight/2, 40], size: [80, wallHeight, 2] },
+                { pos: [-40, wallHeight/2, 0], size: [2, wallHeight, 80] },
+                { pos: [40, wallHeight/2, 0], size: [2, wallHeight, 80] }
+            ];
+            
+            walls.forEach(wall => {
+                const wallGeometry = new THREE.BoxGeometry(...wall.size);
+                const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
+                wallMesh.position.set(...wall.pos);
+                scene.add(wallMesh);
+            });
+            
+            const chandelierGeometry = new THREE.CylinderGeometry(12, 12, 1, 16);
+            const chandelierMaterial = new THREE.MeshStandardMaterial({
+                color: 0xFFFFFF,
+                metalness: 0.8,
+                roughness: 0.1
+            });
+            concertStage = new THREE.Mesh(chandelierGeometry, chandelierMaterial);
+            concertStage.position.y = 1;
+            scene.add(concertStage);
+            
+            for(let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const columnGeometry = new THREE.CylinderGeometry(2, 2, 15, 8);
+                const columnMaterial = new THREE.MeshStandardMaterial({ color: 0xF5F5DC });
+                const column = new THREE.Mesh(columnGeometry, columnMaterial);
+                column.position.set(
+                    Math.cos(angle) * 25,
+                    7.5,
+                    Math.sin(angle) * 25
+                );
+                scene.add(column);
+            }
+            
+            camera.position.set(0, 12, 35);
+        }
+
+        function spawnAudienceBots(count) {
+            audienceBots = [];
+            
+            for(let i = 0; i < count; i++) {
+                const botGroup = new THREE.Group();
+                
+                const bodyGeometry = new THREE.CylinderGeometry(0.3, 0.4, 1.2, 8);
+                const bodyMaterial = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color().setHSL(Math.random(), 0.8, 0.6)
+                });
+                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                body.position.y = 0.6;
+                botGroup.add(body);
+                
+                const headGeometry = new THREE.SphereGeometry(0.25, 8, 6);
+                const headMaterial = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color().setHSL(Math.random(), 0.5, 0.7)
+                });
+                const head = new THREE.Mesh(headGeometry, headMaterial);
+                head.position.y = 1.5;
+                botGroup.add(head);
+                
+                const bot = botGroup;
+                
+                let x, z;
+                if(currentVenue === 'concert') {
+                    x = Math.random() * 80 - 40;
+                    z = Math.random() * 30 + 10;
+                } else if(currentVenue === 'beach') {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 20 + Math.random() * 30;
+                    x = Math.cos(angle) * radius;
+                    z = Math.sin(angle) * radius;
+                } else if(currentVenue === 'space') {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = 25 + Math.random() * 15;
+                    x = Math.cos(angle) * radius;
+                    z = Math.sin(angle) * radius;
+                } else {
+                    x = Math.random() * 60 - 30;
+                    z = Math.random() * 60 - 30;
+                }
+                
+                bot.position.set(x, 2, z);
+                bot.castShadow = true;
+                
+                bot.userData = {
+                    type: 'audience',
+                    energy: Math.random(),
+                    danceStyle: Math.floor(Math.random() * 4),
+                    originalY: bot.position.y,
+                    bouncePhase: Math.random() * Math.PI * 2,
+                    bodyMaterial: bodyMaterial,
+                    headMaterial: headMaterial,
+                    originalBodyColor: bodyMaterial.color.clone(),
+                    originalHeadColor: headMaterial.color.clone()
+                };
+                
+                scene.add(bot);
+                audienceBots.push(bot);
+            }
+            
+            updateAudienceCount();
+        }
+
+        function setupConcertLighting() {
+            const spotlight = new THREE.SpotLight(0xffffff, 2, 100, Math.PI / 6, 0.5);
+            spotlight.position.set(0, 30, -20);
+            spotlight.target.position.set(0, 0, -30);
+            spotlight.castShadow = true;
+            spotlight.shadow.camera.near = 10;
+            spotlight.shadow.camera.far = 100;
+            scene.add(spotlight);
+            scene.add(spotlight.target);
+            concertLights.push(spotlight);
+
+            const colors = [0xff0040, 0x40ff00, 0x0040ff, 0xff8000, 0x8000ff, 0x00ff80];
+            
+            for(let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const light = new THREE.SpotLight(colors[i % colors.length], 1.5, 80, Math.PI / 4, 0.3);
+                light.position.set(
+                    Math.cos(angle) * 25,
+                    20,
+                    Math.sin(angle) * 25 - 15
+                );
+                
+                const target = new THREE.Object3D();
+                target.position.set(0, 0, -30);
+                scene.add(target);
+                light.target = target;
+                
+                light.userData = {
+                    originalPosition: light.position.clone(),
+                    targetOriginal: target.position.clone(),
+                    moveRadius: 15,
+                    moveSpeed: 0.5 + Math.random() * 0.5,
+                    colorPhase: Math.random() * Math.PI * 2
+                };
+                
+                scene.add(light);
+                concertLights.push(light);
+            }
+
+            for(let i = 0; i < 12; i++) {
+                const laser = new THREE.DirectionalLight(0xff00ff, 0.8);
+                laser.position.set(
+                    Math.random() * 40 - 20,
+                    15 + Math.random() * 10,
+                    -35 + Math.random() * 10
+                );
+                
+                laser.userData = {
+                    type: 'laser',
+                    sweepSpeed: 1 + Math.random() * 2,
+                    sweepRadius: 20 + Math.random() * 15,
+                    phase: Math.random() * Math.PI * 2
+                };
+                
+                scene.add(laser);
+                laserLights.push(laser);
+            }
+        }
+
+        function setupPyrotechnics() {
+            const pyroPoints = [];
+            for(let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                pyroPoints.push({
+                    x: Math.cos(angle) * 20,
+                    y: 1,
+                    z: Math.sin(angle) * 20 - 30
+                });
+            }
+            
+            pyroSystems = pyroPoints;
+        }
+
+        function handleMediaUpload(event) {
+            const files = event.target.files;
+            for(let file of files) {
+                processMediaFile(file);
+            }
+        }
+
+        function processMediaFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const mediaData = e.target.result;
+                let mediaObject;
+                
+                if(file.type.startsWith('image/')) {
+                    mediaObject = createImageMedia(mediaData, file);
+                } else if(file.type.startsWith('video/')) {
+                    mediaObject = createVideoMedia(mediaData, file);
+                } else if(file.type.startsWith('audio/')) {
+                    mediaObject = createAudioMedia(mediaData, file);
+                }
+                
+                if(mediaObject) {
+                    const stagePos = concertStage ? concertStage.position : new THREE.Vector3(0, 2, -30);
+                    mediaObject.position.set(
+                        stagePos.x + (Math.random() - 0.5) * 20,
+                        stagePos.y + 2 + Math.random() * 5,
+                        stagePos.z + (Math.random() - 0.5) * 15
+                    );
+                    
+                    scene.add(mediaObject);
+                    mediaObjects.push(mediaObject);
+                    updateMediaCount();
+                    
+                    addNotification(`🎵 Added ${file.name} to the show!`);
+                    
+                    if(pyroEnabled) {
+                        triggerPyroEffect(mediaObject.position);
+                    }
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function createImageMedia(dataUrl, file) {
+            const texture = new THREE.TextureLoader().load(dataUrl);
+            const geometry = new THREE.PlaneGeometry(4, 3);
+            const material = new THREE.MeshStandardMaterial({
+                map: texture,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.userData = {
+                type: 'image',
+                fileName: file.name,
+                originalScale: mesh.scale.clone(),
+                glowIntensity: 0
+            };
+            
+            return mesh;
+        }
+
+        function createVideoMedia(dataUrl, file) {
+            const video = document.createElement('video');
+            video.src = dataUrl;
+            video.loop = true;
+            video.muted = false;
+            video.crossOrigin = 'anonymous';
+            
+            const texture = new THREE.VideoTexture(video);
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            
+            const geometry = new THREE.PlaneGeometry(6, 4);
+            const material = new THREE.MeshStandardMaterial({
+                map: texture,
+                side: THREE.DoubleSide
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.userData = {
+                type: 'video',
+                video: video,
+                fileName: file.name,
+                originalScale: mesh.scale.clone(),
+                glowIntensity: 0,
+                muted: false
+            };
+            
+            video.play().catch(() => {
+                addNotification(`Click ${file.name} to start video!`);
+            });
+            
+            return mesh;
+        }
+
+        function createAudioMedia(dataUrl, file) {
+            const audio = new THREE.PositionalAudio(listener);
+            const analyser = new THREE.AudioAnalyser(audio, 256);
+            
+            audioLoader.load(dataUrl, (buffer) => {
+                audio.setBuffer(buffer);
+                audio.setLoop(true);
+                audio.setRefDistance(5);
+                audio.setVolume(0.8);
+                
+                if(!globalBeatDetection.analyser) {
+                    globalBeatDetection.analyser = analyser;
+                }
+            });
+            
+            const geometry = new THREE.IcosahedronGeometry(2, 1);
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x00ffff,
+                metalness: 0.8,
+                roughness: 0.2,
+                emissive: 0x003366,
+                emissiveIntensity: 0.5
+            });
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.add(audio);
+            
+            mesh.userData = {
+                type: 'audio',
+                audio: audio,
+                analyser: analyser,
+                fileName: file.name,
+                originalScale: mesh.scale.clone(),
+                originalColor: material.color.clone(),
+                beatHistory: [],
+                isPlaying: false,
+                muted: false
+            };
+            
+            audioAnalysers.push(analyser);
+            return mesh;
+        }
+
+        function spawnVehicle(type) {
+            if(type === 'car') {
+                spawnCar();
+            } else if(type === 'spaceship') {
+                spawnSpaceship();
+            }
+        }
+
+        function spawnCar() {
+            const bodyGeometry = new THREE.BoxGeometry(4, 1.5, 2);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: 0xff4444,
+                metalness: 0.8,
+                roughness: 0.2
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.set(camera.position.x + 5, 1, camera.position.z);
+            body.castShadow = true;
+            
+            const wheelGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.3, 8);
+            const wheelMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            
+            const wheelPositions = [
+                [-1.5, -0.5, 0.8], [1.5, -0.5, 0.8],
+                [-1.5, -0.5, -0.8], [1.5, -0.5, -0.8]
+            ];
+            
+            const wheels = [];
+            wheelPositions.forEach(pos => {
+                const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+                wheel.position.set(...pos);
+                wheel.rotation.z = Math.PI / 2;
+                body.add(wheel);
+                wheels.push(wheel);
+            });
+            
+            const underglowColors = [0xff0000, 0x00ff00, 0x0000ff, 0xff00ff];
+            underglowColors.forEach((color, i) => {
+                const light = new THREE.PointLight(color, 2, 10);
+                light.position.set((i % 2) * 2 - 1, -0.8, (Math.floor(i / 2)) * 2 - 1);
+                body.add(light);
+            });
+            
+            body.userData = {
+                type: 'vehicle',
+                subtype: 'car',
+                speed: 0,
+                maxSpeed: 500,
+                acceleration: 10,
+                wheels: wheels,
+                engineSound: null
+            };
+            
+            scene.add(body);
+            vehicles.push(body);
+            playerVehicle = body;
+            
+            addNotification('🚗 Sports car spawned! Use WASD to drive!');
+        }
+
+        function spawnSpaceship() {
+            const hullGeometry = new THREE.ConeGeometry(2, 6, 8);
+            const hullMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4444ff,
+                metalness: 0.9,
+                roughness: 0.1,
+                emissive: 0x001144,
+                emissiveIntensity: 0.3
+            });
+            const hull = new THREE.Mesh(hullGeometry, hullMaterial);
+            hull.position.set(camera.position.x, camera.position.y + 10, camera.position.z);
+            hull.rotation.x = Math.PI;
+            
+            const engineGeometry = new THREE.SphereGeometry(0.8, 8, 6);
+            const engineMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ffff,
+                transparent: true,
+                opacity: 0.8
+            });
+            const engine = new THREE.Mesh(engineGeometry, engineMaterial);
+            engine.position.y = 2.5;
+            hull.add(engine);
+            
+            const thrusterGeometry = new THREE.BufferGeometry();
+            const thrusterCount = 50;
+            const thrusterPositions = new Float32Array(thrusterCount * 3);
+            
+            for(let i = 0; i < thrusterCount; i++) {
+                thrusterPositions[i * 3] = (Math.random() - 0.5) * 0.5;
+                thrusterPositions[i * 3 + 1] = 2.5 + Math.random() * 3;
+                thrusterPositions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+            }
+            
+            thrusterGeometry.setAttribute('position', new THREE.BufferAttribute(thrusterPositions, 3));
+            const thrusterMaterial = new THREE.PointsMaterial({
+                color: 0x00ffff,
+                size: 0.1,
+                transparent: true,
+                opacity: 0.8
+            });
+            const thrusters = new THREE.Points(thrusterGeometry, thrusterMaterial);
+            hull.add(thrusters);
+            
+            hull.userData = {
+                type: 'vehicle',
+                subtype: 'spaceship',
+                speed: 0,
+                maxSpeed: 40,
+                acceleration: 0.8,
+                hover: true,
+                thrusters: thrusters,
+                engine: engine
+            };
+            
+            scene.add(hull);
+            spaceships.push(hull);
+            playerVehicle = hull;
+            
+            addNotification('🚀 Spaceship spawned! Use WASD + F/C to fly!');
+        }
+
+        function updateVibeSettings() {
+            bassBoost = document.getElementById('bassBoost').value;
+            crowdEnergy = document.getElementById('crowdEnergy').value;
+            const lightIntensity = document.getElementById('lightIntensity').value / 100;
+            const pyroFreq = document.getElementById('pyroFreq').value;
+            
+            concertLights.forEach(light => {
+                light.intensity = (light.userData?.originalIntensity || 1.5) * lightIntensity;
+            });
+            
+            vibeLevel = (parseInt(bassBoost) + parseInt(crowdEnergy)) / 2;
+            document.getElementById('vibeLevel').textContent = `⚡ Vibe: ${Math.round(vibeLevel)}%`;
+        }
+
+        function updateAudienceCount() {
+            document.getElementById('audienceCount').textContent = `👥 Audience: ${audienceBots.length}`;
+        }
+
+        function updateMediaCount() {
+            document.getElementById('mediaCount').textContent = `📀 Media: ${mediaObjects.length + appdrops.length}`;
+        }
+
+        function togglePyro() {
+            pyroEnabled = !pyroEnabled;
+            addNotification(pyroEnabled ? '🎆 Pyrotechnics ON!' : '🎆 Pyrotechnics OFF!');
+        }
+
+        function toggleConcertControl() {
+            const panel = document.getElementById('vibePanel');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            addNotification(panel.style.display === 'block' ? '🎛️ Concert Control Shown!' : '🎛️ Concert Control Hidden!');
+        }
+
+        function changeWeather() {
+            const weathers = ['clear', 'foggy', 'stormy', 'party'];
+            const currentIndex = weathers.indexOf(weatherMode);
+            weatherMode = weathers[(currentIndex + 1) % weathers.length];
+            
+            switch(weatherMode) {
+                case 'clear':
+                    if(scene.fog) scene.fog.density = 0.005;
+                    break;
+                case 'foggy':
+                    scene.fog = new THREE.FogExp2(0x666666, 0.02);
+                    break;
+                case 'stormy':
+                    scene.fog = new THREE.FogExp2(0x333366, 0.03);
+                    break;
+                case 'party':
+                    scene.fog = new THREE.FogExp2(0xff00ff, 0.01);
+                    break;
+            }
+            
+            addNotification(`🌦️ Weather: ${weatherMode.charAt(0).toUpperCase() + weatherMode.slice(1)}!`);
+        }
+
+        function triggerPyroEffect(position) {
+            if(!pyroEnabled) return;
+            
+            const particleCount = 100;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const velocities = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            
+            for(let i = 0; i < particleCount; i++) {
+                positions[i * 3] = position.x + (Math.random() - 0.5) * 2;
+                positions[i * 3 + 1] = position.y;
+                positions[i * 3 + 2] = position.z + (Math.random() - 0.5) * 2;
+                
+                velocities[i * 3] = (Math.random() - 0.5) * 10;
+                velocities[i * 3 + 1] = Math.random() * 15 + 5;
+                velocities[i * 3 + 2] = (Math.random() - 0.5) * 10;
+                
+                const color = new THREE.Color().setHSL(Math.random(), 1, 0.5);
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            const material = new THREE.PointsMaterial({
+                size: 0.2,
+                vertexColors: true,
+                transparent: true,
+                opacity: 1
+            });
+            
+            const pyro = new THREE.Points(geometry, material);
+            scene.add(pyro);
+            
+            particles.push({
+                system: pyro,
+                time: 0,
+                lifetime: 3,
+                type: 'pyro'
+            });
+        }
+
+        function detectBeat() {
+            if(!globalBeatDetection.analyser) return false;
+            
+            const data = globalBeatDetection.analyser.getFrequencyData();
+            const bassRange = data.slice(0, 10);
+            const bassLevel = bassRange.reduce((sum, val) => sum + val, 0) / bassRange.length / 255;
+            
+            const now = performance.now();
+            if(bassLevel > globalBeatDetection.beatThreshold && 
+               now - globalBeatDetection.lastBeat > 300) {
+                globalBeatDetection.lastBeat = now;
+                return true;
+            }
+            return false;
+        }
+
+        function updateAudioVisuals() {
+            mediaObjects.forEach(obj => {
+                if(obj.userData.type === 'audio' && obj.userData.analyser) {
+                    const data = obj.userData.analyser.getFrequencyData();
+                    const avgFreq = data.reduce((sum, val) => sum + val, 0) / data.length / 255;
+                    
+                    const scale = 1 + avgFreq * (bassBoost / 100);
+                    obj.scale.setScalar(scale);
+                    
+                    const hue = (avgFreq * 360 + performance.now() * 0.1) % 360;
+                    obj.material.color.setHSL(hue / 360, 0.8, 0.5);
+                    
+                    obj.material.emissiveIntensity = 0.2 + avgFreq * 0.8;
+                }
+            });
+            
+            if(detectBeat() && isCSS3DRendererAvailable) {
+                concertLights.forEach(light => {
+                    light.intensity *= 2;
+                    setTimeout(() => light.intensity /= 2, 100);
+                });
+                
+                if(pyroEnabled && Math.random() < document.getElementById('pyroFreq').value / 100) {
+                    const randomPyro = pyroSystems[Math.floor(Math.random() * pyroSystems.length)];
+                    if(randomPyro) {
+                        triggerPyroEffect(new THREE.Vector3(randomPyro.x, randomPyro.y, randomPyro.z));
+                    }
+                }
+                
+                audienceBots.forEach(bot => {
+                    bot.userData.bouncePhase = Math.random() * Math.PI * 2;
+                    bot.userData.bodyMaterial.color.setHSL(Math.random(), 0.8, 0.6);
+                });
+                
+                appdrops.forEach(appGroup => {
+                    const edges = appGroup.userData.edges;
+                    if (edges) {
+                        edges.forEach(edge => {
+                            edge.material.opacity = 0.8 + Math.random() * 0.3; // Pulsate opacity
+                            edge.material.color.setHSL(Math.random(), 0.5, 0.8); // Alternate colors
+                        });
+                    }
+                });
+            }
+        }
+
+        function updateConcertLighting() {
+            const time = performance.now() * 0.001;
+            
+            concertLights.forEach((light, index) => {
+                if(light.userData && light.userData.originalPosition) {
+                    const moveX = Math.sin(time * light.userData.moveSpeed + index) * light.userData.moveRadius;
+                    const moveZ = Math.cos(time * light.userData.moveSpeed + index) * light.userData.moveRadius;
+                    
+                    light.position.x = light.userData.originalPosition.x + moveX;
+                    light.position.z = light.userData.originalPosition.z + moveZ;
+                    
+                    const hue = (time * 50 + light.userData.colorPhase * 180 / Math.PI) % 360;
+                    light.color.setHSL(hue / 360, 1, 0.5);
+                    
+                    if(light.target && light.target !== concertStage && light.userData.targetOriginal) {
+                        const targetX = Math.sin(time * 0.7 + index * 0.5) * 10;
+                        const targetZ = Math.cos(time * 0.7 + index * 0.5) * 10 - 30;
+                        light.target.position.set(targetX, 0, targetZ);
+                    }
+                }
+            });
+            
+            laserLights.forEach((laser, index) => {
+                if(laser.userData) {
+                    const phase = time * laser.userData.sweepSpeed + laser.userData.phase;
+                    const x = Math.sin(phase) * laser.userData.sweepRadius;
+                    const z = Math.cos(phase) * laser.userData.sweepRadius;
+                    
+                    laser.position.x += (x - laser.position.x) * 0.1;
+                    laser.position.z += (z - laser.position.z) * 0.1;
+                    
+                    const hue = (phase * 30) % 360;
+                    laser.color.setHSL(hue / 360, 1, 0.5);
+                }
+            });
+        }
+
+        function updateAudienceBots() {
+            const time = performance.now() * 0.001;
+            
+            audienceBots.forEach((bot, index) => {
+                const bounce = Math.sin(time * 4 + bot.userData.bouncePhase) * 0.3;
+                const sway = Math.sin(time * 2 + index * 0.1) * 0.2;
+                
+                bot.position.y = bot.userData.originalY + Math.abs(bounce);
+                bot.rotation.y = sway;
+                bot.rotation.z = sway * 0.5;
+                
+                const energyMultiplier = (crowdEnergy / 100) * bot.userData.energy;
+                bot.position.y += Math.abs(bounce) * energyMultiplier;
+                
+                if(Math.random() < 0.01) {
+                    bot.userData.bodyMaterial.color.setHSL(Math.random(), 0.8, 0.6);
+                    setTimeout(() => {
+                        bot.userData.bodyMaterial.color.copy(bot.userData.originalBodyColor);
+                    }, 200);
+                }
+                
+                if(Math.random() < 0.005) {
+                    const stageDir = concertStage ? concertStage.position : new THREE.Vector3(0, 0, -30);
+                    bot.lookAt(stageDir);
+                }
+            });
+        }
+
+        function updateParticles() {
+            const delta = clock.getDelta();
+            
+            particles = particles.filter(p => {
+                p.time += delta;
+                
+                if(p.time > p.lifetime) {
+                    scene.remove(p.system);
+                    return false;
+                }
+                
+                const positions = p.system.geometry.attributes.position.array;
+                const velocities = p.system.geometry.attributes.velocity.array;
+                
+                for(let i = 0; i < positions.length / 3; i++) {
+                    positions[i * 3] += velocities[i * 3] * delta;
+                    positions[i * 3 + 1] += velocities[i * 3 + 1] * delta;
+                    positions[i * 3 + 2] += velocities[i * 3 + 2] * delta;
+                    
+                    if(p.type === 'pyro') {
+                        velocities[i * 3 + 1] -= 9.8 * delta;
+                    }
+                }
+                
+                p.system.geometry.attributes.position.needsUpdate = true;
+                
+                p.system.material.opacity = 1 - (p.time / p.lifetime);
+                
+                return true;
+            });
+        }
+
+        function updateVehicles() {
+            vehicles.forEach(vehicle => {
+                if(vehicle.userData.wheels) {
+                    vehicle.userData.wheels.forEach(wheel => {
+                        wheel.rotation.x += vehicle.userData.speed * 0.1;
+                    });
+                }
+            });
+            
+            spaceships.forEach(ship => {
+                const hover = Math.sin(performance.now() * 0.002) * 2;
+                ship.position.y += hover * 0.01;
+                
+                if(ship.userData.thrusters) {
+                    const positions = ship.userData.thrusters.geometry.attributes.position.array;
+                    for(let i = 0; i < positions.length / 3; i++) {
+                        positions[i * 3 + 1] = 2.5 + Math.random() * 3;
+                    }
+                    ship.userData.thrusters.geometry.attributes.position.needsUpdate = true;
+                }
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            if (isCSS3DRendererAvailable && composer) {
+                composer.setSize(window.innerWidth, window.innerHeight);
+            }
+        }
+
+    
+    function onKeyDown(event) {
+        keys[event.code] = true;
+        if (event.code === 'KeyK' && isCSS3DRendererAvailable) {
+            const appdropSelect = document.getElementById('appdropSelect');
+            appdropSelect.focus();
+            addNotification('📱 Appdrop menu opened! Select an app to load.');
+        }
+    }
+
+    function onKeyUp(event) {
+        keys[event.code] = false;
+    }
+
+    function onMouseDown(event) {
+        if (controlsEnabled && event.button === 0) {
+            const mouse = new THREE.Vector2(
+                (event.clientX / window.innerWidth) * 2 - 1,
+                -(event.clientY / window.innerHeight) * 2 + 1
+            );
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([...mediaObjects, ...vehicles, ...spaceships, ...appdrops]);
+
+            if (intersects.length > 0) {
+                handleObjectClick(intersects[0].object);
+            }
+        }
+    }
+
+    function onMouseUp(event) {
+        if (event.button === 0) {
+            selectedObject = null;
+        }
+    }
+
+    function onMouseMove(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        if (controlsEnabled) {
+            camera.rotation.y -= event.movementX * mouse.sensitivity;
+            camera.rotation.x -= event.movementY * mouse.sensitivity;
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+        }
+    }
+
+    function onMouseWheel(event) {
+        if (grabbedObject) {
+            grabDistance += event.deltaY * 0.01;
+            grabDistance = Math.max(2, Math.min(20, grabDistance));
+        }
+    }
+
+    function handleObjectClick(object) {
+        if (object.userData.type === 'video') {
+            if (object.userData.video.paused) {
+                object.userData.video.play();
+                addNotification(`▶️ Playing ${object.userData.fileName}`);
+            } else {
+                object.userData.video.pause();
+                addNotification(`⏸️ Paused ${object.userData.fileName}`);
+            }
+        } else if (object.userData.type === 'audio') {
+            if (!object.userData.isPlaying) {
+                object.userData.audio.play();
+                object.userData.isPlaying = true;
+                addNotification(`🎵 Playing ${object.userData.fileName}`);
+            } else {
+                object.userData.audio.pause();
+                object.userData.isPlaying = false;
+                addNotification(`⏸️ Paused ${object.userData.fileName}`);
+            }
+        } else if (object.userData.type === 'vehicle') {
+            playerVehicle = object;
+            addNotification(`🚗 Entered ${object.userData.subtype}!`);
+        } else if (object.userData.type === 'appdrop') {
+            // Optional: Add interaction feedback for appdrops
+            addNotification(`📱 Interacted with appdrop: ${object.userData.fileName}`);
+        }
+
+        selectedObject = object;
+    }
+
+    function handleObjectInteraction() {
+        const mouse = new THREE.Vector2(0, 0); // Center of screen for mobile
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects([...mediaObjects, ...vehicles, ...spaceships, ...appdrops]);
+
+        if (intersects.length > 0) {
+            handleObjectClick(intersects[0].object);
+        }
+    }
+
+    function toggleGrabObject() {
+        if (grabbedObject) {
+            grabbedObject = null;
+            addNotification('✋ Released object');
+        } else {
+            const mouse = new THREE.Vector2(0, 0);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([...mediaObjects, ...appdrops]);
+
+            if (intersects.length > 0) {
+                grabbedObject = intersects[0].object;
+                addNotification(`✋ Grabbed ${grabbedObject.userData.fileName}`);
+            }
+        }
+    }
+
+    function handleObjectDeletion() {
+        const mouse = new THREE.Vector2(0, 0);
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects([...mediaObjects, ...appdrops]);
+
+        if (intersects.length > 0) {
+            const object = intersects[0].object;
+            scene.remove(object);
+            if (object.userData.type === 'audio') {
+                object.userData.audio.stop();
+                audioAnalysers = audioAnalysers.filter(analyser => analyser !== object.userData.analyser);
+                if (globalBeatDetection.analyser === object.userData.analyser) {
+                    globalBeatDetection.analyser = audioAnalysers[0] || null;
+                }
+            } else if (object.userData.type === 'appdrop') {
+                if (object.userData.iframe) {
+                    object.userData.iframe.remove();
+                }
+                if (object.userData.edges) {
+                    object.userData.edges.forEach(edge => scene.remove(edge));
+                }
+            }
+            mediaObjects = mediaObjects.filter(obj => obj !== object);
+            appdrops = appdrops.filter(obj => obj !== object);
+            updateMediaCount();
+            addNotification(`🗑️ Removed ${object.userData.fileName}`);
+        }
+    }
+
+    function loadAppdrop(url) {
+        if (!isCSS3DRendererAvailable || !composer) {
+            addNotification('⚠️ Cannot load appdrop: CSS3DRenderer not available.');
+            return;
+        }
+
+        if (!url) return;
+
+        // Validate appdrop URL
+        fetch(url, { method: 'HEAD' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Appdrop ${url} not found`);
+                }
+                createAppdrop(url);
+            })
+            .catch(error => {
+                console.error('Error loading appdrop:', error);
+                addNotification(`⚠️ Failed to load appdrop: ${url}`);
+            });
+    }
+
+    function createAppdrop(url) {
+        const iframe = document.createElement('iframe');
+        iframe.src = url;
+        iframe.style.width = '800px';
+        iframe.style.height = '600px';
+        iframe.style.border = 'none';
+        iframe.style.background = 'transparent';
+
+        const css3dObject = new THREE.CSS3DObject(iframe);
+        const stagePos = concertStage ? concertStage.position : new THREE.Vector3(0, 2, -30);
+        css3dObject.position.set(
+            stagePos.x + (Math.random() - 0.5) * 20,
+            stagePos.y + 5,
+            stagePos.z + (Math.random() - 0.5) * 15
+        );
+        css3dObject.scale.set(0.005, 0.005, 0.005); // Adjust scale for visibility
+
+        // Create glowing edges
+        const edgeGeometry = new THREE.BoxGeometry(4.2, 3.2, 0.1);
+        const edgeMaterial = new THREE.MeshBasicMaterial({
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.5
+        });
+        const edges = [
+            new THREE.Mesh(edgeGeometry, edgeMaterial.clone()), // Top
+            new THREE.Mesh(edgeGeometry, edgeMaterial.clone()), // Bottom
+            new THREE.Mesh(edgeGeometry, edgeMaterial.clone()), // Left
+            new THREE.Mesh(edgeGeometry, edgeMaterial.clone())  // Right
+        ];
+
+        edges[0].position.set(0, 1.6, 0);
+        edges[1].position.set(0, -1.6, 0);
+        edges[2].rotation.y = Math.PI / 2;
+        edges[2].position.set(-2.1, 0, 0);
+        edges[3].rotation.y = Math.PI / 2;
+        edges[3].position.set(2.1, 0, 0);
+
+        const appGroup = new THREE.Group();
+        appGroup.add(css3dObject);
+        edges.forEach(edge => {
+            appGroup.add(edge);
+        });
+
+        appGroup.userData = {
+            type: 'appdrop',
+            fileName: url.split('/').pop(),
+            iframe: iframe,
+            edges: edges
+        };
+
+        scene.add(appGroup);
+        appdrops.push(appGroup);
+        updateMediaCount();
+        addNotification(`📱 Loaded appdrop: ${url.split('/').pop()}`);
+    }
+
+    function addNotification(message) {
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.textContent = message;
+        document.getElementById('notifications').appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => notification.remove(), 500);
+        }, 3000);
+    }
+
+    function createCheckerboardTexture() {
+        const size = 512;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+
+        const squareSize = size / 8;
+        for (let x = 0; x < 8; x++) {
+            for (let y = 0; y < 8; y++) {
+                context.fillStyle = (x + y) % 2 === 0 ? '#444444' : '#888888';
+                context.fillRect(x * squareSize, y * squareSize, squareSize, squareSize);
+            }
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.repeat.set(10, 10);
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        return texture;
+    }
+
+    function createSandTexture() {
+        const size = 512;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+
+        context.fillStyle = '#EDC9AF';
+        context.fillRect(0, 0, size, size);
+
+        for (let i = 0; i < 1000; i++) {
+            context.fillStyle = `rgba(139, 69, 19, ${Math.random() * 0.3})`;
+            context.beginPath();
+            context.arc(
+                Math.random() * size,
+                Math.random() * size,
+                Math.random() * 3,
+                0,
+                Math.PI * 2
+            );
+            context.fill();
+        }
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.repeat.set(20, 20);
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        return texture;
+    }
+
+    function createPalmTree(x, z) {
+        const trunkGeometry = new THREE.CylinderGeometry(0.3, 0.5, 8, 8);
+        const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+        trunk.position.set(x, 4, z);
+        scene.add(trunk);
+
+        const leafGeometry = new THREE.ConeGeometry(2, 4, 8);
+        const leafMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22, side: THREE.DoubleSide });
+        for (let i = 0; i < 4; i++) {
+            const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+            leaf.position.set(0, 7, 0);
+            leaf.rotation.y = (i * Math.PI) / 2;
+            leaf.rotation.x = Math.PI / 4;
+            trunk.add(leaf);
+        }
+    }
+
+    function createStarfield() {
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 1000;
+        const positions = new Float32Array(starCount * 3);
+
+        for (let i = 0; i < starCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 1000;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 1000;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 1000;
+        }
+
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const starMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 1,
+            transparent: true,
+            opacity: 0.7
+        });
+
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        const delta = clock.getDelta();
+
+        updateAudienceBots();
+        updateConcertLighting();
+        updateParticles();
+        updateVehicles();
+        updateAudioVisuals();
+
+        if (gameState === 'playing') {
+            if (playerVehicle) {
+                let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(playerVehicle.quaternion);
+                let right = new THREE.Vector3(1, 0, 0).applyQuaternion(playerVehicle.quaternion);
+
+                if (playerVehicle.userData.subtype === 'car') {
+                    if (keys['KeyW']) {
+                        playerVehicle.userData.speed = Math.min(
+                            playerVehicle.userData.speed + playerVehicle.userData.acceleration * delta,
+                            playerVehicle.userData.maxSpeed
+                        );
+                    }
+                    if (keys['KeyS']) {
+                        playerVehicle.userData.speed = Math.max(
+                            playerVehicle.userData.speed - playerVehicle.userData.acceleration * delta,
+                            -playerVehicle.userData.maxSpeed
+                        );
+                    }
+                    if (keys['KeyA']) {
+                        playerVehicle.rotation.y += 0.05;
+                    }
+                    if (keys['KeyD']) {
+                        playerVehicle.rotation.y -= 0.05;
+                    }
+
+                    playerVehicle.position.add(forward.multiplyScalar(playerVehicle.userData.speed * delta));
+                    camera.position.copy(playerVehicle.position).add(new THREE.Vector3(0, 3, 10));
+                    camera.lookAt(playerVehicle.position);
+                } else if (playerVehicle.userData.subtype === 'spaceship') {
+                    if (keys['KeyW']) {
+                        playerVehicle.userData.speed = Math.min(
+                            playerVehicle.userData.speed + playerVehicle.userData.acceleration * delta,
+                            playerVehicle.userData.maxSpeed
+                        );
+                    }
+                    if (keys['KeyS']) {
+                        playerVehicle.userData.speed = Math.max(
+                            playerVehicle.userData.speed - playerVehicle.userData.acceleration * delta,
+                            -playerVehicle.userData.maxSpeed
+                        );
+                    }
+                    if (keys['KeyA']) {
+                        playerVehicle.rotation.y += 0.05;
+                    }
+                    if (keys['KeyD']) {
+                        playerVehicle.rotation.y -= 0.05;
+                    }
+                    if (keys['KeyF']) {
+                        playerVehicle.position.y += flySpeed * delta;
+                    }
+                    if (keys['KeyC']) {
+                        playerVehicle.position.y -= flySpeed * delta;
+                    }
+
+                    playerVehicle.position.add(forward.multiplyScalar(playerVehicle.userData.speed * delta));
+                    camera.position.copy(playerVehicle.position).add(new THREE.Vector3(0, 5, 15));
+                    camera.lookAt(playerVehicle.position);
+                }
+            } else {
+                let moveDirection = new THREE.Vector3();
+                if (keys['KeyW']) moveDirection.z -= 1;
+                if (keys['KeyS']) moveDirection.z += 1;
+                if (keys['KeyA']) moveDirection.x -= 1;
+                if (keys['KeyD']) moveDirection.x += 1;
+                if (keys['KeyF']) moveDirection.y += 1;
+                if (keys['KeyC']) moveDirection.y -= 1;
+
+                moveDirection.normalize().multiplyScalar(moveSpeed * delta);
+                moveDirection.applyQuaternion(camera.quaternion);
+                camera.position.add(moveDirection);
+
+                if (isMobile) {
+                    const leftJoystickMove = new THREE.Vector3(
+                        (leftJoystick.currentX - leftJoystick.startX) / 75,
+                        0,
+                        (leftJoystick.currentY - leftJoystick.startY) / 75
+                    );
+                    leftJoystickMove.clampLength(0, 1);
+                    leftJoystickMove.applyQuaternion(camera.quaternion);
+                    camera.position.add(leftJoystickMove.multiplyScalar(moveSpeed * delta));
+
+                    const rightJoystickMove = new THREE.Vector3(
+                        (rightJoystick.currentX - rightJoystick.startX) / 75,
+                        0,
+                        (rightJoystick.currentY - rightJoystick.startY) / 75
+                    );
+                    rightJoystickMove.clampLength(0, 1);
+                    camera.rotation.y -= rightJoystickMove.x * 0.05;
+                    camera.rotation.x -= rightJoystickMove.y * 0.05;
+                    camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+
+                    leftJoystick.handle.style.transform = `translate(${(leftJoystick.currentX - leftJoystick.startX) / 2}px, ${(leftJoystick.currentY - leftJoystick.startY) / 2}px)`;
+                    rightJoystick.handle.style.transform = `translate(${(rightJoystick.currentX - rightJoystick.startX) / 2}px, ${(rightJoystick.currentY - rightJoystick.startY) / 2}px)`;
+                }
+
+                if (grabbedObject) {
+                    const targetPos = new THREE.Vector3();
+                    camera.getWorldDirection(targetPos);
+                    targetPos.multiplyScalar(grabDistance).add(camera.position);
+                    grabbedObject.position.lerp(targetPos, 0.1);
+                    grabbedObject.rotation.y = camera.rotation.y;
+                }
+            }
+        }
+
+        renderer.render(scene, camera);
+        if (isCSS3DRendererAvailable && composer) {
+            composer.render(scene, camera);
+        }
+    }
+
+    // Initialize the application
+    init();
+</script>
+</body>
+</html>
