@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>soundBOOM! - Ultimate Audio & Light Show Experience</title>
+  <style>
+    body { margin: 0; height: 100vh; overflow: hidden; font-family: 'Arial', sans-serif; }
+    #soundBOOM-player {
+      position: relative;
+      height: 100%;
+      background: radial-gradient(ellipse at center, #1a0033 0%, #2d0066 40%, #000 100%);
+      animation: breathe 8s infinite ease-in-out;
+    }
+    @keyframes breathe {
+      0%, 100% { background: radial-gradient(ellipse at center, #1a0033 0%, #2d0066 40%, #000 100%); }
+      50% { background: radial-gradient(ellipse at center, #330066 0%, #1a0033 40%, #000 100%); }
+    }
+    .particle { position: absolute; width: 4px; height: 4px; background: radial-gradient(circle, #00ffff, #ff69b4); border-radius: 50%; opacity: 0; animation: float-particle 6s infinite ease-in-out; }
+    @keyframes float-particle { 0% { opacity: 0; transform: translateY(100vh) scale(0); } 10% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; transform: translateY(-20vh) scale(1.5); } }
+    #smoke-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; }
+    .smoke { position: absolute; width: 200px; height: 200px; background: radial-gradient(circle, rgba(255, 255, 255, 0.1), transparent 70%); border-radius: 50%; animation: smoke-rise 12s infinite ease-out; filter: blur(3px); }
+    @keyframes smoke-rise { 0% { opacity: 0.8; transform: translateY(100vh) scale(0.5) rotate(0deg); } 50% { opacity: 0.4; transform: translateY(50vh) scale(1) rotate(180deg); } 100% { opacity: 0; transform: translateY(-10vh) scale(1.5) rotate(360deg); } }
+    #wave-overlay { position: absolute; bottom: 0; width: 100%; height: 25%; background: linear-gradient(45deg, #00cccc, #ff69b4, #9370db, #00ffff); background-size: 400% 400%; animation: wave-dance 4s infinite ease-in-out, gradient-shift 8s infinite; clip-path: polygon(0 50%, 10% 40%, 20% 60%, 30% 30%, 40% 70%, 50% 20%, 60% 80%, 70% 35%, 80% 65%, 90% 45%, 100% 55%, 100% 100%, 0% 100%); }
+    @keyframes wave-dance { 0%, 100% { transform: translateY(0) rotateX(0deg); } 25% { transform: translateY(-15px) rotateX(5deg); } 75% { transform: translateY(-25px) rotateX(-5deg); } }
+    @keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    
+    #upload-section {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 10;
+    }
+    #upload-btn {
+      display: none;
+    }
+    .upload-label {
+      display: inline-block;
+      padding: 15px 30px;
+      background: linear-gradient(45deg, #9370db, #ff69b4, #00ffff);
+      background-size: 200% 200%;
+      color: white;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 0 20px rgba(147, 112, 219, 0.6);
+      animation: button-glow 2s infinite;
+      transition: transform 0.2s ease;
+    }
+    .upload-label:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px rgba(147, 112, 219, 0.9);
+    }
+    @keyframes button-glow { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+
+    #playlist { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; max-height: 40vh; overflow-y: auto; }
+    .candy-item { position: relative; display: inline-block; margin: 15px; padding: 20px 25px; background: linear-gradient(45deg, var(--primary-color), var(--secondary-color), var(--accent-color)); background-size: 200% 200%; border-radius: 25px; cursor: pointer; color: white; font-weight: bold; font-size: 14px; text-shadow: 0 0 10px rgba(0, 0, 0, 0.8); box-shadow: 0 0 20px rgba(255, 105, 180, 0.6), inset 0 0 20px rgba(255, 255, 255, 0.2); animation: candy-float 4s infinite ease-in-out, candy-glow 3s infinite; transition: transform 0.3s ease, box-shadow 0.3s ease; overflow: hidden; }
+    .candy-item::before { content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; background: linear-gradient(45deg, var(--primary-color), var(--accent-color), var(--secondary-color), var(--primary-color)); background-size: 400% 400%; border-radius: 25px; z-index: -1; animation: border-flow 3s infinite linear; }
+    .candy-item::after { content: '✨'; position: absolute; top: -10px; right: -10px; font-size: 20px; animation: sparkle 2s infinite; }
+    .candy-item:hover { transform: scale(1.1) translateY(-5px); box-shadow: 0 0 40px rgba(255, 105, 180, 0.9), inset 0 0 30px rgba(255, 255, 255, 0.3); }
+    .candy-item.active { transform: scale(1.2) translateY(-10px); box-shadow: 0 0 60px rgba(255, 105, 180, 1), inset 0 0 40px rgba(255, 255, 255, 0.4); }
+    @keyframes candy-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 33% { transform: translateY(-15px) rotate(2deg); } 66% { transform: translateY(-10px) rotate(-2deg); } }
+    @keyframes candy-glow { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    @keyframes border-flow { 0% { background-position: 0% 50%; } 100% { background-position: 400% 50%; } }
+    @keyframes sparkle { 0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); } 50% { opacity: 0.3; transform: scale(1.5) rotate(180deg); } }
+
+    #media-player { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10; max-width: 90vw; max-height: 60vh; }
+    #media-player video, #media-player audio, #media-player img { width: 100%; height: 100%; max-width: 90vw; max-height: 60vh; object-fit: contain; border-radius: 20px; box-shadow: 0 0 40px var(--primary-color), 0 0 80px rgba(255, 105, 180, 0.4); animation: media-pulse 3s infinite ease-in-out; border: 3px solid transparent; background: linear-gradient(45deg, var(--primary-color), var(--accent-color)) padding-box, linear-gradient(45deg, var(--primary-color), var(--secondary-color), var(--accent-color)) border-box; }
+    @keyframes media-pulse { 0%, 100% { box-shadow: 0 0 40px var(--primary-color), 0 0 80px rgba(255, 105, 180, 0.4); } 50% { box-shadow: 0 0 60px var(--accent-color), 0 0 120px rgba(0, 255, 255, 0.6); } }
+
+    #track-info { position: absolute; top: 15%; left: 50%; transform: translateX(-50%); text-align: center; background: rgba(0, 0, 0, 0.4); padding: 15px 30px; border-radius: 25px; backdrop-filter: blur(10px); border: 1px solid rgba(255, 105, 180, 0.3); color: white; font-size: 18px; font-weight: bold; text-shadow: 0 0 10px rgba(255, 105, 180, 0.8); box-shadow: 0 0 20px rgba(255, 105, 180, 0.3); z-index: 15; max-width: 80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @keyframes info-glow { 0%, 100% { box-shadow: 0 0 20px rgba(255, 105, 180, 0.3); } 50% { box-shadow: 0 0 30px rgba(0, 255, 255, 0.5); } }
+
+    #media-controls { position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; background: rgba(0, 0, 0, 0.3); padding: 10px 20px; border-radius: 30px; backdrop-filter: blur(10px); border: 2px solid rgba(255, 105, 180, 0.3); box-shadow: 0 0 20px rgba(255, 105, 180, 0.4); z-index: 15; animation: controls-glow 3s infinite ease-in-out; }
+    @keyframes controls-glow { 0%, 100% { box-shadow: 0 0 20px rgba(255, 105, 180, 0.4); } 50% { box-shadow: 0 0 30px rgba(0, 255, 255, 0.6); } }
+    .control-btn { width: 50px; height: 50px; border: none; border-radius: 50%; background: linear-gradient(45deg, var(--secondary-color), var(--primary-color), var(--accent-color)); background-size: 200% 200%; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; box-shadow: 0 0 10px rgba(255, 105, 180, 0.5); animation: control-pulse 2s infinite ease-in-out; position: relative; overflow: hidden; }
+    .control-btn::before { content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; background: linear-gradient(45deg, var(--primary-color), var(--accent-color), var(--secondary-color), var(--primary-color)); background-size: 400% 400%; border-radius: 50%; z-index: -1; animation: border-flow 3s infinite linear; }
+    .control-btn:hover { transform: scale(1.15); box-shadow: 0 0 15px rgba(255, 105, 180, 0.8); }
+    .control-btn:active { transform: scale(0.95); }
+    @keyframes control-pulse { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    .control-btn.play-pause { width: 60px; height: 60px; font-size: 24px; background: linear-gradient(45deg, var(--primary-color), var(--secondary-color)); animation: play-btn-glow 2s infinite ease-in-out; }
+    @keyframes play-btn-glow { 0%, 100% { box-shadow: 0 0 15px rgba(255, 105, 180, 0.7); background-position: 0% 50%; } 50% { box-shadow: 0 0 25px rgba(255, 105, 180, 1); background-position: 100% 50%; } }
+
+    #progress-container { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 80%; max-width: 600px; background: rgba(0, 0, 0, 0.3); height: 6px; border-radius: 3px; backdrop-filter: blur(5px); border: 1px solid rgba(255, 105, 180, 0.3); overflow: hidden; z-index: 15; cursor: pointer; }
+    #progress-bar { height: 100%; background: linear-gradient(90deg, var(--primary-color), var(--accent-color), var(--secondary-color)); background-size: 200% 100%; width: 0%; border-radius: 3px; animation: progress-flow 3s infinite linear; box-shadow: 0 0 8px rgba(255, 105, 180, 0.6); }
+    @keyframes progress-flow { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+
+    #visualizer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+
+    /* EQ Panel */
+    #eq-panel { position: fixed; left: -320px; top: 0; width: 300px; height: 100vh; background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(15px); border-radius: 0 20px 20px 0; border: 2px solid rgba(255, 105, 180, 0.3); box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5); transition: left 0.4s ease; z-index: 100; padding: 20px; color: white; overflow-y: auto; }
+    #eq-panel.open { left: 0; }
+    #eq-toggle { position: fixed; top: 50%; left: 10px; transform: translateY(-50%); width: 50px; height: 50px; background: linear-gradient(45deg, var(--secondary-color), var(--primary-color)); border: none; border-radius: 50%; color: white; font-size: 20px; cursor: pointer; box-shadow: 0 0 20px rgba(255, 105, 180, 0.6); animation: theme-btn-pulse 2s infinite; z-index: 101; transition: all 0.3s ease; }
+    #eq-toggle:hover { transform: translateY(-50%) scale(1.1); box-shadow: 0 0 30px rgba(255, 105, 180, 0.9); }
+    @keyframes theme-btn-pulse { 0%, 100% { box-shadow: 0 0 20px rgba(255, 105, 180, 0.6); } 50% { box-shadow: 0 0 40px rgba(255, 105, 180, 1); } }
+
+    .eq-section { margin-bottom: 20px; }
+    .eq-section h3 { color: var(--primary-color); font-size: 18px; margin-bottom: 10px; text-align: center; text-shadow: 0 0 10px rgba(255, 105, 180, 0.8); }
+    .eq-slider { width: 100%; -webkit-appearance: none; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--secondary-color), var(--primary-color), var(--accent-color)); outline: none; margin: 10px 0; }
+    .eq-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 0 10px rgba(255, 105, 180, 0.8); }
+    .eq-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #fff; cursor: pointer; border: none; box-shadow: 0 0 10px rgba(255, 105, 180, 0.8); }
+    .eq-value { text-align: center; font-size: 14px; color: #fff; margin-top: 5px; }
+    .preset-select { width: 100%; padding: 10px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 105, 180, 0.3); border-radius: 10px; color: white; font-size: 14px; margin-bottom: 15px; }
+    .eq-btn { width: 100%; padding: 12px; background: linear-gradient(45deg, var(--secondary-color), var(--primary-color)); border: none; border-radius: 15px; color: white; font-weight: bold; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 10px rgba(255, 105, 180, 0.4); margin: 5px 0; }
+    .eq-btn:hover { transform: translateY(-2px); box-shadow: 0 0 20px rgba(255, 105, 180, 0.7); }
+    .eq-btn.active { background: linear-gradient(45deg, var(--primary-color), var(--accent-color)); }
+
+    /* Light effects */
+    .laser-beam { position: absolute; width: 2px; height: 100%; background: linear-gradient(90deg, transparent, var(--accent-color), transparent); transform-origin: bottom; animation: laser-sweep 4s infinite linear; opacity: 0.3; }
+    @keyframes laser-sweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .pyro-burst { position: absolute; width: 20px; height: 20px; background: radial-gradient(circle, var(--primary-color), transparent 70%); border-radius: 50%; opacity: 0; animation: pyro-explode 1s ease-out; }
+    @keyframes pyro-explode { 0% { opacity: 1; transform: scale(0); } 100% { opacity: 0; transform: scale(5); } }
+    #strobe-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0); z-index: 20; pointer-events: none; }
+    
+    /* Theme Panel */
+    #theme-panel { position: fixed; top: 20px; right: -350px; width: 320px; height: calc(100vh - 40px); background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(15px); border-radius: 20px 0 0 20px; border: 2px solid rgba(255, 105, 180, 0.3); box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5); transition: right 0.4s ease; z-index: 100; padding: 20px; color: white; overflow-y: auto; }
+    #theme-panel.open { right: 0; }
+    #theme-toggle { position: fixed; top: 50%; right: 10px; transform: translateY(-50%); width: 50px; height: 50px; background: linear-gradient(45deg, var(--secondary-color), var(--primary-color)); border: none; border-radius: 50%; color: white; font-size: 24px; cursor: pointer; box-shadow: 0 0 20px rgba(255, 105, 180, 0.6); animation: theme-btn-pulse 2s infinite; z-index: 101; transition: all 0.3s ease; }
+    #theme-toggle:hover { transform: translateY(-50%) scale(1.1); box-shadow: 0 0 30px rgba(255, 105, 180, 0.9); }
+    .theme-section { margin-bottom: 30px; }
+    .theme-section h3 { color: var(--primary-color); font-size: 18px; margin-bottom: 15px; text-align: center; text-shadow: 0 0 10px rgba(255, 105, 180, 0.8); }
+    .preset-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+    .preset-btn { padding: 12px; border: 2px solid transparent; border-radius: 15px; cursor: pointer; font-size: 12px; font-weight: bold; text-align: center; transition: all 0.3s ease; color: white; text-shadow: 0 0 5px rgba(0, 0, 0, 0.8); }
+    .preset-btn:hover { transform: scale(1.05); border-color: rgba(255, 255, 255, 0.5); }
+    .preset-btn.active { border-color: #fff; box-shadow: 0 0 15px rgba(255, 255, 255, 0.5); }
+    .preset-cosmic { background: linear-gradient(45deg, #ff69b4, #9370db, #00ffff); }
+    .preset-fire { background: linear-gradient(45deg, #ff4500, #ff6347, #ffd700); }
+    .preset-ocean { background: linear-gradient(45deg, #00ced1, #1e90ff, #4169e1); }
+    .preset-forest { background: linear-gradient(45deg, #32cd32, #228b22, #006400); }
+    .preset-sunset { background: linear-gradient(45deg, #ff7f50, #ff69b4, #dda0dd); }
+    .preset-neon { background: linear-gradient(45deg, #00ff00, #ffff00, #ff00ff); }
+    .color-picker-group { margin-bottom: 20px; }
+    .color-picker-group label { display: block; margin-bottom: 8px; font-size: 14px; color: var(--primary-color); text-shadow: 0 0 5px rgba(255, 105, 180, 0.6); }
+    .color-input-wrapper { position: relative; display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .color-picker { width: 50px; height: 50px; border: 3px solid rgba(255, 105, 180, 0.5); border-radius: 50%; cursor: pointer; transition: all 0.3s ease; }
+    .color-picker:hover { border-color: rgba(255, 105, 180, 1); box-shadow: 0 0 15px rgba(255, 105, 180, 0.6); }
+    .color-hex { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 105, 180, 0.3); border-radius: 10px; padding: 8px 12px; color: white; font-family: monospace; font-size: 12px; width: 80px; }
+    .theme-controls { display: flex; flex-direction: column; gap: 10px; }
+    .theme-btn { padding: 12px 20px; background: linear-gradient(45deg, var(--secondary-color), var(--primary-color)); border: none; border-radius: 15px; color: white; font-weight: bold; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 10px rgba(255, 105, 180, 0.4); }
+    .theme-btn:hover { transform: translateY(-2px); box-shadow: 0 0 20px rgba(255, 105, 180, 0.7); }
+
+    :root { --primary-color: #ff69b4; --secondary-color: #9370db; --accent-color: #00ffff; }
+  </style>
+</head>
+<body>
+  <div id="soundBOOM-player">
+    <div id="particle-container"></div>
+    <div id="smoke-container"></div>
+    <div id="wave-overlay"></div>
+    <canvas id="visualizer"></canvas>
+    <div id="strobe-overlay"></div>
+    
+    <div id="upload-section">
+      <input type="file" id="upload-btn" accept="video/*,audio/*,image/*" multiple>
+      <label for="upload-btn" class="upload-label">🎵 Load Your Media 🎵</label>
+    </div>
+    
+    <div id="playlist"></div>
+    
+    <div id="media-player">
+      <video id="video-player" controls style="display:none;"></video>
+      <audio id="audio-player" controls style="display:none;"></audio>
+      <img id="image-player" style="display:none;" alt="Current image">
+    </div>
+    
+    <div id="track-info">Select media to ignite the soundBOOM! 💥</div>
+    
+    <div id="media-controls">
+      <button class="control-btn" id="prev-btn" title="Previous Track">⏮</button>
+      <button class="control-btn play-pause" id="play-pause-btn" title="Play/Pause">▶</button>
+      <button class="control-btn" id="next-btn" title="Next Track">⏭</button>
+      <button class="control-btn" id="shuffle-btn" title="Shuffle">🔀</button>
+      <button class="control-btn" id="repeat-btn" title="Repeat">🔁</button>
+    </div>
+    
+    <div id="progress-container">
+      <div id="progress-bar"></div>
+    </div>
+    
+    <button id="eq-toggle" title="EQ Controls">🎚️</button>
+    <button id="theme-toggle" title="Theme Customization">🎨</button>
+    
+    <div id="eq-panel">
+      <div class="eq-section">
+        <h3>🎚️ EQ Controls</h3>
+        <select class="preset-select" id="eq-preset">
+          <option value="flat">Flat</option>
+          <option value="rock">Rock</option>
+          <option value="pop">Pop</option>
+          <option value="jazz">Jazz</option>
+          <option value="classical">Classical</option>
+          <option value="electronic">Electronic</option>
+          <option value="bass-heavy">Bass Heavy</option>
+        </select>
+      </div>
+      
+      <div class="eq-section">
+        <label>Bass (60-250 Hz)</label>
+        <input type="range" class="eq-slider" id="bass-slider" min="-12" max="12" value="0" step="1">
+        <div class="eq-value" id="bass-value">0 dB</div>
+      </div>
+      
+      <div class="eq-section">
+        <label>Mid (250-4000 Hz)</label>
+        <input type="range" class="eq-slider" id="mid-slider" min="-12" max="12" value="0" step="1">
+        <div class="eq-value" id="mid-value">0 dB</div>
+      </div>
+      
+      <div class="eq-section">
+        <label>Treble (4000+ Hz)</label>
+        <input type="range" class="eq-slider" id="treble-slider" min="-12" max="12" value="0" step="1">
+        <div class="eq-value" id="treble-value">0 dB</div>
+      </div>
+      
+      <div class="eq-section">
+        <button class="eq-btn" id="bass-boost-btn">Bass Boost</button>
+      </div>
+      
+      <div class="eq-section">
+        <label>Volume</label>
+        <input type="range" class="eq-slider" id="volume-slider" min="0" max="100" value="70" step="1">
+        <div class="eq-value" id="volume-value">70%</div>
+      </div>
+      
+      <div class="eq-section">
+        <label>Balance</label>
+        <input type="range" class="eq-slider" id="balance-slider" min="-50" max="50" value="0" step="1">
+        <div class="eq-value" id="balance-value">Center</div>
+      </div>
+      
+      <div class="eq-section">
+        <label>Light Intensity</label>
+        <input type="range" class="eq-slider" id="light-intensity" min="0" max="100" value="50" step="1">
+        <div class="eq-value" id="light-value">50%</div>
+      </div>
+      
+      <div class="eq-section">
+        <button class="eq-btn" id="reset-eq-btn">Reset EQ</button>
+      </div>
+    </div>
+    
+    <div id="theme-panel">
+      <div class="theme-section">
+        <h3>✨ Theme Presets ✨</h3>
+        <div class="preset-buttons">
+          <div class="preset-btn preset-cosmic active" data-preset="cosmic">Cosmic Magic</div>
+          <div class="preset-btn preset-fire" data-preset="fire">Fire Blaze</div>
+          <div class="preset-btn preset-ocean" data-preset="ocean">Ocean Wave</div>
+          <div class="preset-btn preset-forest" data-preset="forest">Forest Glow</div>
+          <div class="preset-btn preset-sunset" data-preset="sunset">Sunset Dream</div>
+          <div class="preset-btn preset-neon" data-preset="neon">Neon Pulse</div>
+        </div>
+      </div>
+      <div class="theme-section">
+        <h3>🎨 Custom Colors 🎨</h3>
+        <div class="color-picker-group">
+          <label>Primary Color</label>
+          <div class="color-input-wrapper">
+            <input type="color" id="primary-color" class="color-picker" value="#ff69b4">
+            <input type="text" id="primary-hex" class="color-hex" value="#ff69b4" readonly>
+          </div>
+        </div>
+        <div class="color-picker-group">
+          <label>Secondary Color</label>
+          <div class="color-input-wrapper">
+            <input type="color" id="secondary-color" class="color-picker" value="#9370db">
+            <input type="text" id="secondary-hex" class="color-hex" value="#9370db" readonly>
+          </div>
+        </div>
+        <div class="color-picker-group">
+          <label>Accent Color</label>
+          <div class="color-input-wrapper">
+            <input type="color" id="accent-color" class="color-picker" value="#00ffff">
+            <input type="text" id="accent-hex" class="color-hex" value="#00ffff" readonly>
+          </div>
+        </div>
+      </div>
+      <div class="theme-section">
+        <div class="theme-controls">
+          <button class="theme-btn" id="apply-theme">Apply Custom Theme</button>
+          <button class="theme-btn" id="randomize-theme">🎲 Random Magic</button>
+          <button class="theme-btn" id="reset-theme">🔄 Reset Default</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global variables
+    let playlist = [];
+    let currentIndex = 0;
+    let audioContext, analyser, source, gainNode, bassFilter, midFilter, trebleFilter, balanceNode;
+    let currentMediaUrl = null;
+    let isShuffle = false;
+    let isRepeat = false;
+    let currentMedia = null;
+    let visualizerRunning = false;
+
+    // Initialize audio context and EQ
+    function initializeAudioContext() {
+      try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.8;
+        
+        gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.7;
+        
+        // Create EQ filters
+        bassFilter = audioContext.createBiquadFilter();
+        bassFilter.type = "lowshelf";
+        bassFilter.frequency.value = 250;
+        bassFilter.gain.value = 0;
+        
+        midFilter = audioContext.createBiquadFilter();
+        midFilter.type = "peaking";
+        midFilter.frequency.value = 1000;
+        midFilter.Q.value = 1;
+        midFilter.gain.value = 0;
+        
+        trebleFilter = audioContext.createBiquadFilter();
+        trebleFilter.type = "highshelf";
+        trebleFilter.frequency.value = 4000;
+        trebleFilter.gain.value = 0;
+        
+        balanceNode = audioContext.createStereoPanner();
+        balanceNode.pan.value = 0;
+        
+        console.log('Audio context initialized successfully');
+      } catch (error) {
+        console.error('Error initializing audio context:', error);
+      }
+    }
+
+    // Connect audio chain
+    function connectAudioChain(mediaElement) {
+      try {
+        if (source) source.disconnect();
+        
+        source = audioContext.createMediaElementSource(mediaElement);
+        source.connect(bassFilter)
+              .connect(midFilter)
+              .connect(trebleFilter)
+              .connect(gainNode)
+              .connect(balanceNode)
+              .connect(analyser)
+              .connect(audioContext.destination);
+        
+        console.log('Audio chain connected');
+      } catch (error) {
+        console.error('Error connecting audio chain:', error);
+      }
+    }
+
+    // Initialize particle effects
+    function createParticles() {
+      const container = document.getElementById('particle-container');
+      for (let i = 0; i < 30; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 6 + 's';
+        particle.style.animationDuration = (Math.random() * 4 + 4) + 's';
+        container.appendChild(particle);
+      }
+    }
+
+    // Initialize smoke effects
+    function createSmoke() {
+      const container = document.getElementById('smoke-container');
+      for (let i = 0; i < 6; i++) {
+        const smoke = document.createElement('div');
+        smoke.className = 'smoke';
+        smoke.style.left = Math.random() * 100 + '%';
+        smoke.style.animationDelay = Math.random() * 12 + 's';
+        smoke.style.animationDuration = (Math.random() * 8 + 8) + 's';
+        container.appendChild(smoke);
+      }
+    }
+
+    // Create laser beams
+    function createLaserBeams() {
+      const container = document.getElementById('soundBOOM-player');
+      for (let i = 0; i < 6; i++) {
+        const laser = document.createElement('div');
+        laser.className = 'laser-beam';
+        laser.style.left = `${10 + i * 15}%`;
+        laser.style.animationDelay = `${i * 0.5}s`;
+        container.appendChild(laser);
+      }
+    }
+
+    // Audio visualization
+    function drawVisualization() {
+      const canvas = document.getElementById('visualizer');
+      const ctx = canvas.getContext('2d');
+      
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      
+      resize();
+      window.addEventListener('resize', resize);
+
+      function animate() {
+        if (!visualizerRunning) return;
+        
+        requestAnimationFrame(animate);
+        
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        const barWidth = (canvas.width / analyser.frequencyBinCount) * 2.5;
+        let x = 0;
+        
+        for (let i = 0; i < analyser.frequencyBinCount; i++) {
+          const barHeight = (dataArray[i] / 255) * canvas.height * 0.7;
+          
+          const hue = (i / analyser.frequencyBinCount) * 360;
+          ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+          ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+          
+          x += barWidth + 1;
+        }
+        
+        // Update light effects based on audio
+        updateLightEffects(dataArray);
+      }
+      
+      visualizerRunning = true;
+      animate();
+    }
+
+    // Update light effects
+    function updateLightEffects(audioData) {
+      const intensity = parseInt(document.getElementById('light-intensity').value) / 100;
+      const average = audioData.reduce((a, b) => a + b) / audioData.length;
+      const normalizedIntensity = (average / 255) * intensity;
+      
+      // Update laser beams
+      document.querySelectorAll('.laser-beam').forEach((laser, i) => {
+        laser.style.opacity = normalizedIntensity;
+        laser.style.background = `linear-gradient(90deg, transparent, hsl(${i * 60}, 100%, 60%), transparent)`;
+      });
+      
+      // Create pyrotechnic effects for high bass
+      const bassLevel = audioData.slice(0, 32).reduce((a, b) => a + b) / 32;
+      if (bassLevel > 150 && Math.random() > 0.8) {
+        createPyroBurst();
+      }
+      
+      // Strobe effect
+      const strobeOverlay = document.getElementById('strobe-overlay');
+      if (normalizedIntensity > 0.7) {
+        strobeOverlay.style.background = `rgba(255, 255, 255, ${normalizedIntensity * 0.3})`;
+        strobeOverlay.style.animation = 'strobe-flash 0.1s';
+        setTimeout(() => {
+          strobeOverlay.style.background = 'rgba(255, 255, 255, 0)';
+          strobeOverlay.style.animation = 'none';
+        }, 100);
+      }
+    }
+
+    // Create pyrotechnic burst
+    function createPyroBurst() {
+      const pyro = document.createElement('div');
+      pyro.className = 'pyro-burst';
+      pyro.style.left = Math.random() * 100 + '%';
+      pyro.style.top = Math.random() * 50 + '%';
+      pyro.style.background = `radial-gradient(circle, hsl(${Math.random() * 360}, 100%, 60%), transparent 70%)`;
+      document.getElementById('soundBOOM-player').appendChild(pyro);
+      setTimeout(() => pyro.remove(), 1000);
+    }
+
+    // File upload handling
+    document.getElementById('upload-btn').addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      const playlistContainer = document.getElementById('playlist');
+      
+      files.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'candy-item';
+        item.textContent = file.name.length > 30 ? file.name.substring(0, 30) + '...' : file.name;
+        item.addEventListener('click', () => playMedia(playlist.length + index));
+        playlistContainer.appendChild(item);
+        playlist.push(file);
+      });
+      
+      if (playlist.length > 0 && !currentMedia) {
+        playMedia(0);
+      }
+    });
+
+    // Play media function
+    function playMedia(index) {
+      if (index < 0 || index >= playlist.length) return;
+      
+      currentIndex = index;
+      const file = playlist[index];
+      
+      // Clean up previous media
+      if (currentMediaUrl) {
+        URL.revokeObjectURL(currentMediaUrl);
+      }
+      
+      // Hide all players
+      document.getElementById('video-player').style.display = 'none';
+      document.getElementById('audio-player').style.display = 'none';
+      document.getElementById('image-player').style.display = 'none';
+      
+      // Create object URL
+      currentMediaUrl = URL.createObjectURL(file);
+      
+      // Update track info
+      document.getElementById('track-info').textContent = `Now Playing: ${file.name} 💥`;
+      
+      // Update playlist UI
+      document.querySelectorAll('.candy-item').forEach((item, i) => {
+        item.classList.toggle('active', i === index);
+      });
+      
+      // Play appropriate media type
+      if (file.type.startsWith('image/')) {
+        playImage(currentMediaUrl);
+      } else if (file.type.startsWith('video/')) {
+        playVideo(currentMediaUrl);
+      } else if (file.type.startsWith('audio/')) {
+        playAudio(currentMediaUrl);
+      }
+      
+      updatePlayPauseButton();
+    }
+
+    // Play image
+    function playImage(url) {
+      const imagePlayer = document.getElementById('image-player');
+      imagePlayer.src = url;
+      imagePlayer.style.display = 'block';
+      currentMedia = imagePlayer;
+      
+      // Auto-advance after 10 seconds
+      setTimeout(() => {
+        if (currentMedia === imagePlayer) {
+          nextMedia();
+        }
+      }, 10000);
+      
+      // Simulate progress for images
+      animateImageProgress();
+    }
+
+    // Play video
+    function playVideo(url) {
+      const videoPlayer = document.getElementById('video-player');
+      videoPlayer.src = url;
+      videoPlayer.style.display = 'block';
+      currentMedia = videoPlayer;
+      
+      // Initialize audio context on first interaction
+      if (!audioContext) {
+        initializeAudioContext();
+      }
+      
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      
+      connectAudioChain(videoPlayer);
+      videoPlayer.play();
+      
+      videoPlayer.addEventListener('ended', nextMedia);
+      videoPlayer.addEventListener('timeupdate', updateProgress);
+      
+      if (!visualizerRunning) {
+        drawVisualization();
+      }
+    }
+
+    // Play audio
+    function playAudio(url) {
+      const audioPlayer = document.getElementById('audio-player');
+      audioPlayer.src = url;
+      audioPlayer.style.display = 'block';
+      currentMedia = audioPlayer;
+      
+      // Initialize audio context on first interaction
+      if (!audioContext) {
+        initializeAudioContext();
+      }
+      
+      if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      
+      connectAudioChain(audioPlayer);
+      audioPlayer.play();
+      
+      audioPlayer.addEventListener('ended', nextMedia);
+      audioPlayer.addEventListener('timeupdate', updateProgress);
+      
+      if (!visualizerRunning) {
+        drawVisualization();
+      }
+    }
+
+    // Update progress bar
+    function updateProgress() {
+      if (!currentMedia || currentMedia.tagName === 'IMG') return;
+      
+      const progress = (currentMedia.currentTime / currentMedia.duration) * 100;
+      document.getElementById('progress-bar').style.width = `${progress}%`;
+    }
+
+    // Animate progress for images
+    function animateImageProgress() {
+      const progressBar = document.getElementById('progress-bar');
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 1;
+        progressBar.style.width = `${progress}%`;
+        if (progress >= 100) {
+          clearInterval(interval);
+        }
+      }, 100);
+    }
+
+    // Media controls
+    function togglePlayPause() {
+      if (!currentMedia) return;
+      
+      if (currentMedia.tagName === 'IMG') {
+        nextMedia();
+        return;
+      }
+      
+      if (currentMedia.paused) {
+        currentMedia.play();
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+      } else {
+        currentMedia.pause();
+      }
+      
+      updatePlayPauseButton();
+    }
+
+    function updatePlayPauseButton() {
+      const btn = document.getElementById('play-pause-btn');
+      if (!currentMedia || currentMedia.paused || currentMedia.tagName === 'IMG') {
+        btn.textContent = '▶';
+      } else {
+        btn.textContent = '⏸';
+      }
+    }
+
+    function nextMedia() {
+      if (playlist.length === 0) return;
+      
+      if (isShuffle) {
+        currentIndex = Math.floor(Math.random() * playlist.length);
+      } else if (isRepeat && currentMedia) {
+        // Keep same index for repeat
+      } else {
+        currentIndex = (currentIndex + 1) % playlist.length;
+      }
+      
+      playMedia(currentIndex);
+    }
+
+    function prevMedia() {
+      if (playlist.length === 0) return;
+      
+      currentIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+      playMedia(currentIndex);
+    }
+
+    // EQ Controls
+    const eqPresets = {
+      flat: { bass: 0, mid: 0, treble: 0 },
+      rock: { bass: 6, mid: 2, treble: 4 },
+      pop: { bass: 3, mid: 1, treble: 3 },
+      jazz: { bass: 2, mid: 0, treble: 2 },
+      classical: { bass: 1, mid: -1, treble: 1 },
+      electronic: { bass: 8, mid: 0, treble: 6 },
+      'bass-heavy': { bass: 10, mid: -2, treble: 2 }
+    };
+
+    function applyEQPreset(presetName) {
+      const preset = eqPresets[presetName];
+      if (!preset) return;
+      
+      document.getElementById('bass-slider').value = preset.bass;
+      document.getElementById('mid-slider').value = preset.mid;
+      document.getElementById('treble-slider').value = preset.treble;
+      
+      updateEQSettings();
+    }
+
+    function updateEQSettings() {
+      if (!bassFilter || !midFilter || !trebleFilter) return;
+      
+      const bassGain = parseInt(document.getElementById('bass-slider').value);
+      const midGain = parseInt(document.getElementById('mid-slider').value);
+      const trebleGain = parseInt(document.getElementById('treble-slider').value);
+      const volume = parseInt(document.getElementById('volume-slider').value) / 100;
+      const balance = parseInt(document.getElementById('balance-slider').value) / 50;
+      
+      bassFilter.gain.value = bassGain;
+      midFilter.gain.value = midGain;
+      trebleFilter.gain.value = trebleGain;
+      
+      if (gainNode) gainNode.gain.value = volume;
+      if (balanceNode) balanceNode.pan.value = balance;
+      
+      // Update all media elements' volume
+      document.getElementById('video-player').volume = volume;
+      document.getElementById('audio-player').volume = volume;
+      
+      // Update display values
+      document.getElementById('bass-value').textContent = `${bassGain} dB`;
+      document.getElementById('mid-value').textContent = `${midGain} dB`;
+      document.getElementById('treble-value').textContent = `${trebleGain} dB`;
+      document.getElementById('volume-value').textContent = `${Math.round(volume * 100)}%`;
+      
+      const balanceText = balance === 0 ? 'Center' : balance > 0 ? `Right ${Math.round(balance * 100)}%` : `Left ${Math.round(Math.abs(balance) * 100)}%`;
+      document.getElementById('balance-value').textContent = balanceText;
+    }
+
+    function resetEQ() {
+      document.getElementById('bass-slider').value = 0;
+      document.getElementById('mid-slider').value = 0;
+      document.getElementById('treble-slider').value = 0;
+      document.getElementById('volume-slider').value = 70;
+      document.getElementById('balance-slider').value = 0;
+      document.getElementById('eq-preset').value = 'flat';
+      document.getElementById('bass-boost-btn').classList.remove('active');
+      updateEQSettings();
+    }
+
+    function toggleBassBoost() {
+      const btn = document.getElementById('bass-boost-btn');
+      const bassSlider = document.getElementById('bass-slider');
+      
+      if (btn.classList.contains('active')) {
+        btn.classList.remove('active');
+        bassSlider.value = Math.max(-12, parseInt(bassSlider.value) - 8);
+      } else {
+        btn.classList.add('active');
+        bassSlider.value = Math.min(12, parseInt(bassSlider.value) + 8);
+      }
+      
+      updateEQSettings();
+    }
+
+    // Progress bar click handling
+    document.getElementById('progress-container').addEventListener('click', (e) => {
+      if (!currentMedia || currentMedia.tagName === 'IMG') return;
+      
+      const rect = e.target.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const percentage = clickX / rect.width;
+      
+      if (currentMedia.duration) {
+        currentMedia.currentTime = percentage * currentMedia.duration;
+      }
+    });
+
+    // Event listeners
+    document.getElementById('play-pause-btn').addEventListener('click', togglePlayPause);
+    document.getElementById('next-btn').addEventListener('click', nextMedia);
+    document.getElementById('prev-btn').addEventListener('click', prevMedia);
+    
+    document.getElementById('shuffle-btn').addEventListener('click', () => {
+      isShuffle = !isShuffle;
+      document.getElementById('shuffle-btn').style.opacity = isShuffle ? '1' : '0.6';
+    });
+    
+    document.getElementById('repeat-btn').addEventListener('click', () => {
+      isRepeat = !isRepeat;
+      document.getElementById('repeat-btn').style.opacity = isRepeat ? '1' : '0.6';
+    });
+
+    // EQ Panel controls
+    document.getElementById('eq-toggle').addEventListener('click', () => {
+      document.getElementById('eq-panel').classList.toggle('open');
+    });
+
+    document.getElementById('eq-preset').addEventListener('change', (e) => {
+      applyEQPreset(e.target.value);
+    });
+
+    // EQ sliders
+    ['bass-slider', 'mid-slider', 'treble-slider', 'volume-slider', 'balance-slider', 'light-intensity'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        updateEQSettings();
+        const lightValue = document.getElementById('light-intensity').value;
+        document.getElementById('light-value').textContent = `${lightValue}%`;
+      });
+    });
+
+    document.getElementById('bass-boost-btn').addEventListener('click', toggleBassBoost);
+    document.getElementById('reset-eq-btn').addEventListener('click', resetEQ);
+
+    // Theme Controls
+    const themePresets = {
+      cosmic: { primary: '#ff69b4', secondary: '#9370db', accent: '#00ffff' },
+      fire: { primary: '#ff4500', secondary: '#ff6347', accent: '#ffd700' },
+      ocean: { primary: '#00ced1', secondary: '#1e90ff', accent: '#4169e1' },
+      forest: { primary: '#32cd32', secondary: '#228b22', accent: '#006400' },
+      sunset: { primary: '#ff7f50', secondary: '#ff69b4', accent: '#dda0dd' },
+      neon: { primary: '#00ff00', secondary: '#ffff00', accent: '#ff00ff' }
+    };
+
+    function applyTheme(primary, secondary, accent) {
+      document.documentElement.style.setProperty('--primary-color', primary);
+      document.documentElement.style.setProperty('--secondary-color', secondary);
+      document.documentElement.style.setProperty('--accent-color', accent);
+      document.getElementById('primary-hex').value = primary;
+      document.getElementById('secondary-hex').value = secondary;
+      document.getElementById('accent-hex').value = accent;
+    }
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      document.getElementById('theme-panel').classList.toggle('open');
+    });
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const preset = themePresets[btn.dataset.preset];
+        applyTheme(preset.primary, preset.secondary, preset.accent);
+      });
+    });
+
+    document.getElementById('primary-color').addEventListener('input', (e) => {
+      const color = e.target.value;
+      applyTheme(color, getComputedStyle(document.documentElement).getPropertyValue('--secondary-color'), getComputedStyle(document.documentElement).getPropertyValue('--accent-color'));
+    });
+
+    document.getElementById('secondary-color').addEventListener('input', (e) => {
+      const color = e.target.value;
+      applyTheme(getComputedStyle(document.documentElement).getPropertyValue('--primary-color'), color, getComputedStyle(document.documentElement).getPropertyValue('--accent-color'));
+    });
+
+    document.getElementById('accent-color').addEventListener('input', (e) => {
+      const color = e.target.value;
+      applyTheme(getComputedStyle(document.documentElement).getPropertyValue('--primary-color'), getComputedStyle(document.documentElement).getPropertyValue('--secondary-color'), color);
+    });
+
+    document.getElementById('apply-theme').addEventListener('click', () => {
+      const primary = document.getElementById('primary-color').value;
+      const secondary = document.getElementById('secondary-color').value;
+      const accent = document.getElementById('accent-color').value;
+      applyTheme(primary, secondary, accent);
+    });
+
+    document.getElementById('randomize-theme').addEventListener('click', () => {
+      const randomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+      applyTheme(randomColor(), randomColor(), randomColor());
+    });
+
+    document.getElementById('reset-theme').addEventListener('click', () => {
+      applyTheme('#ff69b4', '#9370db', '#00ffff');
+      document.querySelector('.preset-cosmic').classList.add('active');
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      switch(e.code) {
+        case 'Space':
+          e.preventDefault();
+          togglePlayPause();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          nextMedia();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          prevMedia();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          const volumeSlider = document.getElementById('volume-slider');
+          volumeSlider.value = Math.min(100, parseInt(volumeSlider.value) + 5);
+          updateEQSettings();
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          const volumeSlider2 = document.getElementById('volume-slider');
+          volumeSlider2.value = Math.max(0, parseInt(volumeSlider2.value) - 5);
+          updateEQSettings();
+          break;
+        case 'KeyE':
+          e.preventDefault();
+          document.getElementById('eq-panel').classList.toggle('open');
+          break;
+        case 'KeyB':
+          e.preventDefault();
+          toggleBassBoost();
+          break;
+        case 'KeyS':
+          e.preventDefault();
+          document.getElementById('shuffle-btn').click();
+          break;
+        case 'KeyR':
+          e.preventDefault();
+          document.getElementById('repeat-btn').click();
+          break;
+        case 'KeyT':
+          e.preventDefault();
+          document.getElementById('theme-panel').classList.toggle('open');
+          break;
+      }
+    });
+
+    // Click outside to close panels
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#eq-panel') && !e.target.closest('#eq-toggle')) {
+        document.getElementById('eq-panel').classList.remove('open');
+      }
+      if (!e.target.closest('#theme-panel') && !e.target.closest('#theme-toggle')) {
+        document.getElementById('theme-panel').classList.remove('open');
+      }
+    });
+
+    // Initialize everything
+    function initialize() {
+      createParticles();
+      createSmoke();
+      createLaserBeams();
+      
+      // Set initial EQ values
+      updateEQSettings();
+      
+      console.log('🎵 soundBOOM! initialized successfully! 🎵');
+      console.log('Controls: Space=Play/Pause, ←/→=Prev/Next, ↑/↓=Volume, E=EQ, B=Bass Boost, S=Shuffle, R=Repeat, T=Theme');
+    }
+
+    // Start initialization when page loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initialize);
+    } else {
+      initialize();
+    }
+
+    // Handle media events
+    ['video-player', 'audio-player'].forEach(id => {
+      const element = document.getElementById(id);
+      element.addEventListener('play', () => {
+        updatePlayPauseButton();
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+      });
+      element.addEventListener('pause', updatePlayPauseButton);
+      element.addEventListener('loadstart', updatePlayPauseButton);
+    });
+  </script>
+</body>
+</html>
