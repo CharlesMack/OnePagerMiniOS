@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Martel Magic Media Player</title>
+  <style>
+    body { margin: 0; height: 100vh; overflow: hidden; }
+    #martel-magic-player {
+      position: relative;
+      height: 100%;
+      background: radial-gradient(circle, #1a0033 0%, #000 70%);
+    }
+    #wave-overlay {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 20%;
+      background: linear-gradient(to top, #00cccc, transparent);
+      animation: wave 5s infinite ease-in-out;
+    }
+    @keyframes wave {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+      100% { transform: translateY(0); }
+    }
+    #playlist {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .candy-item {
+      display: inline-block;
+      margin: 10px;
+      padding: 15px;
+      background: radial-gradient(#ff69b4, #9370db);
+      border-radius: 50%;
+      cursor: pointer;
+      animation: float 3s infinite;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    @keyframes float {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0); }
+    }
+    #media-player {
+      position: absolute;
+      top: 60%;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+    }
+    #media-player video, #media-player audio, #media-player img {
+      max-width: 80%;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #ff69b4;
+    }
+    #upload-btn {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      background: #9370db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="martel-magic-player">
+    <div id="wave-overlay"></div>
+    <input type="file" id="upload-btn" accept="video/*,audio/*,image/*" multiple>
+    <div id="playlist"></div>
+    <div id="media-player">
+      <video id="video-player" controls style="display:none;"></video>
+      <audio id="audio-player" controls style="display:none;"></audio>
+      <img id="image-player" style="display:none;">
+    </div>
+  </div>
+
+  <script>
+    const playlist = [];
+    let currentIndex = 0;
+
+    document.getElementById('upload-btn').addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      files.forEach(file => {
+        const item = document.createElement('div');
+        item.className = 'candy-item';
+        item.textContent = file.name;
+        item.addEventListener('click', () => playMedia(playlist.indexOf(file)));
+        document.getElementById('playlist').appendChild(item);
+        playlist.push(file);
+      });
+      if (playlist.length > 0) playMedia(0);
+    });
+
+    function playMedia(index) {
+      const file = playlist[index];
+      const videoPlayer = document.getElementById('video-player');
+      const audioPlayer = document.getElementById('audio-player');
+      const imagePlayer = document.getElementById('image-player');
+
+      videoPlayer.style.display = 'none';
+      audioPlayer.style.display = 'none';
+      imagePlayer.style.display = 'none';
+
+      const url = URL.createObjectURL(file);
+      if (file.type.startsWith('image/')) {
+        imagePlayer.src = url;
+        imagePlayer.style.display = 'block';
+        setTimeout(nextMedia, 10000); // 10s default for images
+      } else if (file.type.startsWith('video/')) {
+        videoPlayer.src = url;
+        videoPlayer.style.display = 'block';
+        videoPlayer.play();
+        videoPlayer.onended = nextMedia;
+      } else if (file.type.startsWith('audio/')) {
+        audioPlayer.src = url;
+        audioPlayer.style.display = 'block';
+        audioPlayer.play();
+        audioPlayer.onended = nextMedia;
+      }
+    }
+
+    function nextMedia() {
+      currentIndex = (currentIndex + 1) % playlist.length;
+      playMedia(currentIndex);
+    }
+  </script>
+</body>
+</html>
