@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P.O.P.S. Blaze Selfie Enhanced</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background-color: #111;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #blast-light-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.5) 0%, transparent 70%);
+            z-index: 5;
+            pointer-events: none;
+            transition: background 0.3s, opacity 0.3s;
+            opacity: 0;
+        }
+
+        .iframe-container {
+            position: relative;
+            width: 90vw;
+            height: 80vh;
+            max-width: 1280px;
+            max-height: 720px;
+            z-index: 10;
+        }
+
+        .blast-light {
+            position: absolute;
+            top: -40px;
+            bottom: -40px;
+            left: -40px;
+            right: -40px;
+            border-radius: 15px;
+            box-shadow: 0 0 80px 40px #fff;
+            transition: box-shadow 0.3s;
+            pointer-events: none;
+        }
+
+        .lens-flare {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 10%, transparent 50%);
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            z-index: 6;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .light-bar {
+            position: absolute;
+            top: -40px;
+            bottom: -40px;
+            width: 60px;
+            background: #fff;
+            z-index: 8;
+            pointer-events: none;
+            transition: box-shadow 0.3s, background 0.3s;
+        }
+
+        .light-bar.left {
+            left: -100px;
+            border-radius: 0 15px 15px 0;
+        }
+
+        .light-bar.right {
+            right: -100px;
+            border-radius: 15px 0 0 15px;
+        }
+
+        .camera-iframe, .camera-video {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 10px;
+            background-color: #ffffff; /* Bright white background */
+            display: none;
+        }
+
+        .camera-video.active, .camera-iframe.active {
+            display: block;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.75);
+            padding: 15px 25px;
+            border-radius: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            z-index: 20;
+            backdrop-filter: blur(8px);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls label {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .controls select, .controls input, .controls button {
+            padding: 8px;
+            border-radius: 5px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            cursor: pointer;
+        }
+
+        .controls select {
+            min-width: 150px;
+        }
+
+        .controls input[type="color"] {
+            width: 50px;
+            height: 30px;
+            padding: 2px;
+        }
+
+        .controls input[type="range"] {
+            width: 150px;
+            accent-color: #fff;
+        }
+
+        .controls button {
+            background: #007bff;
+            transition: background 0.2s;
+        }
+
+        .controls button:hover {
+            background: #0056b3;
+        }
+
+        .status {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 20;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .iframe-container {
+                width: 95vw;
+                height: 70vh;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: center;
+                padding: 15px;
+                width: 90%;
+                max-width: 300px;
+            }
+
+            .light-bar {
+                width: 40px;
+                left: -60px;
+            }
+
+            .light-bar.right {
+                right: -60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="blast-light-overlay"></div>
+
+    <div class="controls">
+        <label for="camera-select">Select Camera:</label>
+        <select id="camera-select">
+            <option value="local">Local Camera</option>
+            <option value="https://charlesmack.github.io/parade/">Parade Camera</option>
+            <option value="https://charlesmack.github.io/jazz/">Jazz Camera</option>
+        </select>
+
+        <label for="color-picker">Light Color:</label>
+        <input type="color" id="color-picker" value="#ffffff">
+
+        <label for="intensity-slider">Light Intensity:</label>
+        <input type="range" id="intensity-slider" min="0" max="100" value="80">
+
+        <label for="pulse-toggle">Pulse Effect:</label>
+        <input type="checkbox" id="pulse-toggle">
+
+        <label for="strobe-toggle">Strobe Effect:</label>
+        <input type="checkbox" id="strobe-toggle">
+
+        <button id="preset-soft">Soft Light</button>
+        <button id="preset-extreme">Extreme Light</button>
+        <button id="snapshot">Take Snapshot</button>
+    </div>
+
+    <div class="iframe-container">
+        <div class="blast-light"></div>
+        <div class="lens-flare"></div>
+        <div class="light-bar left"></div>
+        <div class="light-bar right"></div>
+        <video id="camera-video" class="camera-video" autoplay></video>
+        <iframe id="camera-iframe" class="camera-iframe active" src="https://charlesmack.github.io/parade/" allow="camera *; microphone *"></iframe>
+    </div>
+
+    <div class="status" id="status">Initializing...</div>
+
+    <script>
+        const cameraSelect = document.getElementById('camera-select');
+        const cameraIframe = document.getElementById('camera-iframe');
+        const cameraVideo = document.getElementById('camera-video');
+        const colorPicker = document.getElementById('color-picker');
+        const intensitySlider = document.getElementById('intensity-slider');
+        const pulseToggle = document.getElementById('pulse-toggle');
+        const strobeToggle = document.getElementById('strobe-toggle');
+        const presetSoft = document.getElementById('preset-soft');
+        const presetExtreme = document.getElementById('preset-extreme');
+        const snapshotButton = document.getElementById('snapshot');
+        const blastLight = document.querySelector('.blast-light');
+        const lensFlare = document.querySelector('.lens-flare');
+        const lightBars = document.querySelectorAll('.light-bar');
+        const blastLightOverlay = document.getElementById('blast-light-overlay');
+        const status = document.getElementById('status');
+
+        let stream = null;
+
+        // Update light effect
+        function updateLightEffect() {
+            const color = colorPicker.value;
+            const intensity = parseInt(intensitySlider.value);
+
+            if (intensity >= 95) {
+                blastLight.style.boxShadow = `0 0 800px 800px ${color}`;
+                lightBars.forEach(bar => {
+                    bar.style.background = color;
+                    bar.style.boxShadow = `0 0 200px 100px ${color}`;
+                });
+                blastLightOverlay.style.opacity = '0.6';
+                lensFlare.style.opacity = '0.5';
+            } else if (intensity >= 80) {
+                const spread = intensity * 4;
+                const blur = intensity * 3;
+                blastLight.style.boxShadow = `0 0 ${blur}px ${spread}px ${color}`;
+                lightBars.forEach(bar => {
+                    bar.style.background = color;
+                    bar.style.boxShadow = `0 0 ${blur / 2}px ${spread / 2}px ${color}`;
+                });
+                blastLightOverlay.style.opacity = '0.3';
+                lensFlare.style.opacity = '0.2';
+            } else {
+                const spread = intensity * 3;
+                const blur = intensity * 2;
+                blastLight.style.boxShadow = `0 0 ${blur}px ${spread}px ${color}`;
+                lightBars.forEach(bar => {
+                    bar.style.background = color;
+                    bar.style.boxShadow = `0 0 ${blur / 2}px ${spread / 2}px ${color}`;
+                });
+                blastLightOverlay.style.opacity = '0';
+                lensFlare.style.opacity = '0';
+            }
+        }
+
+        // Pulse animation
+        let pulseActive = false;
+        function pulseEffect() {
+            if (!pulseActive) return;
+            const intensity = parseInt(intensitySlider.value);
+            const baseSpread = intensity * 3;
+            const baseBlur = intensity * 2;
+            const pulse = Math.sin(Date.now() / 500) * 30;
+            blastLight.style.boxShadow = `0 0 ${baseBlur + pulse}px ${baseSpread + pulse}px ${colorPicker.value}`;
+            lightBars.forEach(bar => {
+                bar.style.boxShadow = `0 0 ${(baseBlur + pulse) / 2}px ${(baseSpread + pulse) / 2}px ${colorPicker.value}`;
+            });
+            lensFlare.style.opacity = 0.2 + Math.abs(pulse) / 100;
+            requestAnimationFrame(pulseEffect);
+        }
+
+        // Strobe effect
+        let strobeActive = false;
+        function strobeEffect() {
+            if (!strobeActive) return;
+            const intensity = parseInt(intensitySlider.value);
+            const opacity = Math.random() > 0.5 ? 0.6 : 0;
+            blastLightOverlay.style.opacity = intensity >= 95 ? opacity : '0';
+            lightBars.forEach(bar => {
+                bar.style.opacity = intensity >= 95 ? opacity : '1';
+            });
+            setTimeout(strobeEffect, 100);
+        }
+
+        // Initialize local camera
+        async function initLocalCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                cameraVideo.srcObject = stream;
+                cameraVideo.classList.add('active');
+                cameraIframe.classList.remove('active');
+                status.textContent = 'Local Camera Active';
+                status.style.display = 'block';
+                setTimeout(() => status.style.display = 'none', 2000);
+            } catch (e) {
+                status.textContent = 'Error: Camera Access Denied';
+                status.style.display = 'block';
+                setTimeout(() => status.style.display = 'none', 3000);
+            }
+        }
+
+        // Event listeners
+        cameraSelect.addEventListener('change', (event) => {
+            const value = event.target.value;
+            if (value === 'local') {
+                initLocalCamera();
+            } else {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                cameraIframe.src = value;
+                cameraIframe.classList.add('active');
+                cameraVideo.classList.remove('active');
+            }
+        });
+
+        colorPicker.addEventListener('input', updateLightEffect);
+        intensitySlider.addEventListener('input', updateLightEffect);
+
+        pulseToggle.addEventListener('change', (event) => {
+            pulseActive = event.target.checked;
+            strobeToggle.checked = false;
+            strobeActive = false;
+            if (pulseActive) {
+                requestAnimationFrame(pulseEffect);
+            } else {
+                updateLightEffect();
+            }
+            saveSettings();
+        });
+
+        strobeToggle.addEventListener('change', (event) => {
+            strobeActive = event.target.checked;
+            pulseToggle.checked = false;
+            pulseActive = false;
+            if (strobeActive) {
+                strobeEffect();
+            } else {
+                updateLightEffect();
+            }
+            saveSettings();
+        });
+
+        presetSoft.addEventListener('click', () => {
+            intensitySlider.value = 20;
+            colorPicker.value = '#ffffff';
+            pulseToggle.checked = false;
+            strobeToggle.checked = false;
+            pulseActive = false;
+            strobeActive = false;
+            updateLightEffect();
+            saveSettings();
+        });
+
+        presetExtreme.addEventListener('click', () => {
+            intensitySlider.value = 100;
+            colorPicker.value = '#ffffff';
+            pulseToggle.checked = false;
+            strobeToggle.checked = false;
+            pulseActive = false;
+            strobeActive = false;
+            updateLightEffect();
+            saveSettings();
+        });
+
+        snapshotButton.addEventListener('click', () => {
+            try {
+                const video = cameraSelect.value === 'local' ? cameraVideo : cameraIframe.contentWindow.document.querySelector('video');
+                if (video && video.videoWidth > 0) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0);
+                    const link = document.createElement('a');
+                    link.download = `pops_selfie_${Date.now()}.png`;
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    status.textContent = 'Snapshot Taken';
+                    status.style.display = 'block';
+                    setTimeout(() => status.style.display = 'none', 2000);
+                } else {
+                    status.textContent = 'Error: No active camera feed';
+                    status.style.display = 'block';
+                    setTimeout(() => status.style.display = 'none', 3000);
+                }
+            } catch (e) {
+                status.textContent = 'Error: Snapshot failed';
+                status.style.display = 'block';
+                setTimeout(() => status.style.display = 'none', 3000);
+            }
+        });
+
+        // Camera status
+        cameraIframe.addEventListener('load', () => {
+            if (cameraSelect.value !== 'local') {
+                try {
+                    cameraIframe.contentWindow.navigator.mediaDevices.getUserMedia({ video: true })
+                        .then(() => {
+                            status.textContent = 'Camera Active';
+                            status.style.display = 'block';
+                            setTimeout(() => status.style.display = 'none', 2000);
+                        })
+                        .catch(() => {
+                            status.textContent = 'Camera Access Denied';
+                            status.style.display = 'block';
+                            setTimeout(() => status.style.display = 'none', 3000);
+                        });
+                } catch (e) {
+                    status.textContent = 'Error: Camera check failed';
+                    status.style.display = 'block';
+                    setTimeout(() => status.style.display = 'none', 3000);
+                }
+                cameraIframe.contentWindow.focus();
+            }
+        });
+
+        // Save settings
+        function saveSettings() {
+            localStorage.setItem('pops_settings', JSON.stringify({
+                color: colorPicker.value,
+                intensity: intensitySlider.value,
+                pulse: pulseToggle.checked,
+                strobe: strobeToggle.checked
+            }));
+        }
+
+        function loadSettings() {
+            const settings = JSON.parse(localStorage.getItem('pops_settings') || '{}');
+            if (settings.color) colorPicker.value = settings.color;
+            if (settings.intensity) intensitySlider.value = settings.intensity;
+            pulseToggle.checked = settings.pulse || false;
+            strobeToggle.checked = settings.strobe || false;
+            pulseActive = settings.pulse || false;
+            strobeActive = settings.strobe || false;
+            if (pulseActive) requestAnimationFrame(pulseEffect);
+            if (strobeActive) strobeEffect();
+            updateLightEffect();
+        }
+
+        // Initial setup
+        loadSettings();
+        if (cameraSelect.value === 'local') initLocalCamera();
+    </script>
+</body>
+</html>
