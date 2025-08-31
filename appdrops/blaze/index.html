@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P.O.P.S. Blaze Selfie Enhanced</title>
+    <title>P.O.P.S. Blaze Selfie Simplified</title>
     <style>
         *, *::before, *::after {
             box-sizing: border-box;
@@ -42,6 +42,7 @@
             max-width: 1280px;
             max-height: 720px;
             z-index: 10;
+            margin-top: 60px; /* Space for controls */
         }
 
         .blast-light {
@@ -106,53 +107,57 @@
 
         .controls {
             position: fixed;
-            top: 20px;
+            top: 10px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.75);
-            padding: 15px 25px;
-            border-radius: 10px;
+            padding: 10px 15px;
+            border-radius: 8px;
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
             z-index: 20;
             backdrop-filter: blur(8px);
             color: #fff;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            max-width: 90%;
+            width: auto;
         }
 
         .controls label {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: bold;
         }
 
         .controls select, .controls input, .controls button {
-            padding: 8px;
+            padding: 6px;
             border-radius: 5px;
             border: none;
             background: rgba(255, 255, 255, 0.1);
             color: #fff;
             cursor: pointer;
+            font-size: 12px;
         }
 
         .controls select {
-            min-width: 150px;
+            width: 120px;
         }
 
         .controls input[type="color"] {
-            width: 50px;
-            height: 30px;
+            width: 40px;
+            height: 24px;
             padding: 2px;
         }
 
         .controls input[type="range"] {
-            width: 150px;
+            width: 100px;
             accent-color: #fff;
         }
 
         .controls button {
             background: #007bff;
             transition: background 0.2s;
+            padding: 6px 12px;
         }
 
         .controls button:hover {
@@ -166,24 +171,49 @@
             transform: translateX(-50%);
             color: #fff;
             background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
+            padding: 8px;
             border-radius: 5px;
             z-index: 20;
             display: none;
+            font-size: 12px;
         }
 
         @media (max-width: 768px) {
             .iframe-container {
                 width: 95vw;
-                height: 70vh;
+                height: dniu70vh;
+                margin-top: 80px; /* Adjusted for smaller controls */
             }
 
             .controls {
                 flex-direction: column;
                 align-items: center;
-                padding: 15px;
-                width: 90%;
+                padding: 8px;
                 max-width: 300px;
+                max-height: 150px; /* Limit menu height */
+                gap: 8px;
+            }
+
+            .controls select, .controls input, .controls button {
+                font-size: 10px;
+                padding: 5px;
+            }
+
+            .controls select {
+                width: 100px;
+            }
+
+            .controls input[type="color"] {
+                width: 30px;
+                height: 20px;
+            }
+
+            .controls input[type="range"] {
+                width: 80px;
+            }
+
+            .controls button {
+                padding: 5px 10px;
             }
 
             .light-bar {
@@ -214,14 +244,6 @@
         <label for="intensity-slider">Light Intensity:</label>
         <input type="range" id="intensity-slider" min="0" max="100" value="80">
 
-        <label for="pulse-toggle">Pulse Effect:</label>
-        <input type="checkbox" id="pulse-toggle">
-
-        <label for="strobe-toggle">Strobe Effect:</label>
-        <input type="checkbox" id="strobe-toggle">
-
-        <button id="preset-soft">Soft Light</button>
-        <button id="preset-extreme">Extreme Light</button>
         <button id="snapshot">Take Snapshot</button>
     </div>
 
@@ -242,10 +264,6 @@
         const cameraVideo = document.getElementById('camera-video');
         const colorPicker = document.getElementById('color-picker');
         const intensitySlider = document.getElementById('intensity-slider');
-        const pulseToggle = document.getElementById('pulse-toggle');
-        const strobeToggle = document.getElementById('strobe-toggle');
-        const presetSoft = document.getElementById('preset-soft');
-        const presetExtreme = document.getElementById('preset-extreme');
         const snapshotButton = document.getElementById('snapshot');
         const blastLight = document.querySelector('.blast-light');
         const lensFlare = document.querySelector('.lens-flare');
@@ -291,35 +309,6 @@
             }
         }
 
-        // Pulse animation
-        let pulseActive = false;
-        function pulseEffect() {
-            if (!pulseActive) return;
-            const intensity = parseInt(intensitySlider.value);
-            const baseSpread = intensity * 3;
-            const baseBlur = intensity * 2;
-            const pulse = Math.sin(Date.now() / 500) * 30;
-            blastLight.style.boxShadow = `0 0 ${baseBlur + pulse}px ${baseSpread + pulse}px ${colorPicker.value}`;
-            lightBars.forEach(bar => {
-                bar.style.boxShadow = `0 0 ${(baseBlur + pulse) / 2}px ${(baseSpread + pulse) / 2}px ${colorPicker.value}`;
-            });
-            lensFlare.style.opacity = 0.2 + Math.abs(pulse) / 100;
-            requestAnimationFrame(pulseEffect);
-        }
-
-        // Strobe effect
-        let strobeActive = false;
-        function strobeEffect() {
-            if (!strobeActive) return;
-            const intensity = parseInt(intensitySlider.value);
-            const opacity = Math.random() > 0.5 ? 0.6 : 0;
-            blastLightOverlay.style.opacity = intensity >= 95 ? opacity : '0';
-            lightBars.forEach(bar => {
-                bar.style.opacity = intensity >= 95 ? opacity : '1';
-            });
-            setTimeout(strobeEffect, 100);
-        }
-
         // Initialize local camera
         async function initLocalCamera() {
             try {
@@ -355,52 +344,6 @@
 
         colorPicker.addEventListener('input', updateLightEffect);
         intensitySlider.addEventListener('input', updateLightEffect);
-
-        pulseToggle.addEventListener('change', (event) => {
-            pulseActive = event.target.checked;
-            strobeToggle.checked = false;
-            strobeActive = false;
-            if (pulseActive) {
-                requestAnimationFrame(pulseEffect);
-            } else {
-                updateLightEffect();
-            }
-            saveSettings();
-        });
-
-        strobeToggle.addEventListener('change', (event) => {
-            strobeActive = event.target.checked;
-            pulseToggle.checked = false;
-            pulseActive = false;
-            if (strobeActive) {
-                strobeEffect();
-            } else {
-                updateLightEffect();
-            }
-            saveSettings();
-        });
-
-        presetSoft.addEventListener('click', () => {
-            intensitySlider.value = 20;
-            colorPicker.value = '#ffffff';
-            pulseToggle.checked = false;
-            strobeToggle.checked = false;
-            pulseActive = false;
-            strobeActive = false;
-            updateLightEffect();
-            saveSettings();
-        });
-
-        presetExtreme.addEventListener('click', () => {
-            intensitySlider.value = 100;
-            colorPicker.value = '#ffffff';
-            pulseToggle.checked = false;
-            strobeToggle.checked = false;
-            pulseActive = false;
-            strobeActive = false;
-            updateLightEffect();
-            saveSettings();
-        });
 
         snapshotButton.addEventListener('click', () => {
             try {
@@ -457,9 +400,7 @@
         function saveSettings() {
             localStorage.setItem('pops_settings', JSON.stringify({
                 color: colorPicker.value,
-                intensity: intensitySlider.value,
-                pulse: pulseToggle.checked,
-                strobe: strobeToggle.checked
+                intensity: intensitySlider.value
             }));
         }
 
@@ -467,12 +408,6 @@
             const settings = JSON.parse(localStorage.getItem('pops_settings') || '{}');
             if (settings.color) colorPicker.value = settings.color;
             if (settings.intensity) intensitySlider.value = settings.intensity;
-            pulseToggle.checked = settings.pulse || false;
-            strobeToggle.checked = settings.strobe || false;
-            pulseActive = settings.pulse || false;
-            strobeActive = settings.strobe || false;
-            if (pulseActive) requestAnimationFrame(pulseEffect);
-            if (strobeActive) strobeEffect();
             updateLightEffect();
         }
 
