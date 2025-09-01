@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P.O.P.S. Lightning & Atmospheric Plasma Simulator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(to bottom, #0a0a2e, #16213e);
+            font-family: 'Arial', sans-serif;
+            color: white;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #4a90e2;
+        }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0,0,0,0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #e74c3c;
+            max-width: 300px;
+        }
+        button {
+            background: linear-gradient(45deg, #4a90e2, #357abd);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(74, 144, 226, 0.4);
+        }
+        .altitude-scale {
+            position: absolute;
+            left: 50px;
+            top: 50px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        h3 {
+            color: #4a90e2;
+            margin-top: 0;
+        }
+        .phenomenon-active {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h3>P.O.P.S. Controls</h3>
+        <button onclick="triggerLightning()">⚡ Standard Lightning</button><br>
+        <button onclick="triggerSprite()">🔴 Red Sprite</button><br>
+        <button onclick="triggerElf()">⭕ Elf</button><br>
+        <button onclick="triggerBlueJet()">🔵 Blue Jet</button><br>
+        <button onclick="triggerGiganticJet()">🌀 Gigantic Jet</button><br>
+        <button onclick="showElectronStreams()">⚛️ Electron Streams</button><br>
+        <button onclick="resetSimulation()">🔄 Reset</button>
+    </div>
+
+    <div class="info-panel">
+        <h3>Phenomenon Info</h3>
+        <div id="phenomenon-info">
+            <p><strong>P.O.P.S. Lightning Simulator</strong></p>
+            <p>Click buttons to trigger different atmospheric electrical phenomena. Based on LOFAR radio telescope discoveries.</p>
+        </div>
+    </div>
+
+    <div class="altitude-scale">
+        <div style="position: absolute; top: 0px;">100km - Elves</div>
+        <div style="position: absolute; top: 100px;">80km - Jets</div>
+        <div style="position: absolute; top: 200px;">50km - Sprites</div>
+        <div style="position: absolute; top: 300px;">40km - Blue Jets</div>
+        <div style="position: absolute; top: 500px;">10km - Thunderstorm</div>
+        <div style="position: absolute; top: 600px;">0km - Ground</div>
+    </div>
+
+    <script>
+        let particles = [];
+        let lightningBolts = [];
+        let sprites = [];
+        let elves = [];
+        let blueJets = [];
+        let electronStreams = [];
+        let clouds = [];
+        let showElectrons = false;
+        let currentPhenomenon = "";
+
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            
+            // Create thunderstorm clouds
+            for(let i = 0; i < 3; i++) {
+                clouds.push({
+                    x: random(width * 0.2, width * 0.8),
+                    y: height - 200,
+                    size: random(100, 200),
+                    charge: random(-50, 50)
+                });
+            }
+        }
+
+        function draw() {
+            // Sky gradient
+            for(let i = 0; i <= height; i++) {
+                let alpha = map(i, 0, height, 0, 1);
+                let r = lerp(10, 25, alpha);
+                let g = lerp(10, 35, alpha);
+                let b = lerp(46, 70, alpha);
+                stroke(r, g, b);
+                line(0, i, width, i);
+            }
+
+            drawClouds();
+            drawElectronStreams();
+            drawLightning();
+            drawSprites();
+            drawElves();
+            drawBlueJets();
+            drawParticles();
+            
+            updateParticles();
+            updateLightning();
+            updateSprites();
+            updateElves();
+            updateBlueJets();
+        }
+
+        function drawClouds() {
+            fill(40, 40, 60, 180);
+            noStroke();
+            for(let cloud of clouds) {
+                for(let i = 0; i < 5; i++) {
+                    let x = cloud.x + random(-cloud.size/2, cloud.size/2);
+                    let y = cloud.y + random(-30, 30);
+                    ellipse(x, y, cloud.size + random(-20, 20));
+                }
+                
+                // Show charge buildup
+                if(cloud.charge > 30) {
+                    fill(255, 255, 100, 100);
+                    ellipse(cloud.x, cloud.y, cloud.size * 0.3);
+                }
+            }
+        }
+
+        function drawElectronStreams() {
+            if(!showElectrons) return;
+            
+            stroke(100, 200, 255, 150);
+            strokeWeight(1);
+            for(let stream of electronStreams) {
+                for(let i = 0; i < stream.points.length - 1; i++) {
+                    let p1 = stream.points[i];
+                    let p2 = stream.points[i + 1];
+                    line(p1.x, p1.y, p2.x, p2.y);
+                }
+                
+                // Move stream
+                for(let point of stream.points) {
+                    point.y += stream.speed;
+                    point.x += random(-2, 2);
+                }
+                
+                stream.life--;
+            }
+            
+            electronStreams = electronStreams.filter(s => s.life > 0);
+        }
+
+        function drawLightning() {
+            stroke(255, 255, 200);
+            strokeWeight(3);
+            for(let bolt of lightningBolts) {
+                for(let i = 0; i < bolt.points.length - 1; i++) {
+                    let p1 = bolt.points[i];
+                    let p2 = bolt.points[i + 1];
+                    line(p1.x, p1.y, p2.x, p2.y);
+                }
+                bolt.life--;
+            }
+        }
+
+        function drawSprites() {
+            for(let sprite of sprites) {
+                // Red column-like plasma structure
+                fill(255, 50, 50, sprite.alpha);
+                noStroke();
+                for(let i = 0; i < 20; i++) {
+                    let x = sprite.x + random(-20, 20);
+                    let y = sprite.y + i * 10;
+                    ellipse(x, y, 5 + random(0, 10));
+                }
+                sprite.alpha -= 5;
+            }
+        }
+
+        function drawElves() {
+            for(let elf of elves) {
+                // Expanding reddish glow
+                stroke(255, 100, 100, elf.alpha);
+                strokeWeight(2);
+                noFill();
+                ellipse(elf.x, elf.y, elf.radius);
+                elf.radius += 10;
+                elf.alpha -= 3;
+            }
+        }
+
+        function drawBlueJets() {
+            for(let jet of blueJets) {
+                stroke(100, 150, 255, jet.alpha);
+                strokeWeight(4);
+                for(let i = 0; i < jet.segments.length - 1; i++) {
+                    let p1 = jet.segments[i];
+                    let p2 = jet.segments[i + 1];
+                    line(p1.x, p1.y, p2.x, p2.y);
+                }
+                jet.alpha -= 8;
+            }
+        }
+
+        function drawParticles() {
+            fill(255, 255, 100, 150);
+            noStroke();
+            for(let p of particles) {
+                ellipse(p.x, p.y, p.size);
+            }
+        }
+
+        function updateParticles() {
+            for(let p of particles) {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+            }
+            particles = particles.filter(p => p.life > 0);
+        }
+
+        function updateLightning() {
+            lightningBolts = lightningBolts.filter(bolt => bolt.life > 0);
+        }
+
+        function updateSprites() {
+            sprites = sprites.filter(sprite => sprite.alpha > 0);
+        }
+
+        function updateElves() {
+            elves = elves.filter(elf => elf.alpha > 0 && elf.radius < 800);
+        }
+
+        function updateBlueJets() {
+            blueJets = blueJets.filter(jet => jet.alpha > 0);
+        }
+
+        function triggerLightning() {
+            currentPhenomenon = "Standard Lightning";
+            updateInfo("⚡ Standard Lightning: Initiated by electron streams from water vapor condensation. Visible bolt travels from cloud to ground at 50,000°C!");
+            
+            let cloud = random(clouds);
+            let bolt = {
+                points: [],
+                life: 30
+            };
+            
+            // Create jagged lightning path
+            let currentX = cloud.x;
+            let currentY = cloud.y;
+            
+            while(currentY < height - 50) {
+                bolt.points.push({x: currentX, y: currentY});
+                currentX += random(-30, 30);
+                currentY += random(20, 40);
+            }
+            
+            lightningBolts.push(bolt);
+            
+            // Add particles
+            for(let i = 0; i < 50; i++) {
+                particles.push({
+                    x: cloud.x + random(-50, 50),
+                    y: cloud.y + random(-20, 20),
+                    vx: random(-5, 5),
+                    vy: random(-10, -2),
+                    size: random(2, 8),
+                    life: 60
+                });
+            }
+        }
+
+        function triggerSprite() {
+            currentPhenomenon = "Red Sprite";
+            updateInfo("🔴 Red Sprite: Column-like plasma at 50-90km altitude. Triggered by powerful positive lightning. Lasts only milliseconds!");
+            
+            let cloud = random(clouds);
+            sprites.push({
+                x: cloud.x + random(-100, 100),
+                y: height - 400,
+                alpha: 200
+            });
+        }
+
+        function triggerElf() {
+            currentPhenomenon = "Elf";
+            updateInfo("⭕ Elf: Expanding reddish glow 400km wide at 100km altitude. Caused by excited nitrogen molecules!");
+            
+            let cloud = random(clouds);
+            elves.push({
+                x: cloud.x + random(-50, 50),
+                y: height - 500,
+                radius: 50,
+                alpha: 150
+            });
+        }
+
+        function triggerBlueJet() {
+            currentPhenomenon = "Blue Jet";
+            updateInfo("🔵 Blue Jet: Bright narrow cone at 40-50km elevation. Associated with hail formation!");
+            
+            let cloud = random(clouds);
+            let jet = {
+                segments: [],
+                alpha: 200
+            };
+            
+            let startX = cloud.x;
+            let startY = cloud.y;
+            
+            for(let i = 0; i < 15; i++) {
+                jet.segments.push({
+                    x: startX + random(-10, 10),
+                    y: startY - i * 15
+                });
+            }
+            
+            blueJets.push(jet);
+        }
+
+        function triggerGiganticJet() {
+            currentPhenomenon = "Gigantic Jet";
+            updateInfo("🌀 Gigantic Jet: Massive version of blue jets stretching for kilometers upward!");
+            
+            let cloud = random(clouds);
+            let jet = {
+                segments: [],
+                alpha: 255
+            };
+            
+            let startX = cloud.x;
+            let startY = cloud.y;
+            
+            for(let i = 0; i < 30; i++) {
+                jet.segments.push({
+                    x: startX + random(-20, 20),
+                    y: startY - i * 20
+                });
+            }
+            
+            blueJets.push(jet);
+        }
+
+        function showElectronStreams() {
+            currentPhenomenon = "Electron Streams";
+            updateInfo("⚛️ Electron Streams: LOFAR telescopes revealed these subatomic streams from water vapor condensation trigger lightning!");
+            
+            showElectrons = true;
+            
+            for(let i = 0; i < 5; i++) {
+                let cloud = random(clouds);
+                let stream = {
+                    points: [],
+                    speed: 3,
+                    life: 100
+                };
+                
+                for(let j = 0; j < 20; j++) {
+                    stream.points.push({
+                        x: cloud.x + random(-30, 30),
+                        y: cloud.y - j * 5
+                    });
+                }
+                
+                electronStreams.push(stream);
+            }
+            
+            setTimeout(() => { showElectrons = false; }, 3000);
+        }
+
+        function resetSimulation() {
+            particles = [];
+            lightningBolts = [];
+            sprites = [];
+            elves = [];
+            blueJets = [];
+            electronStreams = [];
+            showElectrons = false;
+            currentPhenomenon = "";
+            updateInfo("Simulation reset. Ready for new atmospheric electrical phenomena!");
+        }
+
+        function updateInfo(text) {
+            document.getElementById('phenomenon-info').innerHTML = 
+                `<p class="phenomenon-active">${currentPhenomenon}</p><p>${text}</p>`;
+        }
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
+    </script>
+</body>
+</html>
