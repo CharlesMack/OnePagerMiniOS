@@ -3,422 +3,572 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P.O.P.S. Community Media Foundation - Virtual Microwave Media Player</title>
+    <title>P.O.P.S. Virtual Microwave Media Player</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; }
-        canvas { display: block; }
-        #ui { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 5px; font-family: Arial, sans-serif; }
-        #hud { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: white; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; display: none; }
-        #fileInput { display: none; }
-        #playlist { margin-top: 10px; font-size: 14px; max-height: 200px; overflow-y: auto; }
-        #timer, #power { font-size: 16px; margin: 5px 0; }
-        button { margin: 5px; padding: 5px 10px; cursor: pointer; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+        }
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 16px;
+            z-index: 100;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        .control-btn {
+            padding: 12px 20px;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .control-btn:active {
+            transform: translateY(0);
+        }
+        #media-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            height: 300px;
+            background: rgba(0,0,0,0.9);
+            border-radius: 10px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 18px;
+            z-index: 50;
+            backdrop-filter: blur(20px);
+            border: 2px solid #00ff88;
+            box-shadow: 0 0 30px rgba(0,255,136,0.5);
+        }
+        #timer-display {
+            position: absolute;
+            top: 50px;
+            right: 50px;
+            font-size: 36px;
+            color: #00ff88;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(0,255,136,0.8);
+            z-index: 100;
+        }
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ff4757;
+            z-index: 100;
+            animation: pulse 2s infinite;
+        }
+        .status-indicator.cooking {
+            background: #00ff88;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        #playlist {
+            position: absolute;
+            right: 20px;
+            top: 100px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            width: 250px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .playlist-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .playlist-item:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateX(5px);
+        }
+        .playlist-item.active {
+            background: rgba(0,255,136,0.3);
+            border-left: 4px solid #00ff88;
+        }
+        .mini-btn {
+            padding: 5px 10px;
+            background: rgba(0,255,136,0.2);
+            color: #00ff88;
+            border: 1px solid #00ff88;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        .mini-btn:hover {
+            background: rgba(0,255,136,0.4);
+            transform: translateY(-1px);
+        }
+        .file-input-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            border: 2px solid #00ff88;
+            border-radius: 15px;
+            padding: 30px;
+            color: white;
+            z-index: 200;
+            display: none;
+            max-width: 500px;
+            text-align: center;
+        }
+        .file-input {
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #00ff88;
+            border-radius: 5px;
+            color: white;
+            width: 100%;
+        }
+        .file-input::file-selector-button {
+            background: #00ff88;
+            color: black;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .file-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 15px 0;
+            text-align: left;
+        }
+        .file-item {
+            padding: 8px 12px;
+            margin: 5px 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .file-item:hover {
+            background: rgba(0,255,136,0.2);
+        }
+        .file-item.selected {
+            background: rgba(0,255,136,0.3);
+            border-left: 4px solid #00ff88;
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: #ff4757;
+            font-size: 24px;
+            cursor: pointer;
+        }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <script src="https://unpkg.com/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat.gui/0.7.9/dat.gui.min.js"></script>
 </head>
 <body>
-    <div id="ui">
-        <button id="uploadBtn">Upload Media Files</button>
-        <input type="file" id="fileInput" multiple accept="audio/*,video/*,image/*,.pdf,.txt">
-        <button id="startCook">Start Cooking Playlist</button>
-        <button id="stopCook">Stop</button>
-        <button id="insideView">Switch to Inside View</button>
-        <div id="timer">Time: 00:00</div>
-        <div id="power">Power: 100%</div>
-        <div id="playlist"></div>
-    </div>
-    <div id="hud">
-        <button id="playPause">Play/Pause</button>
-        <button id="skip">Skip</button>
-        <button id="back">Back</button>
-        <button id="menu">Menu</button>
+    <div id="container">
+        <div id="hud">
+            <div><strong>P.O.P.S. Virtual Microwave v1.0</strong></div>
+            <div>Status: <span id="status">Ready</span></div>
+            <div>Power: <span id="power">80%</span></div>
+            <div>Volume: <span id="volume">75%</span></div>
+            <div>Current: <span id="current-media">None</span></div>
+        </div>
+        <div id="timer-display">00:00</div>
+        <div class="status-indicator" id="status-light"></div>
+        <div id="controls">
+            <button class="control-btn" onclick="startCooking()">🔥 START</button>
+            <button class="control-btn" onclick="pauseCooking()">⏸️ PAUSE</button>
+            <button class="control-btn" onclick="stopCooking()">⏹️ STOP</button>
+            <button class="control-btn" onclick="openDoor()">🚪 DOOR</button>
+            <button class="control-btn" onclick="nextMedia()">⏭️ NEXT</button>
+            <button class="control-btn" onclick="addMedia()">➕ ADD</button>
+            <button class="control-btn" onclick="loadFolder()">📁 LOAD FOLDER</button>
+            <button class="control-btn" onclick="clearPlaylist()">🗑️ CLEAR</button>
+        </div>
+        <div id="media-display">
+            <div id="media-content">Select media to start cooking!</div>
+        </div>
+        <div id="playlist">
+            <h3 style="margin-top: 0; color: #00ff88;">Media Playlist</h3>
+            <div style="margin-bottom: 15px; display: flex; gap: 5px;">
+                <button class="mini-btn" onclick="savePlaylist()">💾 Save</button>
+                <button class="mini-btn" onclick="loadPlaylistFromFile()">📂 Load</button>
+                <button class="mini-btn" onclick="shufflePlaylist()">🔀 Shuffle</button>
+            </div>
+            <div id="playlist-items"></div>
+        </div>
+        <div id="file-modal" class="file-input-container">
+            <button class="close-btn" onclick="closeFileModal()">&times;</button>
+            <h3 style="color: #00ff88; margin-top: 0;">Load Media Files</h3>
+            <p>Select files to add to your microwave playlist:</p>
+            <input type="file" id="file-input" class="file-input" multiple accept="audio/*,video/*,image/*,.pdf,.txt">
+            <div style="margin: 20px 0;">
+                <button class="control-btn" onclick="processSelectedFiles()">Add Selected Files</button>
+                <button class="control-btn" style="background: #6c757d;" onclick="closeFileModal()">Cancel</button>
+            </div>
+            <div id="file-preview" class="file-list" style="display: none;">
+                <h4>Selected Files:</h4>
+                <div id="file-list-content"></div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Scene Setup
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.body.appendChild(renderer.domElement);
+        // Global variables
+        let scene, camera, renderer, microwave, turntable, door, interiorLight, mediaScreen;
+        let cookingAnimation, isCooking = false, isDoorOpen = false, isPaused = false;
+        let currentTimer = 0, maxTime = 0, currentMediaIndex = 0;
+        let playlist = [], loadedFiles = new Map(), selectedFiles = new Set();
+        let mediaElement, pdfDoc, pdfPageNum = 1, pdfCanvas, pdfCtx;
+        let timerWorker, audioListener, magnetronSound, dingSound;
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
-        const pointLight = new THREE.PointLight(0xffffff, 1, 10);
-        pointLight.position.set(5, 5, 5);
-        scene.add(pointLight);
+        // Initialize scene
+        function initScene() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x000000, 0);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
 
-        // Kitchen Scene
-        const counterGeo = new THREE.BoxGeometry(10, 0.5, 5);
-        const counterMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-        const countertop = new THREE.Mesh(counterGeo, counterMat);
-        countertop.position.y = -0.25;
-        scene.add(countertop);
+            // Setup audio
+            audioListener = new THREE.AudioListener();
+            camera.add(audioListener);
+            magnetronSound = new THREE.Audio(audioListener);
+            dingSound = new THREE.Audio(audioListener);
+            loadAudioFiles();
 
-        const stoveGeo = new THREE.BoxGeometry(2, 2, 2);
-        const stoveMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-        const stove = new THREE.Mesh(stoveGeo, stoveMat);
-        stove.position.set(-3, 0.75, 0);
-        scene.add(stove);
+            createKitchenEnvironment();
+            createMicrowave();
 
-        const windowGeo = new THREE.PlaneGeometry(4, 3);
-        const windowLoader = new THREE.TextureLoader();
-        const windowMat = new THREE.MeshBasicMaterial({ 
-            map: windowLoader.load(
-                'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/uv_grid_opengl.jpg', // Fallback texture
-                undefined,
-                undefined,
-                () => console.error('Failed to load window texture, using fallback color')
-            ),
-            side: THREE.DoubleSide,
-            color: new THREE.Color(0x87CEEB) // Sky blue fallback
-        });
-        const windowMesh = new THREE.Mesh(windowGeo, windowMat);
-        windowMesh.position.set(0, 2, -2.5);
-        windowMesh.rotation.y = Math.PI / 2;
-        scene.add(windowMesh);
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            interiorLight = new THREE.PointLight(0xffff88, 0, 3);
+            interiorLight.position.set(1, 1, 0.3);
+            scene.add(interiorLight);
 
-        // Microwave Model
-        let microwave, turntable, interiorLight, door;
-        const loader = new THREE.GLTFLoader();
-        loader.load(
-            'https://cdn.sketchfab.com/models/d0a39d48feb448d3a215e0656e806966/optimized/microwave_oven.glb',
-            (gltf) => {
-                microwave = gltf.scene;
-                microwave.position.set(2, 1, 0);
-                microwave.scale.set(0.5, 0.5, 0.5);
-                scene.add(microwave);
+            camera.position.set(3, 2, 5);
+            camera.lookAt(0, 1, 0);
 
-                turntable = microwave.getObjectByName('Turntable') || new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.8, 0.8, 0.1, 32),
-                    new THREE.MeshStandardMaterial({ color: 0x888888 })
-                );
-                if (!microwave.getObjectByName('Turntable')) {
-                    turntable.position.set(2, 0.8, 0);
-                    scene.add(turntable);
-                }
+            // Setup PDF canvas
+            pdfCanvas = document.createElement('canvas');
+            pdfCtx = pdfCanvas.getContext('2d');
 
-                door = microwave.getObjectByName('Door');
-                interiorLight = new THREE.PointLight(0xffff00, 0, 2);
-                interiorLight.position.set(2, 1.5, 0);
-                scene.add(interiorLight);
-            },
-            undefined,
-            (error) => {
-                console.error('GLTF load error:', error);
-                alert('Failed to load microwave model. Using fallback geometry.');
-                const fallbackGeo = new THREE.BoxGeometry(1, 1, 1);
-                const fallbackMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
-                microwave = new THREE.Mesh(fallbackGeo, fallbackMat);
-                microwave.position.set(2, 1, 0);
-                scene.add(microwave);
-                turntable = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.8, 0.8, 0.1, 32),
-                    new THREE.MeshStandardMaterial({ color: 0x888888 })
-                );
-                turntable.position.set(2, 0.8, 0);
-                scene.add(turntable);
-                interiorLight = new THREE.PointLight(0xffff00, 0, 2);
-                interiorLight.position.set(2, 1.5, 0);
-                scene.add(interiorLight);
-            }
-        );
+            // Setup Web Worker for timer
+            timerWorker = new Worker(URL.createObjectURL(new Blob([
+                'let interval;' +
+                'self.onmessage = function(e) {' +
+                '    if (e.data.action === "start") {' +
+                '        let time = e.data.time;' +
+                '        interval = setInterval(() => {' +
+                '            time--;' +
+                '            self.postMessage(time);' +
+                '            if (time <= 0) clearInterval(interval);' +
+                '        }, 1000);' +
+                '    } else if (e.data.action === "stop") {' +
+                '        clearInterval(interval);' +
+                '    }' +
+                '};'
+            ], { type: 'application/javascript' })));
 
-        // Media Display Surface
-        const mediaGeo = new THREE.PlaneGeometry(1, 1);
-        const mediaMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-        const mediaScreen = new THREE.Mesh(mediaGeo, mediaMat);
-        mediaScreen.position.set(2, 1, 0);
-        scene.add(mediaScreen);
-
-        // Computer-Generated Microwave Hum
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const listener = new THREE.AudioListener();
-        camera.add(listener);
-        const sound = new THREE.Audio(listener);
-
-        function createMicrowaveHum() {
-            // Create oscillator for base hum (low-frequency sine wave)
-            const oscillator = audioContext.createOscillator();
-            oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(60, audioContext.currentTime); // 60 Hz for electrical hum
-
-            // Create noise for texture
-            const noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 2, audioContext.sampleRate);
-            const noiseData = noiseBuffer.getChannelData(0);
-            for (let i = 0; i < noiseData.length; i++) {
-                noiseData[i] = Math.random() * 2 - 1; // White noise
-            }
-            const noise = audioContext.createBufferSource();
-            noise.buffer = noiseBuffer;
-            noise.loop = true;
-
-            // Filter noise to sound like a muffled hum
-            const noiseFilter = audioContext.createBiquadFilter();
-            noiseFilter.type = 'lowpass';
-            noiseFilter.frequency.setValueAtTime(200, audioContext.currentTime);
-            noiseFilter.Q.setValueAtTime(1, audioContext.currentTime);
-
-            // Gain nodes for mixing
-            const oscGain = audioContext.createGain();
-            oscGain.gain.setValueAtTime(0.3, audioContext.currentTime); // Lower oscillator volume
-            const noiseGain = audioContext.createGain();
-            noiseGain.gain.setValueAtTime(0.2, audioContext.currentTime); // Lower noise volume
-
-            // Connect nodes
-            oscillator.connect(oscGain);
-            noise.connect(noiseFilter).connect(noiseGain);
-            oscGain.connect(audioContext.destination);
-            noiseGain.connect(audioContext.destination);
-
-            // Connect to Three.js audio
-            const audioElement = audioContext.createMediaStreamDestination();
-            oscGain.connect(audioElement);
-            noiseGain.connect(audioElement);
-            sound.setMediaStreamSource(audioElement.stream);
-            sound.setLoop(true);
-            sound.setVolume(0.5);
-
-            // Start sound sources
-            oscillator.start();
-            noise.start();
-
-            return { oscillator, noise }; // For stopping later
-        }
-
-        let humSources = null;
-        try {
-            humSources = createMicrowaveHum();
-        } catch (error) {
-            console.error('Failed to create microwave hum:', error);
-            alert('Failed to generate microwave hum sound. Continuing without audio.');
-        }
-
-        // Camera Positions
-        const outsideCamPos = new THREE.Vector3(0, 2, 5);
-        const insideCamPos = new THREE.Vector3(2, 1, 0.5);
-        camera.position.copy(outsideCamPos);
-        camera.lookAt(0, 1, 0);
-
-        // Playlist and Media Handling
-        let playlist = [];
-        let currentMediaIndex = 0;
-        let isCooking = false;
-        let timeRemaining = 0;
-        let powerLevel = 100;
-        let mediaElement;
-        let pdfDoc, pdfPageNum = 1;
-        let txtContent = '';
-
-        // UI Elements
-        const uploadBtn = document.getElementById('uploadBtn');
-        const fileInput = document.getElementById('fileInput');
-        const playlistDiv = document.getElementById('playlist');
-        uploadBtn.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', (e) => {
-            playlist = Array.from(e.target.files);
-            playlistDiv.innerHTML = playlist.length
-                ? 'Playlist:<br>' + playlist.map((f, i) => `<div>${i + 1}. ${f.name}</div>`).join('')
-                : 'No files selected';
-        });
-
-        // Power Level Control
-        const gui = new dat.GUI({ autoPlace: false });
-        document.getElementById('ui').appendChild(gui.domElement);
-        const settings = { powerLevel: 100 };
-        gui.add(settings, 'powerLevel', 10, 100, 10).name('Power Level (%)').onChange((value) => {
-            powerLevel = value;
-            document.getElementById('power').textContent = `Power: ${value}%`;
-        });
-
-        // Web Worker for Timer
-        const timerWorker = new Worker(URL.createObjectURL(new Blob([`
-            let interval;
-            self.onmessage = (e) => {
-                if (e.data.action === 'start') {
-                    let time = e.data.time;
-                    interval = setInterval(() => {
-                        time--;
-                        postMessage(time);
-                        if (time <= 0) clearInterval(interval);
-                    }, 1000);
-                } else if (e.data.action === 'stop' || e.data.action === 'pause') {
-                    clearInterval(interval);
+            timerWorker.onmessage = (e) => {
+                currentTimer = e.data;
+                const minutes = Math.floor(currentTimer / 60);
+                const seconds = currentTimer % 60;
+                document.getElementById('timer-display').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                if (currentTimer <= 0 && isCooking) {
+                    stopCooking();
+                    setTimeout(() => {
+                        nextMedia();
+                        if (playlist.length > 1) startCooking();
+                    }, 2000);
                 }
             };
-        `], { type: 'application/javascript' })));
 
-        timerWorker.onmessage = (e) => {
-            timeRemaining = e.data;
-            document.getElementById('timer').textContent = `Time: ${Math.floor(timeRemaining / 60)}:${timeRemaining % 60 < 10 ? '0' : ''}${timeRemaining % 60}`;
-            if (timeRemaining <= 0 && isCooking) playNextMedia();
-        };
-
-        // Start Cooking
-        document.getElementById('startCook').addEventListener('click', () => {
-            if (playlist.length > 0 && !isCooking) {
-                isCooking = true;
-                interiorLight.intensity = 1;
-                if (humSources) sound.play();
-                playNextMedia();
-                animateTurntable(true);
-                if (door) door.rotation.y = 0;
-            } else if (playlist.length === 0) {
-                alert('Please upload media files first!');
-            }
-        });
-
-        // Stop Cooking
-        document.getElementById('stopCook').addEventListener('click', stopCooking);
-
-        function stopCooking() {
-            isCooking = false;
-            interiorLight.intensity = 0;
-            sound.stop();
-            timerWorker.postMessage({ action: 'stop' });
-            if (mediaElement) {
-                mediaElement.pause();
-                mediaElement.remove();
-                mediaElement = null;
-            }
-            animateTurntable(false);
-            if (door) door.rotation.y = Math.PI / 2;
-            mediaMat.map = null;
-            mediaMat.color.set(0xffffff);
-            mediaMat.needsUpdate = true;
+            loadPlaylistFromStorage();
+            animate();
         }
 
-        // Play Next Media
-        function playNextMedia() {
-            if (currentMediaIndex >= playlist.length) {
-                stopCooking();
-                currentMediaIndex = 0;
-                return;
-            }
-
-            const file = playlist[currentMediaIndex];
-            const type = file.type.split('/')[0];
-            let duration = 10;
-
-            if (mediaElement) {
-                mediaElement.pause();
-                mediaElement.remove();
-                mediaElement = null;
-            }
-            if (mediaMat.map) {
-                mediaMat.map.dispose();
-                mediaMat.map = null;
-            }
-
-            try {
-                if (type === 'video' || type === 'audio') {
-                    mediaElement = type === 'video' ? document.createElement('video') : document.createElement('audio');
-                    mediaElement.src = URL.createObjectURL(file);
-                    mediaElement.autoplay = true;
-                    mediaElement.loop = false;
-                    mediaElement.addEventListener('loadedmetadata', () => {
-                        duration = mediaElement.duration;
-                        startTimer(duration);
-                    });
-                    mediaElement.addEventListener('ended', playNextMedia);
-                    mediaElement.addEventListener('error', () => {
-                        console.error('Media load error:', file.name);
-                        alert(`Failed to load ${file.name}. Skipping to next media.`);
-                        playNextMedia();
-                    });
-                    if (type === 'video') {
-                        const videoTexture = new THREE.VideoTexture(mediaElement);
-                        mediaMat.map = videoTexture;
-                        mediaMat.needsUpdate = true;
-                    }
-                } else if (type === 'image') {
-                    const imgTexture = new THREE.TextureLoader().load(
-                        URL.createObjectURL(file),
-                        () => {
-                            mediaMat.map = imgTexture;
-                            mediaMat.needsUpdate = true;
-                            startTimer(duration);
-                            setTimeout(playNextMedia, duration * 1000);
-                        },
-                        undefined,
-                        (error) => {
-                            console.error('Image load error:', error);
-                            alert(`Failed to load ${file.name}. Skipping to next media.`);
-                            playNextMedia();
-                        }
-                    );
-                } else if (file.type === 'application/pdf') {
-                    pdfjsLib.getDocument(URL.createObjectURL(file)).promise.then((doc) => {
-                        pdfDoc = doc;
-                        pdfPageNum = 1;
-                        renderPdfPage();
-                    }).catch((error) => {
-                        console.error('PDF load error:', error);
-                        alert(`Failed to load ${file.name}. Skipping to next media.`);
-                        playNextMedia();
-                    });
-                } else if (file.type === 'text/plain') {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        txtContent = e.target.result;
-                        renderTextToCanvas(txtContent);
-                        startTimer(duration);
-                        setTimeout(playNextMedia, duration * 1000);
-                    };
-                    reader.onerror = () => {
-                        console.error('Text load error:', file.name);
-                        alert(`Failed to load ${file.name}. Skipping to next media.`);
-                        playNextMedia();
-                    };
-                    reader.readAsText(file);
-                } else {
-                    console.error('Unsupported file type:', file.type);
-                    alert(`Unsupported file type: ${file.name}. Skipping to next media.`);
-                    playNextMedia();
-                }
-            } catch (error) {
-                console.error('Error processing media:', error);
-                alert(`Error processing ${file.name}. Skipping to next media.`);
-                playNextMedia();
-            }
-
-            currentMediaIndex++;
-        }
-
-        // Render PDF to Canvas
-        const pdfCanvas = document.createElement('canvas');
-        const pdfCtx = pdfCanvas.getContext('2d');
-        function renderPdfPage() {
-            if (!pdfDoc) return;
-            pdfDoc.getPage(pdfPageNum).then((page) => {
-                const viewport = page.getViewport({ scale: 1 });
-                pdfCanvas.width = viewport.width;
-                pdfCanvas.height = viewport.height;
-                page.render({ canvasContext: pdfCtx, viewport }).promise.then(() => {
-                    const pdfTexture = new THREE.CanvasTexture(pdfCanvas);
-                    mediaMat.map = pdfTexture;
-                    mediaMat.needsUpdate = true;
-                    startTimer(10);
-                    setTimeout(() => {
-                        pdfPageNum++;
-                        if (pdfPageNum <= pdfDoc.numPages) renderPdfPage();
-                        else playNextMedia();
-                    }, 10000);
-                });
-            }).catch((error) => {
-                console.error('PDF page render error:', error);
-                alert('Failed to render PDF page. Skipping to next media.');
-                playNextMedia();
+        function loadAudioFiles() {
+            // Placeholder: Replace with actual audio file URLs
+            const audioLoader = new THREE.AudioLoader();
+            audioLoader.load('https://example.com/magnetron.mp3', function(buffer) {
+                magnetronSound.setBuffer(buffer);
+                magnetronSound.setLoop(true);
+                magnetronSound.setVolume(0.5);
+            }, undefined, function(error) {
+                console.error('Magnetron sound load error:', error);
+            });
+            audioLoader.load('https://example.com/ding.mp3', function(buffer) {
+                dingSound.setBuffer(buffer);
+                dingSound.setLoop(false);
+                dingSound.setVolume(0.7);
+            }, undefined, function(error) {
+                console.error('Ding sound load error:', error);
             });
         }
 
-        // Render Text to Canvas
+        function createKitchenEnvironment() {
+            const counterGeometry = new THREE.BoxGeometry(8, 0.2, 3);
+            const counterMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            const counter = new THREE.Mesh(counterGeometry, counterMaterial);
+            counter.position.set(0, 0, 0);
+            counter.receiveShadow = true;
+            scene.add(counter);
+
+            const windowGeometry = new THREE.PlaneGeometry(2, 2);
+            const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x87CEEB, transparent: true, opacity: 0.7 });
+            const window = new THREE.Mesh(windowGeometry, windowMaterial);
+            window.position.set(-3, 2, -1);
+            scene.add(window);
+
+            const wallGeometry = new THREE.PlaneGeometry(10, 5);
+            const wallMaterial = new THREE.MeshLambertMaterial({ color: 0xF0F0F0 });
+            const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+            wall.position.set(0, 2.5, -2);
+            wall.receiveShadow = true;
+            scene.add(wall);
+        }
+
+        function createMicrowave() {
+            const bodyGeometry = new THREE.BoxGeometry(2, 1.2, 1.5);
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x2c3e50 });
+            microwave = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            microwave.position.set(1, 0.7, 0);
+            microwave.castShadow = true;
+            scene.add(microwave);
+
+            const doorGeometry = new THREE.BoxGeometry(1.8, 1, 0.1);
+            const doorMaterial = new THREE.MeshLambertMaterial({ color: 0x34495e });
+            door = new THREE.Mesh(doorGeometry, doorMaterial);
+            door.position.set(1, 0.7, 0.8);
+            scene.add(door);
+
+            const windowGeometry = new THREE.PlaneGeometry(1.4, 0.7);
+            const windowMaterial = new THREE.MeshLambertMaterial({ color: 0x000000, transparent: true, opacity: 0.8 });
+            const doorWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+            doorWindow.position.set(1, 0.7, 0.85);
+            scene.add(doorWindow);
+
+            const screenGeometry = new THREE.PlaneGeometry(1.2, 0.7);
+            const screenMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            mediaScreen = new THREE.Mesh(screenGeometry, screenMaterial);
+            mediaScreen.position.set(1, 0.7, 0.3);
+            scene.add(mediaScreen);
+
+            const turntableGeometry = new THREE.CylinderGeometry(0.6, 0.6, 0.05);
+            const turntableMaterial = new THREE.MeshLambertMaterial({ color: 0x95a5a6 });
+            turntable = new THREE.Mesh(turntableGeometry, turntableMaterial);
+            turntable.position.set(1, 0.2, 0.2);
+            scene.add(turntable);
+
+            const panelGeometry = new THREE.BoxGeometry(0.8, 0.6, 0.1);
+            const panelMaterial = new THREE.MeshLambertMaterial({ color: 0x1a1a1a });
+            const panel = new THREE.Mesh(panelGeometry, panelMaterial);
+            panel.position.set(2.5, 0.7, 0.3);
+            scene.add(panel);
+        }
+
+        function loadPlaylistFromStorage() {
+            const items = document.querySelectorAll('#playlist-items .playlist-item');
+            playlist = Array.from(items).map((item, index) => ({
+                type: item.dataset.type,
+                name: item.dataset.name,
+                duration: parseInt(item.dataset.duration) || 60,
+                element: item,
+                fileData: item.dataset.fileId ? loadedFiles.get(item.dataset.fileId) : null
+            }));
+            items.forEach((item, index) => {
+                item.addEventListener('click', () => selectMedia(index));
+            });
+            if (playlist.length > 0) selectMedia(0);
+        }
+
+        function selectMedia(index) {
+            playlist.forEach(item => item.element.classList.remove('active'));
+            currentMediaIndex = index;
+            playlist[index].element.classList.add('active');
+            document.getElementById('current-media').textContent = playlist[index].name;
+            updateMediaDisplay(playlist[index]);
+        }
+
+        function updateMediaDisplay(media) {
+            const display = document.getElementById('media-content');
+            if (!mediaScreen || !mediaScreen.material) return;
+
+            if (media.fileData) {
+                displayRealFile(media, display);
+                renderFileToScreen(media);
+            } else {
+                displaySimulatedContent(media, display);
+                mediaScreen.material.color.setHex(0x000000);
+                mediaScreen.material.map = null;
+                mediaScreen.material.needsUpdate = true;
+            }
+        }
+
+        function renderFileToScreen(media) {
+            if (!mediaScreen || !media.fileData) return;
+            const file = media.fileData;
+
+            switch (media.type) {
+                case 'video':
+                    if (mediaElement) mediaElement.remove();
+                    mediaElement = document.createElement('video');
+                    mediaElement.src = URL.createObjectURL(file);
+                    mediaElement.autoplay = isCooking;
+                    mediaElement.loop = false;
+                    mediaElement.volume = parseInt(document.getElementById('volume').textContent) / 100;
+                    mediaElement.addEventListener('ended', () => {
+                        if (isCooking) {
+                            stopCooking();
+                            setTimeout(nextMedia, 2000);
+                        }
+                    });
+                    const videoTexture = new THREE.VideoTexture(mediaElement);
+                    mediaScreen.material.map = videoTexture;
+                    mediaScreen.material.needsUpdate = true;
+                    break;
+                case 'audio':
+                    if (mediaElement) mediaElement.remove();
+                    mediaElement = document.createElement('audio');
+                    mediaElement.src = URL.createObjectURL(file);
+                    mediaElement.autoplay = isCooking;
+                    mediaElement.loop = false;
+                    mediaElement.volume = parseInt(document.getElementById('volume').textContent) / 100;
+                    mediaElement.addEventListener('ended', () => {
+                        if (isCooking) {
+                            stopCooking();
+                            setTimeout(nextMedia, 2000);
+                        }
+                    });
+                    renderAudioVisualization();
+                    break;
+                case 'image':
+                    new THREE.TextureLoader().load(URL.createObjectURL(file), function(texture) {
+                        mediaScreen.material.map = texture;
+                        mediaScreen.material.needsUpdate = true;
+                    }, undefined, function(error) {
+                        console.error('Image load error:', error);
+                    });
+                    break;
+                case 'document':
+                    if (file.type === 'application/pdf') {
+                        pdfjsLib.getDocument(URL.createObjectURL(file)).promise.then(function(doc) {
+                            pdfDoc = doc;
+                            pdfPageNum = 1;
+                            renderPdfPage();
+                        }).catch(function(error) {
+                            console.error('PDF load error:', error);
+                        });
+                    } else if (file.type === 'text/plain') {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            renderTextToCanvas(e.target.result);
+                        };
+                        reader.onerror = function(error) {
+                            console.error('Text read error:', error);
+                        };
+                        reader.readAsText(file);
+                    }
+                    break;
+            }
+        }
+
+        function renderAudioVisualization() {
+            pdfCanvas.width = 800;
+            pdfCanvas.height = 600;
+            pdfCtx.fillStyle = 'black';
+            pdfCtx.fillRect(0, 0, 800, 600);
+            pdfCtx.fillStyle = '#00ff88';
+            for (let i = 0; i < 10; i++) {
+                const height = Math.random() * 200 + 50;
+                pdfCtx.fillRect(i * 80 + 20, 300 - height / 2, 60, height);
+            }
+            const audioTexture = new THREE.CanvasTexture(pdfCanvas);
+            mediaScreen.material.map = audioTexture;
+            mediaScreen.material.needsUpdate = true;
+        }
+
+        function renderPdfPage() {
+            if (!pdfDoc || !mediaScreen) return;
+            pdfDoc.getPage(pdfPageNum).then(function(page) {
+                const viewport = page.getViewport({ scale: 1 });
+                pdfCanvas.width = viewport.width;
+                pdfCanvas.height = viewport.height;
+                page.render({ canvasContext: pdfCtx, viewport: viewport }).promise.then(function() {
+                    const pdfTexture = new THREE.CanvasTexture(pdfCanvas);
+                    mediaScreen.material.map = pdfTexture;
+                    mediaScreen.material.needsUpdate = true;
+                });
+            }).catch(function(error) {
+                console.error('PDF render error:', error);
+            });
+        }
+
         function renderTextToCanvas(text) {
+            if (!mediaScreen) return;
             pdfCanvas.width = 800;
             pdfCanvas.height = 600;
             pdfCtx.fillStyle = 'white';
@@ -428,68 +578,526 @@
             const lines = text.split('\n').slice(0, 20);
             lines.forEach((line, i) => pdfCtx.fillText(line, 10, 30 + i * 25));
             const txtTexture = new THREE.CanvasTexture(pdfCanvas);
-            mediaMat.map = txtTexture;
-            mediaMat.needsUpdate = true;
+            mediaScreen.material.map = txtTexture;
+            mediaScreen.material.needsUpdate = true;
         }
 
-        // Animate Turntable
-        let turntableAnimating = false;
-        function animateTurntable(animate) {
-            turntableAnimating = animate;
-        }
-
-        // Inside View Switch
-        let insideView = false;
-        const insideViewBtn = document.getElementById('insideView');
-        insideViewBtn.addEventListener('click', () => {
-            insideView = !insideView;
-            insideViewBtn.textContent = insideView ? 'Switch to Outside View' : 'Switch to Inside View';
-            camera.position.copy(insideView ? insideCamPos : outsideCamPos);
-            camera.lookAt(2, 1, 0);
-            document.getElementById('hud').style.display = insideView ? 'block' : 'none';
-        });
-
-        // HUD Controls
-        document.getElementById('playPause').addEventListener('click', () => {
-            if (mediaElement) {
-                if (mediaElement.paused) {
-                    mediaElement.play();
-                    timerWorker.postMessage({ action: 'start', time: timeRemaining });
-                } else {
-                    mediaElement.pause();
-                    timerWorker.postMessage({ action: 'pause' });
-                }
+        function displayRealFile(media, display) {
+            const file = media.fileData;
+            switch (media.type) {
+                case 'video':
+                    display.innerHTML = `
+                        <video controls style="max-width: 380px; max-height: 280px;" ${isCooking ? 'autoplay' : ''}>
+                            <source src="${URL.createObjectURL(file)}" type="${file.type}">
+                            Your browser does not support video playback.
+                        </video>
+                    `;
+                    break;
+                case 'audio':
+                    display.innerHTML = `
+                        <div style="text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 15px;">🎵</div>
+                            <div style="margin-bottom: 15px;">${media.name}</div>
+                            <audio controls ${isCooking ? 'autoplay' : ''} style="width: 300px;">
+                                <source src="${URL.createObjectURL(file)}" type="${file.type}">
+                                Your browser does not support audio playback.
+                            </audio>
+                        </div>
+                    `;
+                    break;
+                case 'image':
+                    display.innerHTML = `
+                        <div style="text-align: center;">
+                            <img src="${URL.createObjectURL(file)}" style="max-width: 380px; max-height: 280px; border-radius: 8px;" alt="${media.name}">
+                            <div style="margin-top: 10px; font-size: 14px;">${media.name}</div>
+                        </div>
+                    `;
+                    break;
+                case 'document':
+                    if (file.type === 'text/plain') {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const text = e.target.result.substring(0, 500) + (e.target.result.length > 500 ? '...' : '');
+                            display.innerHTML = `
+                                <div style="text-align: left; font-size: 12px; line-height: 1.4; max-height: 250px; overflow-y: auto; padding: 10px;">
+                                    <div style="text-align: center; font-size: 16px; margin-bottom: 10px; color: #00ff88;">${media.name}</div>
+                                    <pre style="white-space: pre-wrap; font-family: inherit;">${text}</pre>
+                                </div>
+                            `;
+                        };
+                        reader.onerror = function(error) {
+                            console.error('Text read error:', error);
+                        };
+                        reader.readAsText(file);
+                    } else {
+                        display.innerHTML = `
+                            <div style="text-align: center;">
+                                <div style="font-size: 48px; margin-bottom: 15px;">📄</div>
+                                <div>Document: ${media.name}</div>
+                                <div style="margin-top: 10px; font-size: 12px; opacity: 0.7;">
+                                    ${file.type} - ${(file.size / 1024).toFixed(1)} KB
+                                </div>
+                            </div>
+                        `;
+                    }
+                    break;
             }
-        });
-        document.getElementById('skip').addEventListener('click', playNextMedia);
-        document.getElementById('back').addEventListener('click', () => {
-            currentMediaIndex = Math.max(0, currentMediaIndex - 2);
-            playNextMedia();
-        });
-        document.getElementById('menu').addEventListener('click', () => alert('Menu: Settings, Power Level, etc.'));
+        }
 
-        // Animation Loop
+        function displaySimulatedContent(media, display) {
+            switch (media.type) {
+                case 'video':
+                    display.innerHTML = `
+                        <div style="text-align: center;">
+                            <div style="font-size: 60px; margin-bottom: 20px;">🎥</div>
+                            <div>Now Playing: ${media.name}</div>
+                            <div style="margin-top: 10px; font-size: 14px; opacity: 0.7;">
+                                Cooking media in virtual microwave...
+                            </div>
+                        </div>
+                    `;
+                    break;
+                case 'audio':
+                    display.innerHTML = `
+                        <div style="text-align: center;">
+                            <div style="font-size: 60px; margin-bottom: 20px;">🎵</div>
+                            <div>Now Playing: ${media.name}</div>
+                            <div style="margin-top: 20px;">
+                                <div style="width: 200px; height: 4px; background: #333; border-radius: 2px; margin: 0 auto;">
+                                    <div style="width: 45%; height: 100%; background: #00ff88; border-radius: 2px; animation: pulse 2s infinite;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+                case 'image':
+                    display.innerHTML = `
+                        <div style="text-align: center;">
+                            <div style="font-size: 60px; margin-bottom: 20px;">🖼️</div>
+                            <div>Displaying: ${media.name}</div>
+                            <div style="margin-top: 10px; border: 2px solid #00ff88; width: 150px; height: 100px; margin: 20px auto; background: linear-gradient(45deg, #ff6b6b, #4ecdc4); border-radius: 5px;"></div>
+                        </div>
+                    `;
+                    break;
+                case 'document':
+                    display.innerHTML = `
+                        <div style="text-align: center;">
+                            <div style="font-size: 60px; margin-bottom: 20px;">📄</div>
+                            <div>Reading: ${media.name}</div>
+                            <div style="margin-top: 15px; font-size: 12px; line-height: 1.4; max-width: 300px; text-align: left;">
+                                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore...
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+
+        function startCooking() {
+            if (playlist.length === 0 || currentMediaIndex >= playlist.length || isDoorOpen) {
+                document.getElementById('status').textContent = isDoorOpen ? 'Door Open' : 'No Media';
+                return;
+            }
+            const media = playlist[currentMediaIndex];
+            maxTime = media.duration;
+            currentTimer = maxTime;
+            isCooking = true;
+            isPaused = false;
+
+            document.getElementById('status').textContent = 'Cooking';
+            document.getElementById('status-light').classList.add('cooking');
+            document.getElementById('media-display').style.display = 'flex';
+            interiorLight.intensity = 1;
+            startCookingAnimation();
+            timerWorker.postMessage({ action: 'start', time: maxTime });
+            if (magnetronSound.isPlaying) magnetronSound.stop();
+            magnetronSound.play();
+            updateMediaDisplay(media);
+        }
+
+        function pauseCooking() {
+            if (!isCooking) return;
+            isPaused = !isPaused;
+            document.getElementById('status').textContent = isPaused ? 'Paused' : 'Cooking';
+            if (isPaused) {
+                interiorLight.intensity = 0.3;
+                timerWorker.postMessage({ action: 'stop' });
+                if (mediaElement) mediaElement.pause();
+                if (magnetronSound.isPlaying) magnetronSound.stop();
+            } else {
+                interiorLight.intensity = 1;
+                timerWorker.postMessage({ action: 'start', time: currentTimer });
+                if (mediaElement) mediaElement.play();
+                if (magnetronSound.isPlaying) magnetronSound.stop();
+                magnetronSound.play();
+            }
+        }
+
+        function stopCooking() {
+            isCooking = false;
+            isPaused = false;
+            currentTimer = 0;
+            document.getElementById('status').textContent = 'Ready';
+            document.getElementById('status-light').classList.remove('cooking');
+            document.getElementById('media-display').style.display = 'none';
+            document.getElementById('timer-display').textContent = '00:00';
+            interiorLight.intensity = 0;
+            timerWorker.postMessage({ action: 'stop' });
+            if (mediaElement) {
+                mediaElement.pause();
+                mediaElement = null;
+            }
+            if (magnetronSound.isPlaying) magnetronSound.stop();
+            if (dingSound.isPlaying) dingSound.stop();
+            dingSound.play();
+            if (cookingAnimation) {
+                clearInterval(cookingAnimation);
+                cookingAnimation = null;
+            }
+        }
+
+        function openDoor() {
+            if (isCooking && !isDoorOpen) stopCooking();
+            isDoorOpen = !isDoorOpen;
+            door.position.z = isDoorOpen ? 1.5 : 0.8;
+            door.rotation.y = isDoorOpen ? Math.PI / 2 : 0;
+            document.getElementById('status').textContent = isDoorOpen ? 'Door Open' : 'Ready';
+        }
+
+        function nextMedia() {
+            if (playlist.length === 0) return;
+            currentMediaIndex = (currentMediaIndex + 1) % playlist.length;
+            selectMedia(currentMediaIndex);
+        }
+
+        function addMedia() {
+            loadFiles();
+        }
+
+        function loadFiles() {
+            document.getElementById('file-modal').style.display = 'block';
+            const fileInput = document.getElementById('file-input');
+            fileInput.onchange = function(e) {
+                const files = Array.from(e.target.files);
+                previewFiles(files);
+            };
+        }
+
+        function loadFolder() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.webkitdirectory = true;
+            input.multiple = true;
+            input.onchange = function(e) {
+                const files = Array.from(e.target.files);
+                processFiles(files);
+            };
+            input.click();
+        }
+
+        function closeFileModal() {
+            document.getElementById('file-modal').style.display = 'none';
+            document.getElementById('file-preview').style.display = 'none';
+            document.getElementById('file-input').value = '';
+            selectedFiles.clear();
+        }
+
+        async function previewFiles(files) {
+            const preview = document.getElementById('file-preview');
+            const listContent = document.getElementById('file-list-content');
+            listContent.innerHTML = '';
+            selectedFiles.clear();
+
+            for (const [index, file] of files.entries()) {
+                const fileId = 'file_' + Date.now() + '_' + index;
+                const fileType = getFileType(file);
+                if (!fileType) continue;
+                const duration = await estimateFileDuration(file, fileType);
+                const icon = getFileIcon(fileType);
+                const size = formatFileSize(file.size);
+
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item selected';
+                fileItem.dataset.fileId = fileId;
+                fileItem.innerHTML = `
+                    <span>${icon} ${file.name}</span>
+                    <span style="font-size: 11px; opacity: 0.7;">${size} - ${formatDuration(duration)}</span>
+                `;
+                fileItem.onclick = () => toggleFileSelection(fileItem, fileId);
+                listContent.appendChild(fileItem);
+
+                loadedFiles.set(fileId, file);
+                selectedFiles.add(fileId);
+            }
+            preview.style.display = 'block';
+        }
+
+        function toggleFileSelection(element, fileId) {
+            if (selectedFiles.has(fileId)) {
+                selectedFiles.delete(fileId);
+                element.classList.remove('selected');
+            } else {
+                selectedFiles.add(fileId);
+                element.classList.add('selected');
+            }
+        }
+
+        async function processSelectedFiles() {
+            const playlistContainer = document.getElementById('playlist-items');
+            for (const fileId of selectedFiles) {
+                const file = loadedFiles.get(fileId);
+                const fileType = getFileType(file);
+                if (!fileType) continue;
+                const duration = await estimateFileDuration(file, fileType);
+                const icon = getFileIcon(fileType);
+
+                const playlistItem = document.createElement('div');
+                playlistItem.className = 'playlist-item';
+                playlistItem.dataset.type = fileType;
+                playlistItem.dataset.name = file.name;
+                playlistItem.dataset.duration = duration;
+                playlistItem.dataset.fileId = fileId;
+                playlistItem.innerHTML = `${icon} ${file.name} (${formatDuration(duration)})`;
+                playlistContainer.appendChild(playlistItem);
+            }
+            loadPlaylistFromStorage();
+            closeFileModal();
+            console.log(`Added ${selectedFiles.size} files to playlist`);
+        }
+
+        async function processFiles(files) {
+            const playlistContainer = document.getElementById('playlist-items');
+            let addedCount = 0;
+            for (const [index, file] of files.entries()) {
+                const fileType = getFileType(file);
+                if (!fileType) continue;
+                const fileId = 'file_' + Date.now() + '_' + index;
+                const duration = await estimateFileDuration(file, fileType);
+                const icon = getFileIcon(fileType);
+
+                loadedFiles.set(fileId, file);
+                const playlistItem = document.createElement('div');
+                playlistItem.className = 'playlist-item';
+                playlistItem.dataset.type = fileType;
+                playlistItem.dataset.name = file.name;
+                playlistItem.dataset.duration = duration;
+                playlistItem.dataset.fileId = fileId;
+                playlistItem.innerHTML = `${icon} ${file.name} (${formatDuration(duration)})`;
+                playlistContainer.appendChild(playlistItem);
+                addedCount++;
+            }
+            loadPlaylistFromStorage();
+            console.log(`Added ${addedCount} files from folder to playlist`);
+        }
+
+        function getFileType(file) {
+            const type = file.type.toLowerCase();
+            if (type.startsWith('video/')) return 'video';
+            if (type.startsWith('audio/')) return 'audio';
+            if (type.startsWith('image/')) return 'image';
+            if (type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')) return 'document';
+            if (type.includes('text') || file.name.toLowerCase().endsWith('.txt')) return 'document';
+            return null;
+        }
+
+        function getFileIcon(type) {
+            const icons = {
+                video: '🎥',
+                audio: '🎵',
+                image: '🖼️',
+                document: '📄'
+            };
+            return icons[type] || '📎';
+        }
+
+        async function estimateFileDuration(file, type) {
+            try {
+                if (type === 'video' || type === 'audio') {
+                    const element = type === 'video' ? document.createElement('video') : document.createElement('audio');
+                    element.src = URL.createObjectURL(file);
+                    await new Promise((resolve) => {
+                        element.onloadedmetadata = () => resolve();
+                    });
+                    const duration = Math.floor(element.duration) || 60;
+                    URL.revokeObjectURL(element.src);
+                    return duration;
+                } else if (type === 'image') {
+                    return 10;
+                } else if (type === 'document') {
+                    if (file.type === 'application/pdf') {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const doc = await pdfjsLib.getDocument(arrayBuffer).promise;
+                        return doc.numPages * 10;
+                    }
+                    const text = await file.text();
+                    return Math.max(10, Math.floor(text.length / 1000) * 10);
+                }
+                return 60;
+            } catch (error) {
+                console.error('Duration estimation error:', error);
+                return type === 'image' ? 10 : 60;
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function formatDuration(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${minutes}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function savePlaylist() {
+            const playlistData = playlist.map(item => ({
+                type: item.type,
+                name: item.name,
+                duration: item.duration,
+                fileId: item.element.dataset.fileId || null
+            }));
+            const dataStr = JSON.stringify(playlistData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = 'microwave-playlist.json';
+            link.click();
+            console.log('Playlist saved!');
+        }
+
+        function loadPlaylistFromFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const playlistData = JSON.parse(event.target.result);
+                        loadPlaylistData(playlistData);
+                    } catch (error) {
+                        console.error('Error loading playlist:', error);
+                        alert('Error loading playlist file');
+                    }
+                };
+                reader.onerror = function(error) {
+                    console.error('Playlist read error:', error);
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        function loadPlaylistData(playlistData) {
+            const playlistContainer = document.getElementById('playlist-items');
+            playlistContainer.innerHTML = '';
+            playlistData.forEach(item => {
+                const playlistItem = document.createElement('div');
+                playlistItem.className = 'playlist-item';
+                playlistItem.dataset.type = item.type;
+                playlistItem.dataset.name = item.name;
+                playlistItem.dataset.duration = item.duration;
+                if (item.fileId) playlistItem.dataset.fileId = item.fileId;
+                const icon = getFileIcon(item.type);
+                playlistItem.innerHTML = `${icon} ${item.name} (${formatDuration(item.duration)})`;
+                playlistContainer.appendChild(playlistItem);
+            });
+            loadPlaylistFromStorage();
+            console.log(`Loaded ${playlistData.length} items into playlist`);
+        }
+
+        function shufflePlaylist() {
+            const playlistContainer = document.getElementById('playlist-items');
+            const items = Array.from(playlistContainer.children);
+            for (let i = items.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [items[i], items[j]] = [items[j], items[i]];
+            }
+            playlistContainer.innerHTML = '';
+            items.forEach(item => playlistContainer.appendChild(item));
+            loadPlaylistFromStorage();
+            console.log('Playlist shuffled!');
+        }
+
+        function clearPlaylist() {
+            if (confirm('Are you sure you want to clear the entire playlist?')) {
+                document.getElementById('playlist-items').innerHTML = '';
+                playlist = [];
+                currentMediaIndex = 0;
+                loadedFiles.clear();
+                if (isCooking) stopCooking();
+                document.getElementById('current-media').textContent = 'None';
+                mediaScreen.material.map = null;
+                mediaScreen.material.needsUpdate = true;
+                console.log('Playlist cleared!');
+            }
+        }
+
+        function startCookingAnimation() {
+            if (cookingAnimation) return;
+            cookingAnimation = setInterval(() => {
+                if (isCooking && !isPaused) {
+                    turntable.rotation.y += 0.05;
+                    if (Math.random() > 0.9) {
+                        interiorLight.intensity = Math.random() * 0.5 + 0.8;
+                    }
+                    if (mediaScreen.material.map && mediaScreen.material.map instanceof THREE.VideoTexture) {
+                        mediaScreen.material.map.needsUpdate = true;
+                    }
+                }
+            }, 50);
+        }
+
+        function playMagnetronSound() {
+            if (magnetronSound.isPlaying) magnetronSound.stop();
+            magnetronSound.play();
+        }
+
+        function stopMagnetronSound() {
+            if (magnetronSound.isPlaying) magnetronSound.stop();
+        }
+
+        function playDingSound() {
+            if (dingSound.isPlaying) dingSound.stop();
+            dingSound.play();
+        }
+
         function animate() {
             requestAnimationFrame(animate);
-            if (turntableAnimating && turntable) {
-                turntable.rotation.y += 0.01 * (powerLevel / 100);
-            }
+            camera.position.x = 3 + Math.sin(Date.now() * 0.0005) * 0.2;
+            camera.position.y = 2 + Math.cos(Date.now() * 0.0003) * 0.1;
             renderer.render(scene, camera);
         }
-        animate();
 
-        // Resize Handler
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Local Server Warning
-        if (window.location.protocol === 'file:') {
-            console.warn('Running locally (file://) may cause CORS issues. Host on a web server (e.g., using `python -m http.server`) for best results.');
-            alert('This application may not work correctly when run locally (file://). Please host it on a web server to avoid CORS issues.');
-        }
+        // Legacy function exports for backward compatibility
+        window.addMedia = addMedia;
+        window.startCooking = startCooking;
+        window.pauseCooking = pauseCooking;
+        window.stopCooking = stopCooking;
+        window.openDoor = openDoor;
+        window.nextMedia = nextMedia;
+        window.loadFolder = loadFolder;
+        window.loadFiles = loadFiles;
+        window.clearPlaylist = clearPlaylist;
+        window.closeFileModal = closeFileModal;
+        window.processSelectedFiles = processSelectedFiles;
+        window.savePlaylist = savePlaylist;
+        window.loadPlaylistFromFile = loadPlaylistFromFile;
+        window.shufflePlaylist = shufflePlaylist;
+
+        window.addEventListener('load', initScene);
     </script>
 </body>
 </html>
