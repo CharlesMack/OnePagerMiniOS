@@ -69,19 +69,25 @@
         const windowGeo = new THREE.PlaneGeometry(4, 3);
         const windowLoader = new THREE.TextureLoader();
         const windowMat = new THREE.MeshBasicMaterial({ 
-            map: windowLoader.load('https://threejs.org/examples/textures/sky.jpg'), 
-            side: THREE.DoubleSide 
+            map: windowLoader.load(
+                'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/uv_grid_opengl.jpg', // Fallback texture
+                undefined,
+                undefined,
+                () => console.error('Failed to load window texture, using fallback color')
+            ),
+            side: THREE.DoubleSide,
+            color: new THREE.Color(0x87CEEB) // Sky blue fallback
         });
         const windowMesh = new THREE.Mesh(windowGeo, windowMat);
         windowMesh.position.set(0, 2, -2.5);
         windowMesh.rotation.y = Math.PI / 2;
         scene.add(windowMesh);
 
-        // Microwave Model (Fallback if GLTF fails)
+        // Microwave Model
         let microwave, turntable, interiorLight, door;
         const loader = new THREE.GLTFLoader();
         loader.load(
-            'https://cdn.sketchfab.com/models/d0a39d48feb448d3a215e0656e806966/optimized/microwave_oven.glb', // Sample model
+            'https://cdn.sketchfab.com/models/d0a39d48feb448d3a215e0656e806966/optimized/microwave_oven.glb',
             (gltf) => {
                 microwave = gltf.scene;
                 microwave.position.set(2, 1, 0);
@@ -105,7 +111,7 @@
             undefined,
             (error) => {
                 console.error('GLTF load error:', error);
-                // Fallback microwave
+                alert('Failed to load microwave model. Using fallback geometry.');
                 const fallbackGeo = new THREE.BoxGeometry(1, 1, 1);
                 const fallbackMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
                 microwave = new THREE.Mesh(fallbackGeo, fallbackMat);
@@ -130,21 +136,68 @@
         mediaScreen.position.set(2, 1, 0);
         scene.add(mediaScreen);
 
-        // Audio for Microwave Hum
+        // Computer-Generated Microwave Hum
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const listener = new THREE.AudioListener();
         camera.add(listener);
         const sound = new THREE.Audio(listener);
-        const audioLoader = new THREE.AudioLoader();
-        audioLoader.load(
-            'https://freesound.org/data/previews/614/614418_5674468-lq.mp3', // Sample microwave hum
-            (buffer) => {
-                sound.setBuffer(buffer);
-                sound.setLoop(true);
-                sound.setVolume(0.5);
-            },
-            undefined,
-            (error) => console.error('Audio load error:', error)
-        );
+
+        function createMicrowaveHum() {
+            // Create oscillator for base hum (low-frequency sine wave)
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(60, audioContext.currentTime); // 60 Hz for electrical hum
+
+            // Create noise for texture
+            const noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 2, audioContext.sampleRate);
+            const noiseData = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < noiseData.length; i++) {
+                noiseData[i] = Math.random() * 2 - 1; // White noise
+            }
+            const noise = audioContext.createBufferSource();
+            noise.buffer = noiseBuffer;
+            noise.loop = true;
+
+            // Filter noise to sound like a muffled hum
+            const noiseFilter = audioContext.createBiquadFilter();
+            noiseFilter.type = 'lowpass';
+            noiseFilter.frequency.setValueAtTime(200, audioContext.currentTime);
+            noiseFilter.Q.setValueAtTime(1, audioContext.currentTime);
+
+            // Gain nodes for mixing
+            const oscGain = audioContext.createGain();
+            oscGain.gain.setValueAtTime(0.3, audioContext.currentTime); // Lower oscillator volume
+            const noiseGain = audioContext.createGain();
+            noiseGain.gain.setValueAtTime(0.2, audioContext.currentTime); // Lower noise volume
+
+            // Connect nodes
+            oscillator.connect(oscGain);
+            noise.connect(noiseFilter).connect(noiseGain);
+            oscGain.connect(audioContext.destination);
+            noiseGain.connect(audioContext.destination);
+
+            // Connect to Three.js audio
+            const audioElement = audioContext.createMediaStreamDestination();
+            oscGain.connect(audioElement);
+            noiseGain.connect(audioElement);
+            sound.setMediaStreamSource(audioElement.stream);
+            sound.setLoop(true);
+            sound.setVolume(0.5);
+
+            // Start sound sources
+            oscillator.start();
+            noise.start();
+
+            return { oscillator, noise }; // For stopping later
+        }
+
+        let humSources = null;
+        try {
+            humSources = createMicrowaveHum();
+        } catch (error) {
+            console.error('Failed to create microwave hum:', error);
+            alert('Failed to generate microwave hum sound. Continuing without audio.');
+        }
 
         // Camera Positions
         const outsideCamPos = new THREE.Vector3(0, 2, 5);
@@ -174,7 +227,7 @@
                 : 'No files selected';
         });
 
-        // Power Level Control (via dat.GUI)
+        // Power Level Control
         const gui = new dat.GUI({ autoPlace: false });
         document.getElementById('ui').appendChild(gui.domElement);
         const settings = { powerLevel: 100 };
@@ -211,10 +264,10 @@
             if (playlist.length > 0 && !isCooking) {
                 isCooking = true;
                 interiorLight.intensity = 1;
-                sound.play();
+                if (humSources) sound.play();
                 playNextMedia();
                 animateTurntable(true);
-                if (door) door.rotation.y = 0; // Close door
+                if (door) door.rotation.y = 0;
             } else if (playlist.length === 0) {
                 alert('Please upload media files first!');
             }
@@ -234,7 +287,7 @@
                 mediaElement = null;
             }
             animateTurntable(false);
-            if (door) door.rotation.y = Math.PI / 2; // Open door
+            if (door) door.rotation.y = Math.PI / 2;
             mediaMat.map = null;
             mediaMat.color.set(0xffffff);
             mediaMat.needsUpdate = true;
@@ -252,7 +305,6 @@
             const type = file.type.split('/')[0];
             let duration = 10;
 
-            // Clean up previous media
             if (mediaElement) {
                 mediaElement.pause();
                 mediaElement.remove();
@@ -276,6 +328,7 @@
                     mediaElement.addEventListener('ended', playNextMedia);
                     mediaElement.addEventListener('error', () => {
                         console.error('Media load error:', file.name);
+                        alert(`Failed to load ${file.name}. Skipping to next media.`);
                         playNextMedia();
                     });
                     if (type === 'video') {
@@ -295,6 +348,7 @@
                         undefined,
                         (error) => {
                             console.error('Image load error:', error);
+                            alert(`Failed to load ${file.name}. Skipping to next media.`);
                             playNextMedia();
                         }
                     );
@@ -305,6 +359,7 @@
                         renderPdfPage();
                     }).catch((error) => {
                         console.error('PDF load error:', error);
+                        alert(`Failed to load ${file.name}. Skipping to next media.`);
                         playNextMedia();
                     });
                 } else if (file.type === 'text/plain') {
@@ -317,15 +372,18 @@
                     };
                     reader.onerror = () => {
                         console.error('Text load error:', file.name);
+                        alert(`Failed to load ${file.name}. Skipping to next media.`);
                         playNextMedia();
                     };
                     reader.readAsText(file);
                 } else {
                     console.error('Unsupported file type:', file.type);
+                    alert(`Unsupported file type: ${file.name}. Skipping to next media.`);
                     playNextMedia();
                 }
             } catch (error) {
                 console.error('Error processing media:', error);
+                alert(`Error processing ${file.name}. Skipping to next media.`);
                 playNextMedia();
             }
 
@@ -354,6 +412,7 @@
                 });
             }).catch((error) => {
                 console.error('PDF page render error:', error);
+                alert('Failed to render PDF page. Skipping to next media.');
                 playNextMedia();
             });
         }
@@ -366,7 +425,7 @@
             pdfCtx.fillRect(0, 0, 800, 600);
             pdfCtx.fillStyle = 'black';
             pdfCtx.font = '20px Arial';
-            const lines = text.split('\n').slice(0, 20); // Limit lines for performance
+            const lines = text.split('\n').slice(0, 20);
             lines.forEach((line, i) => pdfCtx.fillText(line, 10, 30 + i * 25));
             const txtTexture = new THREE.CanvasTexture(pdfCanvas);
             mediaMat.map = txtTexture;
@@ -413,7 +472,7 @@
         function animate() {
             requestAnimationFrame(animate);
             if (turntableAnimating && turntable) {
-                turntable.rotation.y += 0.01 * (powerLevel / 100); // Scale rotation with power
+                turntable.rotation.y += 0.01 * (powerLevel / 100);
             }
             renderer.render(scene, camera);
         }
@@ -426,13 +485,11 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // AI Integration Placeholder
-        /*
-        async function aiProcess(prompt) {
-            // Requires xAI API setup: https://x.ai/api
-            console.log('AI processing not implemented. Visit https://x.ai/api for API details.');
+        // Local Server Warning
+        if (window.location.protocol === 'file:') {
+            console.warn('Running locally (file://) may cause CORS issues. Host on a web server (e.g., using `python -m http.server`) for best results.');
+            alert('This application may not work correctly when run locally (file://). Please host it on a web server to avoid CORS issues.');
         }
-        */
     </script>
 </body>
 </html>
