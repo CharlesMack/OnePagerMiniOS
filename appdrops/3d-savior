@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>P.O.P.S. SPECTACULAR OLYMPIC NEUROLOGY CARNIVAL 3D</title>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>        
+
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            font-family: 'Arial Black', Arial, sans-serif;
+            color: white;
+            background: radial-gradient(circle at center, #0a0a1a 0%, #1a0a2a 50%, #2a0a3a 100%);
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #ff1744 0%, #ffd700 25%, #00e676 50%, #2196f3 75%, #e91e63 100%);
+            color: white;
+            text-align: center;
+            padding: 12px 0;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(255,215,0,0.8);
+            animation: olympic-pulse 2s ease-in-out infinite, rainbow-shift 4s linear infinite;
+            border-bottom: 3px solid #ffd700;
+        }
+        
+        @keyframes olympic-pulse {
+          0%, 100% { 
+            transform: scale(1); 
+            filter: brightness(1.2) saturate(1.5) drop-shadow(0 0 20px rgba(255,215,0,0.8)); 
+          }
+          50% { 
+            transform: scale(1.02); 
+            filter: brightness(1.5) saturate(2) drop-shadow(0 0 40px rgba(255,215,0,1)); 
+          }
+        }
+
+        @keyframes rainbow-shift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: clamp(14px, 4vw, 22px);
+            font-weight: 900;
+            text-shadow: 
+                3px 3px 0px #000,
+                0 0 20px rgba(255,215,0,0.8),
+                0 0 40px rgba(255,107,107,0.6);
+            animation: text-explosion 3s ease-in-out infinite;
+            letter-spacing: 2px;
+        }
+
+        @keyframes text-explosion {
+            0%, 100% { 
+                text-shadow: 
+                    3px 3px 0px #000,
+                    0 0 20px rgba(255,215,0,0.8),
+                    0 0 40px rgba(255,107,107,0.6);
+            }
+            50% { 
+                text-shadow: 
+                    5px 5px 0px #000,
+                    0 0 60px rgba(255,215,0,1),
+                    0 0 80px rgba(255,107,107,1),
+                    0 0 100px rgba(72,219,251,0.8);
+            }
+        }
+
+        .advantages-ticker {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(20px);
+            color: #ffd700;
+            padding: 8px 0;
+            z-index: 95;
+            overflow: hidden;
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .ticker-content {
+            display: flex;
+            animation: scroll-left 30s linear infinite;
+            font-weight: bold;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        @keyframes scroll-left {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.98);
+            backdrop-filter: blur(25px);
+            padding: 15px;
+            z-index: 100;
+            border-top: 3px solid rgba(255, 215, 0, 0.5);
+            box-shadow: 0 -8px 32px rgba(255, 215, 0, 0.4);
+        }
+
+        .control-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-row button, .file-input-label {
+            flex: 1;
+            min-width: 80px;
+            padding: 12px 15px;
+            font-size: 12px;
+            border: 2px solid #ffd700;
+            border-radius: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #ff6b6b 100%);
+            color: white;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 
+                0 6px 20px rgba(102, 126, 234, 0.4),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .control-row button::before, .file-input-label::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.6s;
+        }
+        
+        .control-row button:hover, .file-input-label:hover {
+            transform: scale(1.05) translateY(-3px) rotateZ(1deg);
+            box-shadow: 
+                0 12px 30px rgba(255, 215, 0, 0.6),
+                0 0 40px rgba(102, 126, 234, 0.8);
+            border-color: #fff;
+        }
+
+        .control-row button:hover::before, .file-input-label:hover::before {
+            left: 100%;
+        }
+        
+        .control-row button.active {
+            background: linear-gradient(135deg, #ffd700 0%, #ff6b6b 50%, #ff1744 100%);
+            box-shadow: 
+                0 0 40px rgba(255, 215, 0, 0.8),
+                0 0 60px rgba(255, 107, 107, 0.6);
+            transform: scale(1.1);
+            animation: active-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes active-pulse {
+            0%, 100% { box-shadow: 0 0 40px rgba(255, 215, 0, 0.8); }
+            50% { box-shadow: 0 0 80px rgba(255, 215, 0, 1), 0 0 120px rgba(255, 107, 107, 0.8); }
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            flex: 2;
+            min-width: 140px;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .status-display {
+            position: fixed;
+            top: 100px;
+            left: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(25px);
+            color: white;
+            padding: 15px;
+            border-radius: 25px;
+            z-index: 90;
+            display: none;
+            text-align: center;
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            box-shadow: 0 8px 32px rgba(255, 215, 0, 0.4);
+        }
+
+        .status-display.show {
+            display: block;
+            animation: spectacular-entrance 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes spectacular-entrance {
+            0% { 
+                transform: scale(0) rotateY(180deg); 
+                opacity: 0; 
+            }
+            50% { 
+                transform: scale(1.2) rotateY(90deg); 
+            }
+            100% { 
+                transform: scale(1) rotateY(0deg); 
+                opacity: 1; 
+            }
+        }
+
+        .media-info {
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .media-type {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .media-type.video { 
+            background: linear-gradient(135deg, #e74c3c, #c0392b); 
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+        .media-type.audio { 
+            background: linear-gradient(135deg, #27ae60, #2ecc71); 
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+        }
+        .media-type.image { 
+            background: linear-gradient(135deg, #f39c12, #e67e22); 
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);
+        }
+
+        .progress-container {
+            margin-top: 10px;
+            height: 12px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700 0%, #ff6b6b 50%, #48dbfb 100%);
+            width: 0%;
+            transition: width 0.2s ease;
+            border-radius: 6px;
+            box-shadow: 
+                0 0 20px rgba(255, 215, 0, 0.8),
+                0 0 40px rgba(255, 107, 107, 0.4);
+            animation: progress-glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes progress-glow {
+            from { box-shadow: 0 0 20px rgba(255, 215, 0, 0.8); }
+            to { box-shadow: 0 0 40px rgba(255, 215, 0, 1), 0 0 60px rgba(255, 107, 107, 0.6); }
+        }
+
+        .performance-stats {
+            position: fixed;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 20px;
+            border-radius: 20px;
+            border: 2px solid #ffd700;
+            color: #ffd700;
+            font-weight: bold;
+            z-index: 85;
+            box-shadow: 0 8px 32px rgba(255, 215, 0, 0.3);
+            animation: stats-float 3s ease-in-out infinite;
+        }
+
+        @keyframes stats-float {
+            0%, 100% { transform: translateY(-50%) rotateZ(0deg); }
+            50% { transform: translateY(-55%) rotateZ(1deg); }
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .stat-value {
+            color: #ff6b6b;
+            font-weight: 900;
+            text-shadow: 0 0 10px rgba(255, 107, 107, 0.8);
+        }
+
+        .neurology-boost {
+            position: fixed;
+            bottom: 150px;
+            left: 20px;
+            background: linear-gradient(135deg, #9c27b0, #e91e63);
+            color: white;
+            padding: 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            z-index: 85;
+            box-shadow: 0 8px 32px rgba(156, 39, 176, 0.5);
+            animation: neurology-pulse 2s ease-in-out infinite;
+            max-width: 200px;
+        }
+
+        @keyframes neurology-pulse {
+            0%, 100% { transform: scale(1) rotateZ(0deg); }
+            50% { transform: scale(1.05) rotateZ(-1deg); }
+        }
+        
+        #mediaPlayer, #videoPlayer {
+            display: none;
+        }
+
+        .fireworks {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .advantage-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: linear-gradient(135deg, #ff6b6b, #ffd700, #48dbfb);
+            color: white;
+            padding: 30px;
+            border-radius: 25px;
+            font-size: 24px;
+            font-weight: 900;
+            text-align: center;
+            z-index: 1001;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            animation: popup-explosion 3s ease-out;
+        }
+
+        @keyframes popup-explosion {
+            0% { transform: translate(-50%, -50%) scale(0) rotateZ(180deg); }
+            20% { transform: translate(-50%, -50%) scale(1.3) rotateZ(0deg); }
+            100% { transform: translate(-50%, -50%) scale(0) rotateZ(-180deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div class="header">
+        <h1>🏆 P.O.P.S. SPECTACULAR OLYMPIC NEUROLOGY CARNIVAL 🧠⚡🎪</h1>
+    </div>
+
+    <div class="advantages-ticker">
+        <div class="ticker-content" id="advantagesTicker">
+            🏃‍♂️ NEURAL PATHWAY ACCELERATION! • 🧠 SYNAPTIC SPEED BOOST 300%! • 🎪 CARNIVAL ATMOSPHERE ENHANCES DOPAMINE! • 🏆 OLYMPIC GLORY MULTIPLIER ACTIVE! • ⚡ BIOELECTRIC ENHANCEMENT ENGAGED! • 🎵 RHYTHMIC SYNCHRONIZATION OPTIMIZED! • 🎭 AVATAR PERFORMANCE MAXIMIZED! • 🌟 SPECTACULAR VISUAL STIMULATION! • 🚀 NEUROPLASTICITY TURBO MODE! • 
+        </div>
+    </div>
+    
+    <div class="status-display" id="statusDisplay">
+        <div class="media-info" id="mediaInfo">
+            <div>🎵 <span id="currentTrackName">No media loaded</span></div>
+            <div><span class="media-type" id="currentMediaType">none</span></div>
+        </div>
+        <div class="progress-container">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <div class="performance-stats">
+        <div class="stat-item">
+            <span>🧠 Neural Activity:</span>
+            <span class="stat-value" id="neuralActivity">0%</span>
+        </div>
+        <div class="stat-item">
+            <span>⚡ Speed Boost:</span>
+            <span class="stat-value" id="speedBoost">0x</span>
+        </div>
+        <div class="stat-item">
+            <span>🎪 Excitement:</span>
+            <span class="stat-value" id="excitement">MAXIMUM</span>
+        </div>
+        <div class="stat-item">
+            <span>🏆 Olympic Factor:</span>
+            <span class="stat-value" id="olympicFactor">∞</span>
+        </div>
+    </div>
+
+    <div class="neurology-boost">
+        <div>🧠 NEUROLOGY BOOST ACTIVE!</div>
+        <div style="font-size: 12px; margin-top: 5px;">
+            Enhanced cognitive processing, improved motor coordination, 
+            accelerated reaction times!
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="control-row">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept="audio/*,video/*,image/*" multiple>
+                <label for="fileInput" class="file-input-label">🎭 Load Olympic Media</label>
+            </div>
+            <button onclick="togglePlayback()" id="playBtn">🚀 START SPECTACULAR</button>
+            <button onclick="skipTrack()">⏭️ Next Champion</button>
+            <button onclick="toggleStatus()">📊 Performance Stats</button>
+        </div>
+        <div class="control-row">
+            <button onclick="setTheme('relay')" class="theme-btn" data-theme="relay">🏃 Neural Relay</button>
+            <button onclick="setTheme('hurdles')" class="theme-btn" data-theme="hurdles">🚧 Synaptic Hurdles</button>
+            <button onclick="setTheme('gymnastics')" class="theme-btn" data-theme="gymnastics">🤸 Brain Gymnastics</button>
+            <button onclick="setTheme('carnival')" class="theme-btn" data-theme="carnival">🎪 Neuro Carnival</button>
+            <button onclick="triggerSpectacular()" class="spectacular-btn">✨ SPECTACULAR MODE</button>
+        </div>
+    </div>
+    
+    <audio id="mediaPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()"></audio>
+    <video id="videoPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()" playsinline></video>
+
+    <script>
+        // --- Three.js Globals ---
+        let scene, camera, renderer, controls;
+        let runners = [];
+        let track, ground;
+        let videoPlayer, videoTexture, videoMesh;
+        let isVideoPlaying = false;
+        let themeElements = {};
+        let fireworks = [];
+        let sparkles = [];
+        let olympicRings = [];
+        
+        // --- Application Globals ---
+        let playlist = [];
+        let currentTrack = 0;
+        let isPlaying = false;
+        let theme = 'relay';
+        let batonHolder = 0;
+        let manualTimeout = null;
+        let showStatus = false;
+        let spectacularMode = false;
+        let performanceMultiplier = 1;
+        
+        const trackRadius = 90;
+        const numRunners = 8;
+        
+        // Enhanced Runner Class with Olympic Neurology Features
+        class OlympicNeuroRunner extends THREE.Group {
+            constructor(id, color) {
+                super();
+                this.runnerId = id;
+                this.color = new THREE.Color(color);
+                this.neuralActivity = Math.random() * 100;
+                this.speedBoost = 1 + Math.random() * 3;
+                
+                // Enhanced Body with Neural Patterns
+                const bodyGeometry = new THREE.CylinderGeometry(2, 2, 6, 12);
+                const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                    color: this.color,
+                    shininess: 100,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.body.position.y = 3;
+                this.add(this.body);
+                
+                // Neural Crown (Brain Enhancement Indicator)
+                const crownGeometry = new THREE.SphereGeometry(2.5, 16, 16);
+                const crownMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x00ffff,
+                    transparent: true,
+                    opacity: 0.7,
+                    emissive: 0x004444
+                });
+                this.neuralCrown = new THREE.Mesh(crownGeometry, crownMaterial);
+                this.neuralCrown.position.y = 8;
+                this.add(this.neuralCrown);
+                
+                // Olympic Aura
+                const auraGeometry = new THREE.SphereGeometry(4, 8, 8);
+                const auraMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0xffd700,
+                    transparent: true,
+                    opacity: 0.2,
+                    side: THREE.BackSide
+                });
+                this.aura = new THREE.Mesh(auraGeometry, auraMaterial);
+                this.aura.position.y = 3;
+                this.add(this.aura);
+                
+                // Enhanced Legs with Power Indicators
+                const legGeometry = new THREE.CylinderGeometry(0.8, 1.2, 5);
+                const legMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x333333,
+                    shininess: 80
+                });
+                this.leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+                this.rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+                
+                this.leftLeg.position.set(-1, -0.5, 0);
+                this.rightLeg.position.set(1, -0.5, 0);
+                
+                this.add(this.leftLeg);
+                this.add(this.rightLeg);
+                
+                this.runningOffset = Math.random() * 10;
+                this.neuralPulse = 0;
+            }
+            
+            update(progress) {
+                const isActive = this.runnerId === batonHolder && isPlaying;
+                const angle = isActive ? 
+                    (Math.PI / 2) - (progress * Math.PI * 2) :
+                    (Math.PI / 2) - (this.runnerId * (Math.PI * 2) / numRunners);
+
+                this.position.x = trackRadius * Math.cos(angle);
+                this.position.z = trackRadius * Math.sin(angle);
+                this.rotation.y = angle - Math.PI / 2;
+                
+                // Neural Activity Animation
+                this.neuralPulse += 0.1;
+                this.neuralCrown.material.opacity = 0.7 + Math.sin(this.neuralPulse) * 0.3;
+                this.neuralCrown.rotation.y += 0.05;
+                
+                // Olympic Aura Pulsing
+                this.aura.scale.setScalar(1 + Math.sin(this.neuralPulse * 0.7) * 0.2);
+                
+                // Enhanced Running Animation
+                if (isActive) {
+                    const legSpeed = 0.02 * this.speedBoost;
+                    const legAngle = Math.sin(Date.now() * legSpeed + this.runningOffset) * 0.8;
+                    this.leftLeg.rotation.x = -legAngle;
+                    this.rightLeg.rotation.x = legAngle;
+                    
+                    // Vertical bouncing for spectacular effect
+                    this.position.y = Math.abs(Math.sin(Date.now() * legSpeed * 2)) * 2;
+                    
+                    // Neural crown glowing during activity
+                    this.neuralCrown.material.emissive.setHex(0x00ffff);
+                } else {
+                    this.leftLeg.rotation.x = 0;
+                    this.rightLeg.rotation.x = 0;
+                    this.position.y = 0;
+                    this.neuralCrown.material.emissive.setHex(0x002222);
+                }
+            }
+        }
+        
+        // Firework Particle System
+        class Firework {
+            constructor(x, y, z) {
+                this.particles = [];
+                this.origin = new THREE.Vector3(x, y, z);
+                
+                // Create explosion particles
+                for (let i = 0; i < 50; i++) {
+                    const particle = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.5, 4, 4),
+                        new THREE.MeshBasicMaterial({ 
+                            color: new THREE.Color(Math.random(), Math.random(), Math.random())
+                        })
+                    );
+                    
+                    particle.position.copy(this.origin);
+                    particle.velocity = new THREE.Vector3(
+                        (Math.random() - 0.5) * 20,
+                        Math.random() * 15 + 5,
+                        (Math.random() - 0.5) * 20
+                    );
+                    
+                    this.particles.push(particle);
+                    scene.add(particle);
+                }
+                
+                this.life = 100;
+            }
+            
+            update() {
+                this.life--;
+                
+                this.particles.forEach(particle => {
+                    particle.position.add(particle.velocity.clone().multiplyScalar(0.1));
+                    particle.velocity.y -= 0.5; // gravity
+                    particle.material.opacity = this.life / 100;
+                });
+                
+                if (this.life <= 0) {
+                    this.particles.forEach(particle => scene.remove(particle));
+                    return false;
+                }
+                return true;
+            }
+        }
+        
+        // --- Initialization ---
+        function init() {
+            // Scene setup with enhanced atmosphere
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            scene.fog = new THREE.Fog(0x0a0a1a, 200, 1000);
+            
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+            camera.position.set(0, 120, 180);
+            
+            // Renderer setup with enhanced effects
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+      // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0, 0);
+        
+            // Enhanced Lighting System
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            // Main spotlight for dramatic effect
+            const mainSpotlight = new THREE.SpotLight(0xffd700, 2, 300, Math.PI * 0.3, 0.3);
+            mainSpotlight.position.set(0, 200, 0);
+            mainSpotlight.target.position.set(0, 0, 0);
+            mainSpotlight.castShadow = true;
+            scene.add(mainSpotlight);
+            scene.add(mainSpotlight.target);
+            
+            // Colored accent lights
+            const colors = [0xff6b6b, 0x48dbfb, 0x00e676, 0xff9f43];
+            for (let i = 0; i < 4; i++) {
+                const light = new THREE.DirectionalLight(colors[i], 0.5);
+                const angle = (i / 4) * Math.PI * 2;
+                light.position.set(Math.cos(angle) * 100, 50, Math.sin(angle) * 100);
+                scene.add(light);
+            }
+            
+            // Olympic Track with spectacular design
+            const trackGeometry = new THREE.TorusGeometry(trackRadius, 8, 16, 100);
+            const trackMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x8B4513,
+                shininess: 30
+            });
+            track = new THREE.Mesh(trackGeometry, trackMaterial);
+            track.rotation.x = -Math.PI / 2;
+            track.receiveShadow = true;
+            scene.add(track);
+            
+            // Stadium Ground with patterns
+            const groundGeometry = new THREE.PlaneGeometry(400, 400);
+            const groundMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x0d5d0d,
+                transparent: true,
+                opacity: 0.8
+            });
+            ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -8;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            
+            // Create Olympic Rings
+            createOlympicRings();
+            
+            // Create Enhanced Runners
+            for (let i = 0; i < numRunners; i++) {
+                const color = new THREE.Color().setHSL(i / numRunners, 0.8, 0.6);
+                const runner = new OlympicNeuroRunner(i, color.getHex());
+                runners.push(runner);
+                scene.add(runner);
+            }
+            
+            // Video/Media Display Screen (Jumbotron Style)
+            const screenGeometry = new THREE.PlaneGeometry(120, 67.5); // 16:9 aspect ratio
+            const screenMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            videoMesh = new THREE.Mesh(screenGeometry, screenMaterial);
+            videoMesh.position.y = 60;
+            videoMesh.lookAt(new THREE.Vector3(0, 60, 1));
+            videoMesh.visible = false;
+            
+            // Add glowing frame to the screen
+            const frameGeometry = new THREE.PlaneGeometry(125, 72.5);
+            const frameMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffd700,
+                transparent: true,
+                opacity: 0.3
+            });
+            const screenFrame = new THREE.Mesh(frameGeometry, frameMaterial);
+            screenFrame.position.copy(videoMesh.position);
+            screenFrame.position.z -= 0.1;
+            screenFrame.lookAt(new THREE.Vector3(0, 60, 1));
+            scene.add(screenFrame);
+            scene.add(videoMesh);
+            
+            // Handle file input
+            document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+            
+            // Initialize theme elements
+            createSpectacularThemeElements();
+            
+            // Start performance monitoring
+            startPerformanceMonitoring();
+            
+            // Start the spectacular render loop
+            animate();
+        }
+        
+        function createOlympicRings() {
+            const ringColors = [0x0081C8, 0x000000, 0xEE334E, 0xFCB131, 0x00A651];
+            const ringPositions = [
+                [-30, 80, -20], [-15, 80, -20], [0, 80, -20], [15, 80, -20], [30, 80, -20]
+            ];
+            
+            for (let i = 0; i < 5; i++) {
+                const ringGeometry = new THREE.TorusGeometry(8, 2, 8, 50);
+                const ringMaterial = new THREE.MeshPhongMaterial({ 
+                    color: ringColors[i],
+                    shininess: 100
+                });
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.position.set(...ringPositions[i]);
+                ring.rotation.x = Math.PI / 2;
+                olympicRings.push(ring);
+                scene.add(ring);
+            }
+        }
+        
+        function createSpectacularThemeElements() {
+            // Enhanced Hurdles with Neural Synapses
+            const hurdleGroup = new THREE.Group();
+            for (let i = 0; i < 8; i++) {
+                const angle = i * Math.PI * 2 / 8;
+                
+                // Main hurdle structure
+                const hurdleGeometry = new THREE.BoxGeometry(18, 12, 2);
+                const hurdleMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x8b4513,
+                    shininess: 50
+                });
+                const hurdle = new THREE.Mesh(hurdleGeometry, hurdleMaterial);
+                
+                // Neural synapse effect on hurdles
+                const synapseGeometry = new THREE.SphereGeometry(3, 8, 8);
+                const synapseMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0x00ffff,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const synapse = new THREE.Mesh(synapseGeometry, synapseMaterial);
+                synapse.position.y = 15;
+                
+                hurdle.position.x = (trackRadius - 3) * Math.cos(angle);
+                hurdle.position.z = (trackRadius - 3) * Math.sin(angle);
+                hurdle.rotation.y = -angle;
+                hurdle.position.y = 6;
+                
+                synapse.position.copy(hurdle.position);
+                synapse.position.y = 15;
+                
+                hurdle.add(synapse);
+                hurdleGroup.add(hurdle);
+            }
+            themeElements['hurdles'] = hurdleGroup;
+            scene.add(hurdleGroup);
+            hurdleGroup.visible = false;
+            
+            // Brain Gymnastics Environment
+            const gymnasticsGroup = new THREE.Group();
+            
+            // Neural Pathway Balance Beam
+            const beamGeometry = new THREE.BoxGeometry(trackRadius * 1.8, 3, 8);
+            const beamMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xc8b48c,
+                shininess: 80
+            });
+            const beam = new THREE.Mesh(beamGeometry, beamMaterial);
+            beam.position.y = 3;
+            gymnasticsGroup.add(beam);
+            
+            // Cognitive Enhancement Floor
+            const floorGeometry = new THREE.CircleGeometry(trackRadius * 0.5, 64);
+            const floorMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xff1493,
+                transparent: true,
+                opacity: 0.7,
+                shininess: 100
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -7;
+            gymnasticsGroup.add(floor);
+            
+            // Floating brain molecules
+            for (let i = 0; i < 20; i++) {
+                const moleculeGeometry = new THREE.SphereGeometry(2, 8, 8);
+                const moleculeMaterial = new THREE.MeshBasicMaterial({ 
+                    color: new THREE.Color().setHSL(Math.random(), 0.8, 0.6),
+                    transparent: true,
+                    opacity: 0.6
+                });
+                const molecule = new THREE.Mesh(moleculeGeometry, moleculeMaterial);
+                molecule.position.set(
+                    (Math.random() - 0.5) * 100,
+                    Math.random() * 50 + 20,
+                    (Math.random() - 0.5) * 100
+                );
+                gymnasticsGroup.add(molecule);
+            }
+            
+            themeElements['gymnastics'] = gymnasticsGroup;
+            scene.add(gymnasticsGroup);
+            gymnasticsGroup.visible = false;
+            
+            // Neuro Carnival Spectacular
+            const carnivalGroup = new THREE.Group();
+            
+            // Central Brain Disco Ball
+            const discoGeometry = new THREE.SphereGeometry(20, 32, 32);
+            const discoMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xffd700,
+                shininess: 200,
+                transparent: true,
+                opacity: 0.8
+            });
+            const discoBall = new THREE.Mesh(discoGeometry, discoMaterial);
+            discoBall.position.y = 15;
+            carnivalGroup.add(discoBall);
+            
+            // Carnival Lights
+            for (let i = 0; i < 16; i++) {
+                const angle = i * Math.PI * 2 / 16;
+                const lightGeometry = new THREE.CylinderGeometry(2, 4, 15);
+                const lightMaterial = new THREE.MeshBasicMaterial({ 
+                    color: new THREE.Color().setHSL(i / 16, 1, 0.8)
+                });
+                const light = new THREE.Mesh(lightGeometry, lightMaterial);
+                
+                light.position.x = (trackRadius + 20) * Math.cos(angle);
+                light.position.z = (trackRadius + 20) * Math.sin(angle);
+                light.position.y = 25;
+                
+                carnivalGroup.add(light);
+            }
+            
+            themeElements['carnival'] = carnivalGroup;
+            scene.add(carnivalGroup);
+            carnivalGroup.visible = false;
+            
+            // Neural Relay (default theme)
+            const relayGroup = new THREE.Group();
+            
+            // Synaptic relay stations
+            for (let i = 0; i < numRunners; i++) {
+                const angle = i * Math.PI * 2 / numRunners;
+                const stationGeometry = new THREE.CylinderGeometry(5, 8, 10);
+                const stationMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x00ffff,
+                    emissive: 0x002222,
+                    shininess: 100
+                });
+                const station = new THREE.Mesh(stationGeometry, stationMaterial);
+                
+                station.position.x = (trackRadius + 15) * Math.cos(angle);
+                station.position.z = (trackRadius + 15) * Math.sin(angle);
+                station.position.y = 5;
+                
+                relayGroup.add(station);
+            }
+            
+            themeElements['relay'] = relayGroup;
+            scene.add(relayGroup);
+        }
+        
+        function startPerformanceMonitoring() {
+            setInterval(updatePerformanceStats, 100);
+        }
+        
+        function updatePerformanceStats() {
+            const neuralActivity = document.getElementById('neuralActivity');
+            const speedBoost = document.getElementById('speedBoost');
+            const excitement = document.getElementById('excitement');
+            const olympicFactor = document.getElementById('olympicFactor');
+            
+            if (isPlaying) {
+                neuralActivity.textContent = Math.min(100, Math.floor(Math.random() * 20 + 80)) + '%';
+                speedBoost.textContent = (performanceMultiplier * (1 + Math.random())).toFixed(1) + 'x';
+                excitement.textContent = 'MAXIMUM!!!';
+                olympicFactor.textContent = '∞+';
+            } else {
+                neuralActivity.textContent = Math.floor(Math.random() * 30 + 10) + '%';
+                speedBoost.textContent = '1.0x';
+                excitement.textContent = 'READY';
+                olympicFactor.textContent = '∞';
+            }
+        }
+
+        // --- Enhanced Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update Olympic rings rotation
+            olympicRings.forEach((ring, index) => {
+                ring.rotation.z += 0.01 * (index + 1);
+            });
+            
+            let player = getCurrentPlayer();
+            let mediaProgress = 0;
+            if (player && isPlaying && player.duration > 0) {
+                mediaProgress = player.currentTime / player.duration;
+                performanceMultiplier = 1 + mediaProgress * 2; // Increase performance with progress
+            }
+
+            // Update runners with spectacular effects
+            runners.forEach(runner => {
+                runner.update(mediaProgress);
+            });
+            
+            // Update fireworks
+            fireworks = fireworks.filter(firework => firework.update());
+            
+            // Update theme-specific animations
+            updateThemeAnimations();
+            
+            // Spectacular mode effects
+            if (spectacularMode && isPlaying) {
+                addSpectacularEffects();
+            }
+            
+            if (isVideoPlaying && videoTexture) {
+                videoTexture.needsUpdate = true;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        function updateThemeAnimations() {
+            const time = Date.now() * 0.001;
+            
+            // Animate current theme elements
+            if (themeElements[theme] && themeElements[theme].visible) {
+                switch(theme) {
+                    case 'hurdles':
+                        themeElements[theme].children.forEach((hurdle, index) => {
+                            const synapse = hurdle.children[0];
+                            if (synapse) {
+                                synapse.material.opacity = 0.7 + Math.sin(time * 2 + index) * 0.3;
+                                synapse.scale.setScalar(1 + Math.sin(time * 3 + index) * 0.2);
+                            }
+                        });
+                        break;
+                    case 'gymnastics':
+                        themeElements[theme].children.forEach((child, index) => {
+                            if (child.geometry && child.geometry.type === 'SphereGeometry') {
+                                child.position.y += Math.sin(time + index) * 0.1;
+                                child.rotation.x += 0.01;
+                                child.rotation.y += 0.02;
+                            }
+                        });
+                        break;
+                    case 'carnival':
+                        const discoBall = themeElements[theme].children[0];
+                        if (discoBall) {
+                            discoBall.rotation.y += 0.02;
+                            discoBall.material.color.setHSL(time * 0.1 % 1, 0.8, 0.6);
+                        }
+                        themeElements[theme].children.forEach((child, index) => {
+                            if (index > 0) { // Skip disco ball
+                                child.material.color.setHSL((time * 0.2 + index * 0.1) % 1, 1, 0.8);
+                            }
+                        });
+                        break;
+                    case 'relay':
+                        themeElements[theme].children.forEach((station, index) => {
+                            station.material.emissive.setHSL(0.5, 1, 0.3 + Math.sin(time * 2 + index) * 0.2);
+                            station.rotation.y += 0.01;
+                        });
+                        break;
+                }
+            }
+        }
+        
+        function addSpectacularEffects() {
+            // Random fireworks
+            if (Math.random() < 0.1) {
+                const firework = new Firework(
+                    (Math.random() - 0.5) * 200,
+                    Math.random() * 100 + 50,
+                    (Math.random() - 0.5) * 200
+                );
+                fireworks.push(firework);
+            }
+            
+            // Enhanced runner effects
+            runners.forEach(runner => {
+                if (runner.runnerId === batonHolder && isPlaying) {
+                    runner.aura.material.opacity = 0.5 + Math.sin(Date.now() * 0.01) * 0.3;
+                }
+            });
+        }
+
+        // --- Enhanced Media Handling ---
+        function handleFileSelect(event) {
+            playlist = [];
+            const files = event.target.files;
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                let fileType = 'unknown';
+                
+                if (file.type.startsWith('audio/')) fileType = 'audio';
+                else if (file.type.startsWith('video/')) fileType = 'video';
+                else if (file.type.startsWith('image/')) fileType = 'image';
+                
+                if (fileType !== 'unknown') {
+                    const url = URL.createObjectURL(file);
+                    playlist.push({
+                        name: file.name.replace(/\.[^/.]+$/, ""),
+                        url: url,
+                        type: fileType
+                    });
+                }
+            }
+            
+            updateRunners();
+            updateStatusDisplay();
+            showAdvantagePopup("🎭 OLYMPIC MEDIA LOADED! NEURAL PATHWAYS OPTIMIZED!");
+            
+            if (playlist.length > 0) {
+                currentTrack = 0;
+                batonHolder = 0;
+            }
+        }
+
+        function togglePlayback() {
+            if (playlist.length === 0) {
+                showAdvantagePopup("🎭 Load Olympic Media First for Maximum Neural Enhancement!");
+                return;
+            }
+            
+            const playBtn = document.getElementById('playBtn');
+            
+            if (isPlaying) {
+                pauseCurrentMedia();
+                isPlaying = false;
+                playBtn.textContent = '🚀 START SPECTACULAR';
+            } else {
+                playCurrentMedia();
+                isPlaying = true;
+                playBtn.textContent = '⏸️ PAUSE SPECTACULAR';
+                showAdvantagePopup("🏆 SPECTACULAR MODE ACTIVATED! NEURAL BOOST ENGAGED!");
+            }
+            
+            updateStatusDisplay();
+        }
+        
+        function getCurrentPlayer() {
+            const currentMedia = playlist[currentTrack];
+            if (!currentMedia) return null;
+            if (currentMedia.type === 'video') {
+                return document.getElementById('videoPlayer');
+            }
+            if (currentMedia.type === 'audio') {
+                return document.getElementById('mediaPlayer');
+            }
+            return null;
+        }
+
+        function playCurrentMedia() {
+            if (playlist.length === 0) return;
+            
+            const currentMedia = playlist[currentTrack];
+            const audioPlayer = document.getElementById('mediaPlayer');
+            const videoPlayer = document.getElementById('videoPlayer');
+            
+            // Stop both players
+            audioPlayer.pause();
+            videoPlayer.pause();
+            videoMesh.visible = false;
+            isVideoPlaying = false;
+            
+            if (currentMedia.type === 'video') {
+                videoPlayer.src = currentMedia.url;
+                videoPlayer.currentTime = 0;
+                
+                if (!videoTexture) {
+                    videoTexture = new THREE.VideoTexture(videoPlayer);
+                    videoTexture.minFilter = THREE.LinearFilter;
+                    videoTexture.magFilter = THREE.LinearFilter;
+                    videoTexture.format = THREE.RGBAFormat;
+                    videoMesh.material = new THREE.MeshBasicMaterial({ map: videoTexture });
+                }
+                
+                videoPlayer.play().catch(e => console.log('Video play failed:', e));
+                videoMesh.visible = true;
+                isVideoPlaying = true;
+                
+            } else if (currentMedia.type === 'audio') {
+                audioPlayer.src = currentMedia.url;
+                audioPlayer.currentTime = 0;
+                audioPlayer.play().catch(e => console.log('Audio play failed:', e));
+            } else if (currentMedia.type === 'image') {
+                const textureLoader = new THREE.TextureLoader();
+                textureLoader.load(currentMedia.url, (texture) => {
+                    videoMesh.material = new THREE.MeshBasicMaterial({ map: texture });
+                    videoMesh.visible = true;
+                });
+                if (manualTimeout) clearTimeout(manualTimeout);
+                manualTimeout = setTimeout(() => playNextTrack(), 7000); // Longer for images
+            }
+            
+            updateStatusDisplay();
+        }
+
+        function pauseCurrentMedia() {
+            const audioPlayer = document.getElementById('mediaPlayer');
+            const videoPlayer = document.getElementById('videoPlayer');
+            audioPlayer.pause();
+            videoPlayer.pause();
+            if (manualTimeout) clearTimeout(manualTimeout);
+        }
+
+        function playNextTrack() {
+            if (playlist.length === 0) return;
+            currentTrack = (currentTrack + 1) % playlist.length;
+            batonHolder = (batonHolder + 1) % runners.length;
+            
+            showAdvantagePopup("⚡ NEURAL RELAY ACTIVATED! NEXT CHAMPION ENGAGED!");
+            
+            if (isPlaying) {
+                playCurrentMedia();
+            }
+            
+            updateStatusDisplay();
+        }
+
+        function skipTrack() {
+            if (playlist.length === 0) return;
+            playNextTrack();
+        }
+
+        function updateProgress() {
+            let progressFill = document.getElementById('progressFill');
+            let player = getCurrentPlayer();
+            
+            if (player && player.duration > 0) {
+                let progress = (player.currentTime / player.duration) * 100;
+                progressFill.style.width = `${progress}%`;
+            } else {
+                progressFill.style.width = `0%`;
+            }
+        }
+        
+        function toggleStatus() {
+            const statusDisplay = document.getElementById('statusDisplay');
+            showStatus = !showStatus;
+            statusDisplay.classList.toggle('show', showStatus);
+        }
+        
+        function updateStatusDisplay() {
+            const currentMedia = playlist[currentTrack];
+            const trackNameSpan = document.getElementById('currentTrackName');
+            const mediaTypeSpan = document.getElementById('currentMediaType');
+            
+            if (currentMedia) {
+                trackNameSpan.textContent = currentMedia.name;
+                mediaTypeSpan.textContent = currentMedia.type;
+                mediaTypeSpan.className = `media-type ${currentMedia.type}`;
+            } else {
+                trackNameSpan.textContent = "No Olympic media loaded";
+                mediaTypeSpan.textContent = "none";
+                mediaTypeSpan.className = `media-type`;
+            }
+            
+            let player = getCurrentPlayer();
+            if (player) {
+                player.ontimeupdate = updateProgress;
+            }
+        }
+
+        function updateRunners() {
+            // Maintain optimal number of runners for neural pathway efficiency
+            const optimalRunners = Math.min(Math.max(playlist.length, 4), 12);
+            
+            if (runners.length > optimalRunners) {
+                while (runners.length > optimalRunners) {
+                    const runner = runners.pop();
+                    scene.remove(runner);
+                }
+            } else if (runners.length < optimalRunners) {
+                while (runners.length < optimalRunners) {
+                    const color = new THREE.Color().setHSL(runners.length / optimalRunners, 0.8, 0.6);
+                    const runner = new OlympicNeuroRunner(runners.length, color.getHex());
+                    runners.push(runner);
+                    scene.add(runner);
+                }
+            }
+        }
+        
+        function setTheme(newTheme) {
+            theme = newTheme;
+            
+            // Hide all theme elements
+            for (const key in themeElements) {
+                themeElements[key].visible = false;
+            }
+            
+            // Show selected theme
+            if (themeElements[newTheme]) {
+                themeElements[newTheme].visible = true;
+            }
+            
+            // Update button states
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.theme === newTheme) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Show theme-specific advantage
+            const themeAdvantages = {
+                'relay': '🏃 NEURAL RELAY: Synaptic transmission optimized for peak performance!',
+                'hurdles': '🚧 SYNAPTIC HURDLES: Cognitive obstacle navigation enhanced!',
+                'gymnastics': '🤸 BRAIN GYMNASTICS: Mental flexibility and coordination maximized!',
+                'carnival': '🎪 NEURO CARNIVAL: Sensory stimulation and enjoyment amplified!'
+            };
+            
+            showAdvantagePopup(themeAdvantages[newTheme]);
+        }
+        
+        function triggerSpectacular() {
+            spectacularMode = !spectacularMode;
+            const btn = event.target;
+            
+            if (spectacularMode) {
+                btn.textContent = '🌟 SPECTACULAR ON';
+                btn.classList.add('active');
+                showAdvantagePopup('✨ SPECTACULAR MODE ACTIVATED! ALL SYSTEMS ENHANCED!');
+                
+                // Add spectacular fireworks
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => {
+                        const firework = new Firework(
+                            (Math.random() - 0.5) * 150,
+                            Math.random() * 80 + 40,
+                            (Math.random() - 0.5) * 150
+                        );
+                        fireworks.push(firework);
+                    }, i * 500);
+                }
+            } else {
+                btn.textContent = '✨ SPECTACULAR MODE';
+                btn.classList.remove('active');
+                showAdvantagePopup('⭐ Spectacular mode deactivated');
+            }
+        }
+        
+        function showAdvantagePopup(message) {
+            const popup = document.createElement('div');
+            popup.className = 'advantage-popup';
+            popup.textContent = message;
+            document.body.appendChild(popup);
+            
+            setTimeout(() => {
+                document.body.removeChild(popup);
+            }, 3000);
+        }
+
+        // Initialize everything
+        window.onload = init;
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
