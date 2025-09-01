@@ -1,1048 +1,1030 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>P.O.P.S. Living Olympic Media Carnival</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
-  <style>
-    * { box-sizing: border-box; }
-    html, body { 
-      margin: 0; 
-      padding: 0; 
-      background: radial-gradient(circle at center, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
-      font-family: 'Arial', sans-serif; 
-      overflow: hidden;
-      height: 100vh;
-      width: 100vw;
-    }
-    
-    canvas { 
-      display: block; 
-      margin: 0 auto; 
-      touch-action: none;
-      filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
-    }
-    
-    .header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #feca57 50%, #48dbfb 75%, #ff9ff3 100%);
-      color: white;
-      text-align: center;
-      padding: 8px 0;
-      z-index: 100;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-      animation: rainbow-pulse 3s ease-in-out infinite;
-    }
-    
-    @keyframes rainbow-pulse {
-      0%, 100% { filter: brightness(1) saturate(1); }
-      50% { filter: brightness(1.2) saturate(1.3); }
-    }
-    
-    .header h1 {
-      margin: 0;
-      font-size: clamp(12px, 3.5vw, 18px);
-      font-weight: bold;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-      animation: text-glow 2s ease-in-out infinite alternate;
-    }
-    
-    @keyframes text-glow {
-      from { text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 10px rgba(255,255,255,0.3); }
-      to { text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(255,255,255,0.6); }
-    }
-    
-    .controls {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(0, 0, 0, 0.95);
-      backdrop-filter: blur(15px);
-      padding: 12px;
-      z-index: 100;
-      border-top: 2px solid rgba(255, 215, 0, 0.3);
-    }
-    
-    .control-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-bottom: 8px;
-    }
-    
-    .control-row:last-child {
-      margin-bottom: 0;
-    }
-    
-    .control-row button {
-      flex: 1;
-      min-width: 70px;
-      padding: 10px 12px;
-      font-size: 11px;
-      border: none;
-      border-radius: 25px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-    }
-    
-    .control-row button:hover, .control-row button:active {
-      transform: scale(0.95) translateY(-2px);
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
-    }
-    
-    .control-row button.active {
-      background: linear-gradient(135deg, #ffd700 0%, #ff6b6b 100%);
-      box-shadow: 0 0 25px rgba(255, 215, 0, 0.6);
-    }
-    
-    .file-input-wrapper {
-      position: relative;
-      overflow: hidden;
-      display: inline-block;
-      flex: 2;
-      min-width: 120px;
-    }
-    
-    .file-input-wrapper input[type=file] {
-      position: absolute;
-      left: -9999px;
-    }
-    
-    .file-input-label {
-      padding: 10px 12px;
-      font-size: 11px;
-      border: none;
-      border-radius: 25px;
-      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-      color: white;
-      cursor: pointer;
-      display: block;
-      text-align: center;
-      font-weight: bold;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      width: 100%;
-      box-shadow: 0 4px 15px rgba(238, 90, 36, 0.3);
-      transition: all 0.3s ease;
-    }
-    
-    .file-input-label:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(238, 90, 36, 0.5);
-    }
-    
-    .status-display {
-      position: fixed;
-      top: 45px;
-      left: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.9);
-      backdrop-filter: blur(15px);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 20px;
-      z-index: 90;
-      display: none;
-      text-align: center;
-      border: 1px solid rgba(255, 215, 0, 0.3);
-    }
-    
-    .status-display.show {
-      display: block;
-      animation: slide-down 0.3s ease-out;
-    }
-    
-    @keyframes slide-down {
-      from { transform: translateY(-100%); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    
-    .media-info {
-      font-size: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    
-    .media-type {
-      background: #667eea;
-      color: white;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 9px;
-      text-transform: uppercase;
-      font-weight: bold;
-    }
-    
-    .media-type.video { background: #e74c3c; }
-    .media-type.audio { background: #27ae60; }
-    .media-type.image { background: #f39c12; }
-    
-    #mediaPlayer, #videoPlayer {
-      position: absolute;
-      top: -9999px;
-      left: -9999px;
-    }
-    
-    .progress-container {
-      margin-top: 5px;
-      height: 6px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 3px;
-      overflow: hidden;
-      box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
-    }
-    
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #ffd700, #ff6b6b, #48dbfb);
-      width: 0%;
-      transition: width 0.1s ease;
-      border-radius: 3px;
-      box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-    }
-    
-    .carnival-lights {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 4px;
-      background: linear-gradient(90deg, 
-        #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3);
-      animation: carnival-chase 2s linear infinite;
-      z-index: 101;
-    }
-    
-    @keyframes carnival-chase {
-      0% { transform: translateX(-100%); }
-      100% { transform: translateX(100%); }
-    }
-    
-    @media (max-width: 480px) {
-      .control-row {
-        flex-direction: column;
-      }
-      
-      .control-row button,
-      .file-input-label {
-        min-width: 100%;
-        font-size: 10px;
-        padding: 8px 10px;
-      }
-    }
-  </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>P.O.P.S. Living Olympic Media Carnival</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <style>
+        /* General Body and Page Styles */
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at center, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            color: white;
+        }
+
+        /* Canvas and Visuals */
+        canvas {
+            display: block;
+            margin: 0 auto;
+            touch-action: none; /* Prevents default touch gestures */
+            filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
+        }
+
+        /* Top Header and Animations */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #feca57 50%, #48dbfb 75%, #ff9ff3 100%);
+            color: white;
+            text-align: center;
+            padding: 8px 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            animation: rainbow-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes rainbow-pulse {
+            0%, 100% { filter: brightness(1) saturate(1); }
+            50% { filter: brightness(1.2) saturate(1.3); }
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: clamp(12px, 3.5vw, 18px);
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            animation: text-glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes text-glow {
+            from { text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 10px rgba(255,255,255,0.3); }
+            to { text-shadow: 2px 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(255,255,255,0.6); }
+        }
+
+        /* Bottom Controls and UI */
+        .controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(15px);
+            padding: 12px;
+            z-index: 100;
+            border-top: 2px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .control-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-row button {
+            flex: 1;
+            min-width: 70px;
+            padding: 10px 12px;
+            font-size: 11px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .control-row button:hover, .control-row button:active {
+            transform: scale(0.95) translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .control-row button.active {
+            background: linear-gradient(135deg, #ffd700 0%, #ff6b6b 100%);
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.6);
+        }
+
+        /* File Input Styling */
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            flex: 2;
+            min-width: 120px;
+        }
+
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            padding: 10px 12px;
+            font-size: 11px;
+            border: none;
+            border-radius: 25px;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            cursor: pointer;
+            display: block;
+            text-align: center;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: 100%;
+            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(238, 90, 36, 0.5);
+        }
+
+        /* Status Display and Progress Bar */
+        .status-display {
+            position: fixed;
+            top: 45px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(15px);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            z-index: 90;
+            display: none;
+            text-align: center;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            transition: all 0.3s ease-out;
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+
+        .status-display.show {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .media-info {
+            font-size: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .media-type {
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 9px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .media-type.video { background: #e74c3c; }
+        .media-type.audio { background: #27ae60; }
+        .media-type.image { background: #f39c12; }
+
+        .progress-container {
+            margin-top: 5px;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffd700, #ff6b6b, #48dbfb);
+            width: 0%;
+            transition: width 0.1s ease;
+            border-radius: 3px;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        /* Video Display */
+        #mediaPlayer {
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+        }
+
+        #videoContainer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            width: 80vw;
+            max-width: 600px;
+            height: 45vw;
+            max-height: 337.5px;
+            border: 5px solid gold;
+            box-shadow: 0 0 50px gold;
+            display: none;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+
+        #videoPlayer {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Responsive Layouts */
+        @media (max-width: 480px) {
+            .control-row {
+                flex-direction: column;
+            }
+
+            .control-row button,
+            .file-input-label {
+                min-width: 100%;
+                font-size: 10px;
+                padding: 8px 10px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="carnival-lights"></div>
-  
-  <div class="header">
-    <h1>🎪 P.O.P.S. LIVING OLYMPIC MEDIA CARNIVAL 🏃‍♂️🎵</h1>
-  </div>
-  
-  <div class="status-display" id="statusDisplay">
-    <div class="media-info" id="mediaInfo">
-      <div>🎵 <span id="currentTrackName">No media loaded</span></div>
-      <div><span class="media-type" id="currentMediaType">none</span></div>
+    <div class="header">
+        <h1>🎪 P.O.P.S. LIVING OLYMPIC MEDIA CARNIVAL 🏃‍♂️🎵</h1>
     </div>
-    <div class="progress-container">
-      <div class="progress-fill" id="progressFill"></div>
+
+    <div class="status-display" id="statusDisplay">
+        <div class="media-info" id="mediaInfo">
+            <div>🎵 <span id="currentTrackName">No media loaded</span></div>
+            <div><span class="media-type" id="currentMediaType">none</span></div>
+        </div>
+        <div class="progress-container">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
     </div>
-  </div>
-  
-  <div class="controls">
-    <div class="control-row">
-      <div class="file-input-wrapper">
-        <input type="file" id="fileInput" accept="audio/*,video/*,image/*" multiple>
-        <label for="fileInput" class="file-input-label">🎭 Load Media</label>
-      </div>
-      <button onclick="togglePlayback()" id="playBtn">▶️ Start Show</button>
-      <button onclick="skipTrack()">⏭️ Next</button>
-      <button onclick="toggleStatus()">📊 Status</button>
+
+    <div class="controls">
+        <div class="control-row">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept="audio/*,video/*,image/*" multiple>
+                <label for="fileInput" class="file-input-label">🎭 Load Media</label>
+            </div>
+            <button onclick="togglePlayback()" id="playBtn">▶️ Start Show</button>
+            <button onclick="skipTrack()">⏭️ Next</button>
+            <button onclick="toggleStatus()">📊 Status</button>
+        </div>
+        <div class="control-row">
+            <button onclick="setTheme('relay')" class="theme-btn" data-theme="relay">🏃 Relay</button>
+            <button onclick="setTheme('hurdles')" class="theme-btn" data-theme="hurdles">🚧 Hurdles</button>
+            <button onclick="setTheme('gymnastics')" class="theme-btn" data-theme="gymnastics">🤸 Gymnastics</button>
+            <button onclick="setTheme('carnival')" class="theme-btn" data-theme="carnival">🎪 Carnival</button>
+        </div>
     </div>
-    <div class="control-row">
-      <button onclick="setTheme('relay')" class="theme-btn" data-theme="relay">🏃 Relay</button>
-      <button onclick="setTheme('hurdles')" class="theme-btn" data-theme="hurdles">🚧 Hurdles</button>
-      <button onclick="setTheme('gymnastics')" class="theme-btn" data-theme="gymnastics">🤸 Gymnastics</button>
-      <button onclick="setTheme('carnival')" class="theme-btn" data-theme="carnival">🎪 Carnival</button>
+
+    <audio id="mediaPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()"></audio>
+    <div id="videoContainer">
+        <video id="videoPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()"></video>
     </div>
-  </div>
-  
-  <audio id="mediaPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()"></audio>
-  <video id="videoPlayer" style="display: none;" onended="playNextTrack()" ontimeupdate="updateProgress()"></video>
 
-  <script>
-    let runners = [];
-    let playlist = [];
-    let currentTrack = 0;
-    let isPlaying = false;
-    let theme = 'relay';
-    let batonHolder = 0;
-    let trackRadius;
-    let showStatus = false;
-    let carnivalElements = [];
-    let celebrationMode = false;
-    let manualTimeout = null;
+    <script>
+        // --- Global State Variables ---
+        let runners = [];
+        let playlist = [];
+        let currentTrack = 0;
+        let isPlaying = false;
+        let theme = 'relay';
+        let batonHolder = 0;
+        let trackRadius;
+        let showStatus = false;
+        let carnivalElements = [];
+        let celebrationMode = false;
+        let manualTimeout = null;
+        let manualStartTimestamp = 0; // Tracks the start time for image playback
 
-    // --- Carnival Element Class ---
-    class CarnivalElement {
-      constructor(x, y, type) {
-        this.x = x;
-        this.y = y;
-        this.type = type;
-        this.rotation = 0;
-        this.scale = 1;
-        this.pulse = 0;
-        this.speed = random(0.005, 0.02);
-        this.color = color(random(100, 255), random(100, 255), random(100, 255));
-      }
-      
-      update() {
-        this.rotation += this.speed;
-        this.pulse += 0.1;
-        this.scale = 1 + sin(this.pulse) * 0.2;
-      }
-      
-      display() {
-        push();
-        translate(this.x, this.y);
-        rotate(this.rotation);
-        scale(this.scale);
-        
-        switch(this.type) {
-          case 'ferrisWheel':
-            this.drawFerrisWheel();
-            break;
-          case 'tent':
-            this.drawTent();
-            break;
-          case 'flag':
-            this.drawFlag();
-            break;
-          case 'balloon':
-            this.drawBalloon();
-            break;
-        }
-        pop();
-      }
-      
-      drawFerrisWheel() {
-        stroke(255, 215, 0);
-        strokeWeight(2);
-        fill(0, 0, 0, 100);
-        ellipse(0, 0, 40, 40);
-        
-        for(let i = 0; i < 8; i++) {
-          let a = i * TWO_PI / 8;
-          line(0, 0, cos(a) * 20, sin(a) * 20);
-          
-          push();
-          translate(cos(a) * 20, sin(a) * 20);
-          fill(this.color);
-          rect(-3, -3, 6, 6);
-          pop();
-        }
-      }
-      
-      drawTent() {
-        fill(this.color);
-        triangle(-15, 10, 0, -20, 15, 10);
-        fill(red(this.color) * 0.7, green(this.color) * 0.7, blue(this.color) * 0.7);
-        triangle(0, -20, 15, 10, 0, 10);
-      }
-      
-      drawFlag() {
-        stroke(139, 69, 19);
-        strokeWeight(2);
-        line(0, -15, 0, 15);
-        fill(this.color);
-        noStroke();
-        beginShape();
-        vertex(0, -15);
-        vertex(20, -10);
-        vertex(20, -5);
-        vertex(0, 0);
-        endShape(CLOSE);
-      }
-      
-      drawBalloon() {
-        fill(this.color);
-        ellipse(0, -5, 12, 15);
-        stroke(100);
-        line(0, 2, 0, 15);
-      }
-    }
+        const IMAGE_DURATION = 5000; // 5 seconds in milliseconds
 
-    // --- Living Runner Class ---
-    class LivingRunner {
-      constructor(angle, id) {
-        this.angle = angle;
-        this.id = id;
-        this.mode = 'idle';
-        this.frame = 0;
-        this.energy = random(0.5, 1.0);
-        this.personality = random(['eager', 'calm', 'excited', 'focused']);
-        this.anticipation = 0;
-        this.celebration = 0;
-        this.mediaTitle = '';
-        this.mediaType = 'unknown';
-        this.baseAngle = angle; // Store the initial position
-        
-        this.frameIndex = {
-          'idle': [0, 1],
-          'run': [2, 3, 4, 5],
-          'celebrate': [6, 7, 6],
-          'looking': [1, 0, 1],
-        };
-      }
-
-      update(mediaProgress) {
-        // Runner's position is now directly tied to media progress
-        if (this.id === batonHolder && isPlaying) {
-          this.mode = 'run';
-          // Map media progress (0 to 1) to a full circle (0 to TWO_PI)
-          this.angle = map(mediaProgress, 0, 1, this.baseAngle, this.baseAngle + TWO_PI);
-          this.celebration = max(0, this.celebration - 0.02);
-        } else if (isPlaying) {
-          this.mode = 'idle';
-        } else {
-          // Autonomous behavior when not playing
-          this.mode = 'idle';
-        }
-        
-        // Update frame for animation based on mode
-        this.frame = (this.frame + 0.1 * this.energy) % this.frameIndex[this.mode].length;
-        
-        // Update anticipation for the next runner
-        if (!isPlaying && playlist.length > 0) {
-          this.anticipation = min(1, this.anticipation + 0.01);
-        } else {
-          this.anticipation = max(0, this.anticipation - 0.01);
-        }
-      }
-      
-      display() {
-        let x = width / 2 + cos(this.angle) * trackRadius;
-        let y = height / 2 + sin(this.angle) * trackRadius;
-        
-        push();
-        translate(x, y);
-        
-        let direction = cos(this.angle) > 0 ? 1 : -1;
-        scale(direction, 1);
-        
-        // Draw anticipation glow
-        if (this.anticipation > 0.3) {
-          drawingContext.shadowColor = 'rgba(255, 215, 0, ' + this.anticipation * 0.8 + ')';
-          drawingContext.shadowBlur = 20;
-          this.drawSprite();
-          drawingContext.shadowBlur = 0;
-        }
-        
-        // Draw celebration sparkles
-        if (this.celebration > 0) {
-          for (let i = 0; i < 5; i++) {
-            let sparkleX = random(-20, 20);
-            let sparkleY = random(-30, -10);
-            fill(255, 255, 0, this.celebration * 255);
-            noStroke();
-            star(sparkleX, sparkleY, 2, 4, 3);
-          }
-        }
-        
-        // Main sprite
-        this.drawSprite();
-        
-        pop();
-        
-        // Draw media label
-        if (this.mediaTitle) {
-          this.drawMediaLabel(x, y);
-        }
-      }
-      
-      drawSprite() {
-        let personalityColor;
-        switch(this.personality) {
-          case 'eager': personalityColor = color(255, 100, 100); break;
-          case 'calm': personalityColor = color(100, 150, 255); break;
-          case 'excited': personalityColor = color(255, 200, 0); break;
-          case 'focused': personalityColor = color(100, 255, 100); break;
-          default: personalityColor = color(150, 150, 150);
-        }
-        
-        // Body
-        fill(personalityColor);
-        rectMode(CENTER);
-        rect(0, 0, 16, 32);
-        
-        // Head
-        fill(255, 200, 150);
-        ellipse(0, -20, 16, 16);
-        
-        // Simple limbs based on mode
-        stroke(50);
-        strokeWeight(2);
-        
-        let armSwing = sin(frameCount * 0.1 + this.id) * (this.mode === 'run' ? 5 : 2);
-        let legMove = cos(frameCount * 0.1 + this.id) * (this.mode === 'run' ? 3 : 1);
-        
-        // Arms
-        line(-8, -5, -8 + armSwing, 5);
-        line(8, -5, 8 - armSwing, 5);
-        
-        // Legs
-        line(-4, 16, -4 + legMove, 25);
-        line(4, 16, 4 - legMove, 25);
-        
-        if (this.mode === 'celebrate') {
-          line(-8, -5, -8, -15);
-          line(8, -5, 8, -15);
-        }
-      }
-      
-      drawMediaLabel(x, y) {
-        push();
-        translate(x, y - 40);
-        
-        let isActive = this.id === batonHolder && isPlaying;
-        
-        fill(isActive ? color(255, 215, 0, 230) : color(0, 0, 0, 180));
-        stroke(isActive ? color(255, 255, 255) : color(100, 100, 100));
-        strokeWeight(1);
-        rectMode(CENTER);
-        rect(0, 0, 80, 20, 10);
-        
-        fill(isActive ? color(0, 0, 0) : color(255, 255, 255));
-        textAlign(CENTER, CENTER);
-        textSize(8);
-        
-        let displayText = this.mediaTitle.length > 10 ? 
-          this.mediaTitle.substring(0, 10) + "..." : this.mediaTitle;
-        text(displayText, 0, -3);
-        
-        fill(this.getMediaTypeColor());
-        textSize(6);
-        text(this.mediaType.toUpperCase(), 0, 5);
-        
-        pop();
-      }
-      
-      getMediaTypeColor() {
-        switch(this.mediaType) {
-          case 'video': return color(231, 76, 60);
-          case 'audio': return color(39, 174, 96);
-          case 'image': return color(243, 156, 18);
-          default: return color(150, 150, 150);
-        }
-      }
-    }
-
-    // --- P5.js Main Functions ---
-    function setup() {
-      let canvas = createCanvas(windowWidth, windowHeight - 130);
-      canvas.parent(document.body);
-      
-      trackRadius = Math.min(width, height - 130) * 0.3;
-      updateRunners();
-      initializeCarnival();
-      
-      let fileInput = document.getElementById('fileInput');
-      fileInput.addEventListener('change', handleFileSelect);
-      
-      canvas.canvas.addEventListener('touchstart', handleTouch);
-      canvas.canvas.addEventListener('touchmove', handleTouch);
-      
-      setTheme('relay');
-    }
-
-    function windowResized() {
-      resizeCanvas(windowWidth, windowHeight - 130);
-      trackRadius = Math.min(width, height - 130) * 0.3;
-      initializeCarnival();
-    }
-
-    function handleTouch(e) {
-      e.preventDefault();
-    }
-    
-    function initializeCarnival() {
-      carnivalElements = [];
-      
-      for (let i = 0; i < 8; i++) {
-        let x = random(50, width - 50);
-        let y = random(50, height * 0.4);
-        let type = random(['ferrisWheel', 'tent', 'flag', 'balloon']);
-        carnivalElements.push(new CarnivalElement(x, y, type));
-      }
-    }
-
-    function draw() {
-      drawCarnivalSky();
-      
-      for (let element of carnivalElements) {
-        element.update();
-        element.display();
-      }
-      
-      drawTrack();
-      drawSpectatorStands();
-      
-      let player = getCurrentPlayer();
-      let mediaProgress = 0;
-      if (player && isPlaying && player.duration > 0) {
-        mediaProgress = player.currentTime / player.duration;
-      }
-      
-      for (let runner of runners) {
-        runner.update(mediaProgress);
-        runner.display();
-      }
-      
-      drawCelebrationEffects();
-      drawAnticipationEffects();
-    }
-    
-    function drawCarnivalSky() {
-      for (let y = 0; y < height; y++) {
-        let inter = map(y, 0, height, 0, 1);
-        let time = millis() * 0.001;
-        
-        let r = 26 + sin(time + inter) * 20;
-        let g = 26 + cos(time * 1.3 + inter) * 30;
-        let b = 46 + sin(time * 0.7 + inter) * 40;
-        
-        stroke(r, g, b);
-        line(0, y, width, y);
-      }
-      
-      if (isPlaying) {
-        drawMusicalNotes();
-      }
-    }
-    
-    function drawMusicalNotes() {
-      push();
-      fill(255, 255, 0, 150);
-      noStroke();
-      
-      for (let i = 0; i < 5; i++) {
-        let x = (millis() * 0.05 + i * 100) % (width + 50);
-        let y = 80 + sin(millis() * 0.003 + i) * 20;
-        textSize(16);
-        text(['♪', '♫', '♬', '♩', '♭'][i], x, y);
-      }
-      pop();
-    }
-
-    function drawTrack() {
-      push();
-      translate(width / 2, height / 2);
-      
-      drawingContext.shadowColor = isPlaying ? 'rgba(255, 215, 0, 0.8)' : 'rgba(255, 255, 255, 0.3)';
-      drawingContext.shadowBlur = isPlaying ? 30 : 10;
-      
-      noFill();
-      stroke(255, 255, 255);
-      strokeWeight(Math.max(15, width * 0.025));
-      ellipse(0, 0, trackRadius * 2, trackRadius * 2);
-      
-      drawingContext.shadowBlur = 0;
-
-      stroke(255, 215, 0, isPlaying ? 200 : 100);
-      strokeWeight(1);
-      for (let i = 0; i < 32; i++) {
-        let a = i * TWO_PI / 32 + millis() * 0.001;
-        let r1 = trackRadius - 10;
-        let r2 = trackRadius + 10;
-        let x1 = cos(a) * r1;
-        let y1 = sin(a) * r1;
-        let x2 = cos(a) * r2;
-        let y2 = sin(a) * r2;
-        line(x1, y1, x2, y2);
-      }
-      drawThemeElements();
-      pop();
-    }
-    
-    function drawThemeElements() {
-      switch(theme) {
-        case 'hurdles':
-          for (let i = 0; i < 6; i++) {
-            let a = i * TWO_PI / 6;
-            let x = cos(a) * trackRadius;
-            let y = sin(a) * trackRadius;
-            fill(139, 69, 19);
-            noStroke();
-            rect(x - 8, y - 15, 16, 30, 4);
-            fill(255, 255, 255);
-            for (let j = 0; j < 3; j++) {
-              rect(x - 6, y - 10 + j * 8, 12, 2);
+        // --- Carnival Element Class ---
+        // Creates static or animated carnival-themed decorations
+        class CarnivalElement {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.rotation = 0;
+                this.scale = 1;
+                this.pulse = random(TWO_PI);
+                this.speed = random(0.005, 0.02);
+                this.color = color(random(100, 255), random(100, 255), random(100, 255));
             }
-          }
-          break;
-          
-        case 'gymnastics':
-          fill(200, 180, 140);
-          noStroke();
-          rect(-trackRadius * 0.8, -8, trackRadius * 1.6, 16, 8);
-          
-          fill(255, 105, 180, 100);
-          ellipse(0, 0, trackRadius * 0.6, trackRadius * 0.6);
-          
-          fill(180, 180, 180);
-          rect(-30, -trackRadius * 0.7, 60, 8, 4);
-          rect(-30, -trackRadius * 0.5, 60, 8, 4);
-          break;
-          
-        case 'carnival':
-          push();
-          rotate(millis() * 0.002);
-          stroke(255, 0, 0);
-          strokeWeight(3);
-          noFill();
-          for (let i = 0; i < 3; i++) {
-            ellipse(0, 0, (trackRadius + i * 20) * 2, (trackRadius + i * 20) * 2);
-          }
-          pop();
-          
-          fill(255, 215, 0, 150);
-          ellipse(0, 0, 80, 80);
-          fill(255, 0, 0);
-          textAlign(CENTER, CENTER);
-          textSize(12);
-          text("🎪", 0, 0);
-          break;
-          
-        default: // relay
-          stroke(255, 255, 255);
-          strokeWeight(4);
-          let startX = cos(0) * trackRadius;
-          let startY = sin(0) * trackRadius;
-          line(startX - 15, startY, startX + 15, startY);
-          
-          for (let i = 0; i < 6; i++) {
-            fill(i % 2 === 0 ? 255 : 0);
-            rect(startX - 15 + i * 5, startY - 2, 5, 4);
-          }
-          break;
-      }
-    }
-    
-    function drawSpectatorStands() {
-      push();
-      fill(50, 50, 100, 150);
-      noStroke();
-      
-      for (let i = 0; i < width; i += 20) {
-        let crowdHeight = 30 + sin(millis() * 0.005 + i * 0.1) * 10;
-        rect(i, height - 40, 18, crowdHeight);
-        
-        if (isPlaying && random() < 0.1) {
-          fill(255, 255, 0, 200);
-          ellipse(i + 9, height - 40 - crowdHeight, 3, 3);
+
+            update() {
+                this.rotation += this.speed;
+                this.pulse += 0.05;
+                this.scale = 1 + sin(this.pulse) * 0.1;
+            }
+
+            display() {
+                push();
+                translate(this.x, this.y);
+                rotate(this.rotation);
+                scale(this.scale);
+
+                switch (this.type) {
+                    case 'ferrisWheel': this.drawFerrisWheel(); break;
+                    case 'tent': this.drawTent(); break;
+                    case 'flag': this.drawFlag(); break;
+                    case 'balloon': this.drawBalloon(); break;
+                }
+                pop();
+            }
+
+            drawFerrisWheel() {
+                stroke(255, 215, 0);
+                strokeWeight(2);
+                fill(0, 0, 0, 100);
+                ellipse(0, 0, 40, 40);
+
+                for (let i = 0; i < 8; i++) {
+                    let a = i * TWO_PI / 8;
+                    line(0, 0, cos(a) * 20, sin(a) * 20);
+                    push();
+                    translate(cos(a) * 20, sin(a) * 20);
+                    fill(this.color);
+                    rect(-3, -3, 6, 6);
+                    pop();
+                }
+            }
+
+            drawTent() {
+                fill(this.color);
+                triangle(-15, 10, 0, -20, 15, 10);
+                fill(red(this.color) * 0.7, green(this.color) * 0.7, blue(this.color) * 0.7);
+                triangle(0, -20, 15, 10, 0, 10);
+            }
+
+            drawFlag() {
+                stroke(139, 69, 19);
+                strokeWeight(2);
+                line(0, -15, 0, 15);
+                fill(this.color);
+                noStroke();
+                beginShape();
+                vertex(0, -15);
+                vertex(20, -10);
+                vertex(20, -5);
+                vertex(0, 0);
+                endShape(CLOSE);
+            }
+
+            drawBalloon() {
+                fill(this.color);
+                ellipse(0, -5, 12, 15);
+                stroke(100);
+                line(0, 2, 0, 15);
+            }
         }
-      }
-      pop();
-    }
 
-    function drawCelebrationEffects() {
-      if (!celebrationMode) return;
-      
-      push();
-      for (let i = 0; i < 8; i++) {
-        let x = random(width);
-        let y = random(height * 0.3);
-        let size = random(5, 15);
-        
-        fill(random(255), random(255), random(255), 150);
-        noStroke();
-        star(x, y, size, size * 2, 5);
-      }
-      pop();
-    }
-    
-    function drawAnticipationEffects() {
-      if (playlist.length === 0 || isPlaying) {
-        push();
-        translate(width / 2, height / 2);
-        
-        fill(255, 255, 255, sin(millis() * 0.01) * 100 + 100);
-        textAlign(CENTER, CENTER);
-        textSize(16);
-        
-        if (playlist.length === 0) {
-          text("🎵 Runners are waiting for media! 🎵", 0, -trackRadius * 1.5);
-          text("Load some music or videos to start the show!", 0, -trackRadius * 1.3);
-        } else if (!isPlaying) {
-          text("🏃‍♂️ Ready to race! Press START SHOW! 🏃‍♀️", 0, -trackRadius * 1.5);
+        // --- Living Runner Class ---
+        // Represents a runner on the track, tied to media playback
+        class LivingRunner {
+            constructor(angle, id) {
+                this.angle = angle;
+                this.id = id;
+                this.mode = 'idle';
+                this.frame = 0;
+                this.energy = random(0.5, 1.0);
+                this.personality = random(['eager', 'calm', 'excited', 'focused']);
+                this.anticipation = 0;
+                this.celebration = 0;
+                this.mediaTitle = '';
+                this.mediaType = 'unknown';
+                this.baseAngle = angle;
+            }
+
+            update(mediaProgress) {
+                if (this.id === batonHolder && isPlaying) {
+                    this.mode = 'run';
+                    // Map media progress (0 to 1) to a full circle (0 to TWO_PI)
+                    this.angle = map(mediaProgress, 0, 1, this.baseAngle, this.baseAngle + TWO_PI);
+                    this.celebration = max(0, this.celebration - 0.02);
+                } else if (isPlaying) {
+                    this.mode = 'idle';
+                } else {
+                    this.mode = 'idle';
+                }
+
+                // Update frame for animation based on mode
+                this.frame = (this.frame + 0.1 * this.energy) % 8; // 8 frames for a generic cycle
+
+                // Update anticipation for the next runner
+                if (!isPlaying && playlist.length > 0) {
+                    this.anticipation = min(1, this.anticipation + 0.01);
+                } else {
+                    this.anticipation = max(0, this.anticipation - 0.01);
+                }
+            }
+
+            display() {
+                let x = width / 2 + cos(this.angle) * trackRadius;
+                let y = height / 2 + sin(this.angle) * trackRadius;
+
+                push();
+                translate(x, y);
+
+                // Make runner face the direction of movement
+                let direction = (this.angle > PI / 2 && this.angle < 3 * PI / 2) ? 1 : -1;
+                scale(direction, 1);
+                
+                // Draw anticipation glow
+                if (this.anticipation > 0.3) {
+                    drawingContext.shadowColor = 'rgba(255, 215, 0, ' + this.anticipation * 0.8 + ')';
+                    drawingContext.shadowBlur = 20;
+                    this.drawSprite();
+                    drawingContext.shadowBlur = 0;
+                }
+
+                // Draw celebration sparkles
+                if (this.celebration > 0) {
+                    for (let i = 0; i < 5; i++) {
+                        let sparkleX = random(-20, 20);
+                        let sparkleY = random(-30, -10);
+                        fill(255, 255, 0, this.celebration * 255);
+                        noStroke();
+                        star(sparkleX, sparkleY, 2, 4, 3);
+                    }
+                }
+
+                // Main sprite
+                this.drawSprite();
+
+                pop();
+
+                // Draw media label
+                if (this.mediaTitle) {
+                    this.drawMediaLabel(x, y);
+                }
+            }
+
+            drawSprite() {
+                let personalityColor;
+                switch (this.personality) {
+                    case 'eager': personalityColor = color(255, 100, 100); break;
+                    case 'calm': personalityColor = color(100, 150, 255); break;
+                    case 'excited': personalityColor = color(255, 200, 0); break;
+                    case 'focused': personalityColor = color(100, 255, 100); break;
+                    default: personalityColor = color(150, 150, 150);
+                }
+
+                // Body
+                fill(personalityColor);
+                noStroke();
+                rectMode(CENTER);
+                rect(0, 0, 16, 32);
+
+                // Head
+                fill(255, 200, 150);
+                ellipse(0, -20, 16, 16);
+
+                // Simple limbs based on mode
+                stroke(50);
+                strokeWeight(2);
+                
+                let armSwing = sin(frameCount * 0.1 * this.energy) * 10;
+                let legMove = cos(frameCount * 0.1 * this.energy) * 15;
+
+                // Arms
+                line(-8, -5, -8 + armSwing, 5);
+                line(8, -5, 8 - armSwing, 5);
+
+                // Legs
+                line(-4, 16, -4 + legMove, 25);
+                line(4, 16, 4 - legMove, 25);
+
+                // Baton for the current runner
+                if (this.id === batonHolder) {
+                    fill(255, 215, 0);
+                    noStroke();
+                    rect(0, 5, 10, 3, 2);
+                }
+            }
+
+            drawMediaLabel(x, y) {
+                push();
+                translate(x, y - 40);
+
+                let isActive = this.id === batonHolder && isPlaying;
+                fill(isActive ? color(255, 215, 0, 230) : color(0, 0, 0, 180));
+                stroke(isActive ? color(255, 255, 255) : color(100, 100, 100));
+                strokeWeight(1);
+                rectMode(CENTER);
+                rect(0, 0, 80, 20, 10);
+
+                fill(isActive ? color(0, 0, 0) : color(255, 255, 255));
+                textAlign(CENTER, CENTER);
+                textSize(8);
+
+                let displayText = this.mediaTitle.length > 10 ?
+                    this.mediaTitle.substring(0, 10) + "..." : this.mediaTitle;
+                text(displayText, 0, -3);
+
+                fill(this.getMediaTypeColor());
+                textSize(6);
+                text(this.mediaType.toUpperCase(), 0, 5);
+
+                pop();
+            }
+
+            getMediaTypeColor() {
+                switch (this.mediaType) {
+                    case 'video': return color(231, 76, 60);
+                    case 'audio': return color(39, 174, 96);
+                    case 'image': return color(243, 156, 18);
+                    default: return color(150, 150, 150);
+                }
+            }
         }
-        pop();
-      }
-    }
 
-    function star(x, y, radius1, radius2, npoints) {
-      let angle = TWO_PI / npoints;
-      let halfAngle = angle / 2.0;
-      beginShape();
-      for (let a = 0; a < TWO_PI; a += angle) {
-        let sx = x + cos(a) * radius2;
-        let sy = y + sin(a) * radius2;
-        vertex(sx, sy);
-        sx = x + cos(a + halfAngle) * radius1;
-        sy = y + sin(a + halfAngle) * radius1;
-        vertex(sx, sy);
-      }
-      endShape(CLOSE);
-    }
+        // --- P5.js Main Functions ---
+        function setup() {
+            let canvas = createCanvas(windowWidth, windowHeight - 130);
+            canvas.parent(document.body);
 
-    function setTheme(newTheme) {
-      theme = newTheme;
-      
-      document.querySelectorAll('.theme-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.dataset.theme === newTheme) {
-          btn.classList.add('active');
+            trackRadius = min(width, height - 130) * 0.3;
+            updateRunners();
+            initializeCarnival();
+
+            let fileInput = document.getElementById('fileInput');
+            fileInput.addEventListener('change', handleFileSelect);
+
+            canvas.canvas.addEventListener('touchstart', handleTouch);
+            canvas.canvas.addEventListener('touchmove', handleTouch);
+
+            setTheme('relay');
         }
-      });
-      
-      celebrationMode = true;
-      setTimeout(() => celebrationMode = false, 2000);
-    }
 
-    function handleFileSelect(event) {
-      playlist = [];
-      let files = event.target.files;
-      
-      for (let i = 0; i < files.length; i++) {
-        let file = files[i];
-        let fileType = 'unknown';
-        
-        if (file.type.startsWith('audio/')) fileType = 'audio';
-        else if (file.type.startsWith('video/')) fileType = 'video';
-        else if (file.type.startsWith('image/')) fileType = 'image';
-        
-        if (fileType !== 'unknown') {
-          let url = URL.createObjectURL(file);
-          playlist.push({ 
-            name: file.name.replace(/\.[^/.]+$/, ""),
-            url: url,
-            type: fileType
-          });
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight - 130);
+            trackRadius = min(width, height - 130) * 0.3;
+            initializeCarnival();
         }
-      }
-      
-      updateRunners();
-      updateStatusDisplay();
-      
-      if (playlist.length > 0) {
-        currentTrack = 0;
-        batonHolder = 0;
-        
-        runners.forEach(runner => {
-          runner.anticipation = 1.0;
-        });
-      }
-    }
 
-    function updateRunners() {
-      let numRunners = playlist.length > 0 ? playlist.length : 4;
-      let oldRunners = [...runners];
-      runners = [];
-      
-      for (let i = 0; i < numRunners; i++) {
-        let newRunner = new LivingRunner(i * TWO_PI / numRunners, i);
-        
-        if (oldRunners[i]) {
-          newRunner.personality = oldRunners[i].personality;
-          newRunner.energy = oldRunners[i].energy;
+        function handleTouch(e) {
+            e.preventDefault();
+        }
+
+        function initializeCarnival() {
+            carnivalElements = [];
+            for (let i = 0; i < 8; i++) {
+                let x = random(50, width - 50);
+                let y = random(50, height * 0.4);
+                let type = random(['ferrisWheel', 'tent', 'flag', 'balloon']);
+                carnivalElements.push(new CarnivalElement(x, y, type));
+            }
+        }
+
+        function draw() {
+            // Draw a simple, performant background
+            background(26, 26, 46);
+
+            for (let element of carnivalElements) {
+                element.update();
+                element.display();
+            }
+
+            drawTrack();
+            drawSpectatorStands();
+
+            let player = getCurrentPlayer();
+            let mediaProgress = 0;
+            if (player && isPlaying) {
+                if (playlist[currentTrack].type === 'image') {
+                    // Manual progress for images
+                    let elapsed = millis() - manualStartTimestamp;
+                    mediaProgress = min(elapsed, IMAGE_DURATION) / IMAGE_DURATION;
+                } else if (player.duration > 0) {
+                    // Standard progress for audio/video
+                    mediaProgress = player.currentTime / player.duration;
+                }
+            }
+
+            for (let runner of runners) {
+                runner.update(mediaProgress);
+                runner.display();
+            }
+
+            drawCelebrationEffects();
+            drawAnticipationEffects();
+        }
+
+        // --- Drawing Helpers ---
+        function drawTrack() {
+            push();
+            translate(width / 2, height / 2);
+
+            drawingContext.shadowColor = isPlaying ? 'rgba(255, 215, 0, 0.8)' : 'rgba(255, 255, 255, 0.3)';
+            drawingContext.shadowBlur = isPlaying ? 30 : 10;
+
+            noFill();
+            stroke(255, 255, 255);
+            strokeWeight(max(15, width * 0.025));
+            ellipse(0, 0, trackRadius * 2, trackRadius * 2);
+
+            drawingContext.shadowBlur = 0;
+            
+            drawThemeElements();
+            pop();
+        }
+
+        function drawThemeElements() {
+            push();
+            translate(0, 0);
+            switch (theme) {
+                case 'hurdles':
+                    for (let i = 0; i < 6; i++) {
+                        let a = i * TWO_PI / 6;
+                        let x = cos(a) * trackRadius;
+                        let y = sin(a) * trackRadius;
+                        push();
+                        translate(x, y);
+                        rotate(a + HALF_PI);
+                        fill(139, 69, 19);
+                        noStroke();
+                        rect(0, 0, 16, 30, 4);
+                        fill(255, 255, 255);
+                        for (let j = 0; j < 3; j++) {
+                            rect(0, -10 + j * 8, 12, 2);
+                        }
+                        pop();
+                    }
+                    break;
+
+                case 'gymnastics':
+                    fill(200, 180, 140);
+                    noStroke();
+                    rect(-trackRadius * 0.8, -8, trackRadius * 1.6, 16, 8);
+                    fill(255, 105, 180, 100);
+                    ellipse(0, 0, trackRadius * 0.6, trackRadius * 0.6);
+                    break;
+
+                case 'carnival':
+                    push();
+                    rotate(millis() * 0.002);
+                    stroke(255, 0, 0);
+                    strokeWeight(3);
+                    noFill();
+                    for (let i = 0; i < 3; i++) {
+                        ellipse(0, 0, (trackRadius + i * 20) * 2, (trackRadius + i * 20) * 2);
+                    }
+                    pop();
+                    fill(255, 215, 0, 150);
+                    ellipse(0, 0, 80, 80);
+                    fill(255, 0, 0);
+                    textAlign(CENTER, CENTER);
+                    textSize(24);
+                    text("🎪", 0, 0);
+                    break;
+
+                default: // relay
+                    stroke(255, 255, 255);
+                    strokeWeight(4);
+                    let startX = cos(0) * trackRadius;
+                    let startY = sin(0) * trackRadius;
+                    line(startX - 15, startY, startX + 15, startY);
+                    for (let i = 0; i < 6; i++) {
+                        fill(i % 2 === 0 ? 255 : 0);
+                        rect(startX - 15 + i * 5, startY - 2, 5, 4);
+                    }
+                    break;
+            }
+            pop();
+        }
+
+        function drawSpectatorStands() {
+            push();
+            fill(50, 50, 100, 150);
+            noStroke();
+
+            for (let i = 0; i < width; i += 20) {
+                let crowdHeight = 30 + sin(millis() * 0.005 + i * 0.1) * 10;
+                rect(i, height - 40, 18, crowdHeight);
+
+                if (isPlaying && random() < 0.1) {
+                    fill(255, 255, 0, 200);
+                    ellipse(i + 9, height - 40 - crowdHeight, 3, 3);
+                }
+            }
+            pop();
+        }
+
+        function drawCelebrationEffects() {
+            if (!celebrationMode) return;
+            push();
+            for (let i = 0; i < 8; i++) {
+                let x = random(width);
+                let y = random(height * 0.3);
+                let size = random(5, 15);
+                fill(random(255), random(255), random(255), 150);
+                noStroke();
+                star(x, y, size, size * 2, 5);
+            }
+            pop();
+        }
+
+        function drawAnticipationEffects() {
+            if (playlist.length === 0 || isPlaying) {
+                push();
+                translate(width / 2, height / 2);
+                fill(255, 255, 255, sin(millis() * 0.01) * 100 + 100);
+                textAlign(CENTER, CENTER);
+                textSize(16);
+
+                if (playlist.length === 0) {
+                    text("🎵 Runners are waiting for media! 🎵", 0, -trackRadius * 1.5);
+                    text("Load some music or videos to start the show!", 0, -trackRadius * 1.3);
+                } else if (!isPlaying) {
+                    text("🏃‍♂️ Ready to race! Press START SHOW! 🏃‍♀️", 0, -trackRadius * 1.5);
+                }
+                pop();
+            }
+        }
+
+        function star(x, y, radius1, radius2, npoints) {
+            let angle = TWO_PI / npoints;
+            let halfAngle = angle / 2.0;
+            beginShape();
+            for (let a = 0; a < TWO_PI; a += angle) {
+                let sx = x + cos(a) * radius2;
+                let sy = y + sin(a) * radius2;
+                vertex(sx, sy);
+                sx = x + cos(a + halfAngle) * radius1;
+                sy = y + sin(a + halfAngle) * radius1;
+                vertex(sx, sy);
+            }
+            endShape(CLOSE);
         }
         
-        if (playlist[i]) {
-          newRunner.mediaTitle = playlist[i].name;
-          newRunner.mediaType = playlist[i].type;
+        // --- UI and Media Control Functions ---
+        function setTheme(newTheme) {
+            theme = newTheme;
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.theme === newTheme) {
+                    btn.classList.add('active');
+                }
+            });
+            celebrationMode = true;
+            setTimeout(() => celebrationMode = false, 2000);
+        }
+
+        function handleFileSelect(event) {
+            playlist = [];
+            let files = event.target.files;
+            if (files.length === 0) return;
+
+            for (let i = 0; i < files.length; i++) {
+                let file = files[i];
+                let fileType = 'unknown';
+
+                if (file.type.startsWith('audio/')) fileType = 'audio';
+                else if (file.type.startsWith('video/')) fileType = 'video';
+                else if (file.type.startsWith('image/')) fileType = 'image';
+
+                if (fileType !== 'unknown') {
+                    let url = URL.createObjectURL(file);
+                    playlist.push({
+                        name: file.name.replace(/\.[^/.]+$/, ""),
+                        url: url,
+                        type: fileType
+                    });
+                }
+            }
+            
+            updateRunners();
+            updateStatusDisplay();
+            
+            currentTrack = 0;
+            batonHolder = 0;
+            runners.forEach(runner => {
+                runner.anticipation = 1.0;
+            });
+            showTemporaryMessage(`Loaded ${playlist.length} media items!`);
+        }
+
+        function updateRunners() {
+            let numRunners = playlist.length > 0 ? playlist.length : 4;
+            let oldRunners = [...runners];
+            runners = [];
+            
+            for (let i = 0; i < numRunners; i++) {
+                let newRunner = new LivingRunner(i * TWO_PI / numRunners, i);
+                
+                if (oldRunners[i]) {
+                    newRunner.personality = oldRunners[i].personality;
+                    newRunner.energy = oldRunners[i].energy;
+                }
+                
+                if (playlist[i]) {
+                    newRunner.mediaTitle = playlist[i].name;
+                    newRunner.mediaType = playlist[i].type;
+                }
+                
+                runners.push(newRunner);
+            }
+        }
+
+        function togglePlayback() {
+            if (playlist.length === 0) {
+                showTemporaryMessage("🎭 Please load some media files first!");
+                return;
+            }
+            
+            let playBtn = document.getElementById('playBtn');
+            
+            if (isPlaying) {
+                pauseCurrentMedia();
+                isPlaying = false;
+                playBtn.textContent = '▶️ Start Show';
+            } else {
+                playCurrentMedia();
+                isPlaying = true;
+                playBtn.textContent = '⏸️ Pause Show';
+                celebrationMode = true;
+                setTimeout(() => celebrationMode = false, 1000);
+            }
+            
+            updateStatusDisplay();
         }
         
-        runners.push(newRunner);
-      }
-    }
+        function getCurrentPlayer() {
+            const currentMedia = playlist[currentTrack];
+            if (!currentMedia) return null;
+            if (currentMedia.type === 'video') {
+                return document.getElementById('videoPlayer');
+            }
+            if (currentMedia.type === 'audio') {
+                return document.getElementById('mediaPlayer');
+            }
+            return null;
+        }
 
-    function togglePlayback() {
-      if (playlist.length === 0) {
-        showTemporaryMessage("🎭 Please load some media files first!");
-        return;
-      }
-      
-      let playBtn = document.getElementById('playBtn');
-      
-      if (isPlaying) {
-        pauseCurrentMedia();
-        isPlaying = false;
-        playBtn.textContent = '▶️ Start Show';
-      } else {
-        playCurrentMedia();
-        isPlaying = true;
-        playBtn.textContent = '⏸️ Pause Show';
-        celebrationMode = true;
-        setTimeout(() => celebrationMode = false, 1000);
-      }
-      
-      updateStatusDisplay();
-    }
-    
-    // Gets the currently active media player (audio or video)
-    function getCurrentPlayer() {
-      const currentMedia = playlist[currentTrack];
-      if (!currentMedia) return null;
-      if (currentMedia.type === 'video') {
-        return document.getElementById('videoPlayer');
-      }
-      if (currentMedia.type === 'audio') {
-        return document.getElementById('mediaPlayer');
-      }
-      return null;
-    }
+        function playCurrentMedia() {
+            if (playlist.length === 0) return;
+            
+            const currentMedia = playlist[currentTrack];
+            const audioPlayer = document.getElementById('mediaPlayer');
+            const videoContainer = document.getElementById('videoContainer');
+            const videoPlayer = document.getElementById('videoPlayer');
+            
+            // Stop and hide all players and timeouts
+            audioPlayer.pause();
+            videoPlayer.pause();
+            audioPlayer.style.display = 'none';
+            videoContainer.style.display = 'none';
+            if (manualTimeout) clearTimeout(manualTimeout);
 
-    function playCurrentMedia() {
-      if (playlist.length === 0) return;
-      
-      const currentMedia = playlist[currentTrack];
-      const audioPlayer = document.getElementById('mediaPlayer');
-      const videoPlayer = document.getElementById('videoPlayer');
-      
-      // Stop and hide both players
-      audioPlayer.pause();
-      videoPlayer.pause();
-      audioPlayer.style.display = 'none';
-      videoPlayer.style.display = 'none';
-      
-      if (currentMedia.type === 'video') {
-        videoPlayer.src = currentMedia.url;
-        videoPlayer.currentTime = 0;
-        videoPlayer.style.display = 'block';
-        videoPlayer.play().catch(e => console.log('Video play failed:', e));
-      } else if (currentMedia.type === 'audio') {
-        audioPlayer.src = currentMedia.url;
-        audioPlayer.currentTime = 0;
-        audioPlayer.style.display = 'block';
-        audioPlayer.play().catch(e => console.log('Audio play failed:', e));
-      } else if (currentMedia.type === 'image') {
-        // For images, we create a manual timer to advance to the next track
-        if (manualTimeout) clearTimeout(manualTimeout);
-        manualTimeout = setTimeout(() => playNextTrack(), 5000);
-      }
-      
-      // Activate the current runner
-      if (runners[batonHolder]) {
-        runners[batonHolder].celebration = 1.0;
-      }
-      
-      updateStatusDisplay();
-    }
+            // Hide the video container if the next media isn't a video
+            if (currentMedia.type !== 'video') {
+                videoContainer.style.display = 'none';
+            }
+            
+            if (currentMedia.type === 'video') {
+                videoPlayer.src = currentMedia.url;
+                videoPlayer.currentTime = 0;
+                videoContainer.style.display = 'block';
+                videoPlayer.play().catch(e => console.log('Video play failed:', e));
+            } else if (currentMedia.type === 'audio') {
+                audioPlayer.src = currentMedia.url;
+                audioPlayer.currentTime = 0;
+                audioPlayer.style.display = 'block';
+                audioPlayer.play().catch(e => console.log('Audio play failed:', e));
+            } else if (currentMedia.type === 'image') {
+                manualStartTimestamp = millis();
+                manualTimeout = setTimeout(() => playNextTrack(), IMAGE_DURATION);
+            }
+            
+            if (runners[batonHolder]) {
+                runners[batonHolder].celebration = 1.0;
+            }
+            
+            updateStatusDisplay();
+        }
 
-    function pauseCurrentMedia() {
-      const audioPlayer = document.getElementById('mediaPlayer');
-      const videoPlayer = document.getElementById('videoPlayer');
-      audioPlayer.pause();
-      videoPlayer.pause();
-      if (manualTimeout) clearTimeout(manualTimeout);
-    }
+        function pauseCurrentMedia() {
+            const player = getCurrentPlayer();
+            if (player) {
+                player.pause();
+            }
+            if (manualTimeout) clearTimeout(manualTimeout);
+        }
 
-    function playNextTrack() {
-      if (playlist.length === 0) return;
-      
-      // Celebration for completing lap
-      if (runners[batonHolder]) {
-        runners[batonHolder].celebration = 1.0;
-      }
-      
-      currentTrack = (currentTrack + 1) % playlist.length;
-      batonHolder = (batonHolder + 1) % runners.length;
-      
-      // Trigger anticipation in next runner
-      if (runners[batonHolder]) {
-        runners[batonHolder].anticipation = 1.0;
-      }
-      
-      if (isPlaying) {
-        playCurrentMedia();
-      }
-      
-      updateStatusDisplay();
-    }
+        function playNextTrack() {
+            if (playlist.length === 0) return;
+            
+            if (runners[batonHolder]) {
+                runners[batonHolder].celebration = 1.0;
+            }
+            
+            currentTrack = (currentTrack + 1) % playlist.length;
+            batonHolder = (batonHolder + 1) % runners.length;
+            
+            if (runners[batonHolder]) {
+                runners[batonHolder].anticipation = 1.0;
+            }
+            
+            if (isPlaying) {
+                playCurrentMedia();
+            }
+            
+            updateStatusDisplay();
+        }
 
-    function skipTrack() {
-      if (playlist.length === 0) return;
-      playNextTrack();
-    }
+        function skipTrack() {
+            if (playlist.length === 0) return;
+            playNextTrack();
+        }
 
-    function updateProgress() {
-      let progressFill = document.getElementById('progressFill');
-      let player = getCurrentPlayer();
-      
-      if (player && player.duration > 0) {
-        let progress = (player.currentTime / player.duration) * 100;
-        progressFill.style.width = `${progress}%`;
-      } else if (playlist[currentTrack] && playlist[currentTrack].type === 'image') {
-        // Handle image progress manually
-        let elapsed = (millis() - (manualStart || millis())) / 1000;
-        let progress = (elapsed / 5) * 100;
-        progressFill.style.width = `${progress}%`;
-      } else {
-        progressFill.style.width = `0%`;
-      }
-    }
-    
-    function toggleStatus() {
-      let statusDisplay = document.getElementById('statusDisplay');
-      showStatus = !showStatus;
-      statusDisplay.classList.toggle('show', showStatus);
-    }
-    
-    function updateStatusDisplay() {
-      const currentMedia = playlist[currentTrack];
-      const trackNameSpan = document.getElementById('currentTrackName');
-      const mediaTypeSpan = document.getElementById('currentMediaType');
-      
-      if (currentMedia) {
-        trackNameSpan.textContent = currentMedia.name;
-        mediaTypeSpan.textContent = currentMedia.type;
-        mediaTypeSpan.className = `media-type ${currentMedia.type}`;
-      } else {
-        trackNameSpan.textContent = "No media loaded";
-        mediaTypeSpan.textContent = "none";
-        mediaTypeSpan.className = `media-type`;
-      }
-      
-      let player = getCurrentPlayer();
-      if (player) {
-        player.ontimeupdate = updateProgress;
-      }
-    }
-    
-    function showTemporaryMessage(message) {
-      let statusDisplay = document.getElementById('statusDisplay');
-      let originalMessage = statusDisplay.innerHTML;
-      statusDisplay.innerHTML = `<p>${message}</p>`;
-      statusDisplay.classList.add('show');
-      setTimeout(() => {
-        statusDisplay.classList.remove('show');
-        statusDisplay.innerHTML = originalMessage;
-      }, 3000);
-    }
-  </script>
+        function updateProgress() {
+            let progressFill = document.getElementById('progressFill');
+            let player = getCurrentPlayer();
+            let progress = 0;
+
+            if (player && player.duration > 0) {
+                progress = (player.currentTime / player.duration) * 100;
+            } else if (playlist[currentTrack] && playlist[currentTrack].type === 'image') {
+                let elapsed = millis() - manualStartTimestamp;
+                progress = (elapsed / IMAGE_DURATION) * 100;
+            }
+            
+            progressFill.style.width = `${progress}%`;
+        }
+        
+        function toggleStatus() {
+            showStatus = !showStatus;
+            document.getElementById('statusDisplay').classList.toggle('show', showStatus);
+        }
+        
+        function updateStatusDisplay() {
+            const currentMedia = playlist[currentTrack];
+            const trackNameSpan = document.getElementById('currentTrackName');
+            const mediaTypeSpan = document.getElementById('currentMediaType');
+            
+            if (currentMedia) {
+                trackNameSpan.textContent = currentMedia.name;
+                mediaTypeSpan.textContent = currentMedia.type;
+                mediaTypeSpan.className = `media-type ${currentMedia.type}`;
+            } else {
+                trackNameSpan.textContent = "No media loaded";
+                mediaTypeSpan.textContent = "none";
+                mediaTypeSpan.className = `media-type`;
+            }
+            
+            const player = getCurrentPlayer();
+            if (player) {
+                player.ontimeupdate = updateProgress;
+            }
+        }
+        
+        function showTemporaryMessage(message) {
+            let tempMessageDiv = document.createElement('div');
+            tempMessageDiv.innerHTML = `<p>${message}</p>`;
+            Object.assign(tempMessageDiv.style, {
+                position: 'fixed',
+                top: '45px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(0, 0, 0, 0.9)',
+                color: 'white',
+                padding: '8px 12px',
+                borderRadius: '20px',
+                zIndex: '1000',
+                opacity: '0',
+                transition: 'opacity 0.5s ease-in-out',
+                pointerEvents: 'none',
+                textAlign: 'center'
+            });
+            document.body.appendChild(tempMessageDiv);
+            
+            setTimeout(() => {
+                tempMessageDiv.style.opacity = '1';
+            }, 10); // small delay to trigger transition
+            
+            setTimeout(() => {
+                tempMessageDiv.style.opacity = '0';
+                setTimeout(() => tempMessageDiv.remove(), 500);
+            }, 3000);
+        }
+    </script>
 </body>
 </html>
