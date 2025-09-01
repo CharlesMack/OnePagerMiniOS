@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>P.O.P.S. Olympic Relay Media Event</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+  <style>
+    html { overflow: hidden; min-height: 600px; min-width: 800px; }
+    body { margin: 0; background: #f0f0f0; font-family: Arial, sans-serif; }
+    canvas { display: block; margin: 0 auto; }
+    .controls { position: absolute; top: 10px; left: 10px; }
+    .controls button { margin: 5px; padding: 10px; font-size: 16px; }
+    .playlist { position: absolute; top: 100px; left: 10px; }
+    audio { position: absolute; top: 10px; right: 10px; }
+    input[type="file"] { margin: 5px; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <input type="file" id="fileInput" accept="audio/*" multiple>
+    <button onclick="setTheme('relay')">Relay Race</button>
+    <button onclick="setTheme('hurdles')">Hurdles</button>
+    <button onclick="setTheme('gymnastics')">Gymnastics</button>
+    <button onclick="togglePlayback()">Play/Pause</button>
+  </div>
+  <div class="playlist">
+    <p>Playlist:</p>
+    <ul id="playlist"></ul>
+  </div>
+  <audio id="player" onended="playNextTrack()"></audio>
+  <script>
+    let runners = [];
+    let playlist = [];
+    let currentTrack = 0;
+    let isPlaying = false;
+    let theme = 'relay';
+    let batonHolder = 0;
+    let trackRadius = 200;
+    let spriteSheet;
+
+    function preload() {
+      spriteSheet = loadImage('runner-sprite.png'); // Assume 8 frames: 2 idle, 4 run, 1 pass, 1 jump/flip
+    }
+
+    function setup() {
+      createCanvas(800, 600);
+      // Initialize runners based on playlist length (updated dynamically)
+      updateRunners();
+      // Handle file input
+      let fileInput = document.getElementById('fileInput');
+      fileInput.addEventListener('change', handleFileSelect);
+    }
+
+    function draw() {
+      background(135, 206, 235); // Sky blue
+      drawCarnivalBackground();
+      drawTrack();
+      for (let runner of runners) {
+        runner.update();
+        runner.display();
+      }
+    }
+
+    class Runner {
+      constructor(angle, id) {
+        this.angle = angle;
+        this.id = id;
+        this.mode = 'idle';
+        this.frame = 0;
+        this.frameIndex = {
+          'idle': [0, 1], // Frames for idle (e.g., stretching, waving)
+          'run': [2, 3, 4, 5], // Frames for running
+          'pass': [6], // Frame for passing baton
+          'jump': [7] // Frame for hurdles/gymnastics
+        };
+        this.speed = isPlaying && this.id === batonHolder ? 0.05 : 0;
+      }
+
+      update() {
+        if (isPlaying && this.id === batonHolder) {
+          this.mode = theme === 'gymnastics' ? 'jump' : 'run';
+          this.angle += this.speed;
+          if (this.angle >= TWO_PI) this.angle -= TWO_PI;
+        } else if (!isPlaying) {
+          this.mode = 'idle';
+        } else if (this.id === (batonHolder + 1) % runners.length) {
+          this.mode = 'pass'; // Prepare to receive baton
+        } else {
+          this.mode = 'idle';
+        }
+        this.frame = (this.frame + 0.1) % this.frameIndex[this.mode].length;
+      }
+
+      display() {
+        let x = width / 2 + cos(this.angle) * trackRadius;
+        let y = height / 2 + sin(this.angle) * trackRadius;
+        push();
+        translate(x, y);
+        if (this.mode === 'run' || this.mode === 'jump') scale(-1, 1); // Face direction of movement
+        image(spriteSheet,
+              -30, -60, 60, 60,
+              this.frameIndex[this.mode][floor(this.frame)] * 60, 0, 60, 60);
+        pop();
+      }
+    }
+
+    function drawCarnivalBackground() {
+      // Sky gradient
+      let sky = createGraphics(width, height / 2);
+      for (let y = 0; y < height / 2; y++) {
+        let c = lerpColor(color(55, 121, 179), color(164, 200, 214), y / (height / 2));
+        sky.stroke(c);
+        sky.line(0, y, width, y);
+      }
+      image(sky, 0, 0);
+      // Ferris wheel
+      fill(255, 204, 0);
+      ellipse(100, 100, 80, 80);
+      stroke(0);
+      line(100, 100, 100, 140);
+      // Crowd
+      fill(255, 100, 100);
+      rect(0, height / 2, width, 50);
+      textSize(20);
+      fill(255);
+      text("P.O.P.S. Carnival!", width - 200, 50);
+    }
+
+    function drawTrack() {
+      push();
+      translate(width / 2, height / 2);
+      noFill();
+      stroke(255);
+      strokeWeight(40);
+      ellipse(0, 0, trackRadius * 2, trackRadius * 2);
+      if (theme === 'hurdles') {
+        for (let i = 0; i < 6; i++) {
+          let a = i * TWO_PI / 6;
+          let x = cos(a) * trackRadius;
+          let y = sin(a) * trackRadius;
+          fill(139, 69, 19);
+          rect(x - 10, y - 10, 20, 20);
+        }
+      } else if (theme === 'gymnastics') {
+        fill(200);
+        rect(-trackRadius, -20, trackRadius * 2, 40); // Balance beam
+      }
+      pop();
+    }
+
+    function setTheme(newTheme) {
+      theme = newTheme;
+    }
+
+    function handleFileSelect(event) {
+      playlist = [];
+      runners = [];
+      let files = event.target.files;
+      let playlistElement = document.getElementById('playlist');
+      playlistElement.innerHTML = '';
+      for (let i = 0; i < files.length; i++) {
+        if (files[i].type.startsWith('audio/')) {
+          let url = URL.createObjectURL(files[i]);
+          playlist.push({ name: files[i].name, url: url });
+          let li = document.createElement('li');
+          li.textContent = files[i].name;
+          playlistElement.appendChild(li);
+        }
+      }
+      updateRunners();
+      if (playlist.length > 0 && isPlaying) {
+        currentTrack = 0;
+        batonHolder = 0;
+        let player = document.getElementById('player');
+        player.src = playlist[0].url;
+        player.play();
+      }
+    }
+
+    function updateRunners() {
+      runners = [];
+      for (let i = 0; i < playlist.length; i++) {
+        runners.push(new Runner(i * TWO_PI / playlist.length, i));
+      }
+    }
+
+    function togglePlayback() {
+      let player = document.getElementById('player');
+      if (isPlaying) {
+        player.pause();
+        isPlaying = false;
+      } else if (playlist.length > 0) {
+        player.src = playlist[currentTrack].url;
+        player.play();
+        isPlaying = true;
+      }
+    }
+
+    function playNextTrack() {
+      if (playlist.length === 0) return;
+      currentTrack = (currentTrack + 1) % playlist.length;
+      batonHolder = (batonHolder + 1) % runners.length;
+      if (isPlaying) {
+        let player = document.getElementById('player');
+        player.src = playlist[currentTrack].url;
+        player.play();
+      }
+    }
+  </script>
+</body>
+</html>
