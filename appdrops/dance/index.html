@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>P.O.P.S. CITY CORNER PARTY BOOMBOX</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>        
+
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            font-family: 'Arial Black', Arial, sans-serif;
+            color: white;
+            background: radial-gradient(circle at center, #1a1a2a 0%, #2a1a3a 50%, #3a1a4a 100%);
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #ff1744 0%, #ffd700 25%, #00e676 50%, #2196f3 75%, #e91e63 100%);
+            color: white;
+            text-align: center;
+            padding: 12px 0;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(255,215,0,0.8);
+            animation: party-pulse 2s ease-in-out infinite, rainbow-shift 4s linear infinite;
+            border-bottom: 3px solid #ffd700;
+        }
+        
+        @keyframes party-pulse {
+            0%, 100% { 
+                transform: scale(1); 
+                filter: brightness(1.2) saturate(1.5) drop-shadow(0 0 20px rgba(255,215,0,0.8)); 
+            }
+            50% { 
+                transform: scale(1.02); 
+                filter: brightness(1.5) saturate(2) drop-shadow(0 0 40px rgba(255,215,0,1)); 
+            }
+        }
+
+        @keyframes rainbow-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: clamp(14px, 4vw, 22px);
+            font-weight: 900;
+            text-shadow: 
+                3px 3px 0px #000,
+                0 0 20px rgba(255,215,0,0.8),
+                0 0 40px rgba(255,107,107,0.6);
+            animation: text-explosion 3s ease-in-out infinite;
+            letter-spacing: 2px;
+        }
+
+        .advantages-ticker, .status-display, .performance-stats, .neurology-boost, .controls {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+
+        .advantages-ticker { top: 60px; left: 10px; right: 10px; }
+        .status-display { bottom: 100px; left: 10px; right: 10px; display: none; }
+        .status-display.show { display: block; }
+        .performance-stats { top: 100px; right: 10px; }
+        .neurology-boost { bottom: 150px; left: 10px; }
+        .controls { bottom: 10px; left: 10px; right: 10px; text-align: center; }
+
+        .progress-container {
+            width: 100%;
+            height: 10px;
+            background: #333;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #ffd700;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .file-input-wrapper {
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #ff1744;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover { background: #1976d2; }
+        button.active { background: #ffd700; color: black; }
+        .theme-btn { background: #00e676; }
+        .theme-btn:hover { background: #00c853; }
+        .spectacular-btn { background: #e91e63; }
+        .spectacular-btn:hover { background: #c2185b; }
+
+        .advantage-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 215, 0, 0.9);
+            color: black;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 200;
+            font-size: 18px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div class="header">
+        <h1>🎉 P.O.P.S. CITY CORNER PARTY BOOMBOX 🏙️🎶🛒</h1>
+    </div>
+
+    <div class="advantages-ticker">
+        <div class="ticker-content" id="advantagesTicker">
+            🏙️ URBAN VIBE ACCELERATION! • 🎶 BOOMBOX BLAST 300%! • 🎉 PARTY ATMOSPHERE ENHANCES ENERGY! • 🛒 CORNER STORE GLORY ACTIVE! • ⚡ CITY LIGHTS ENGAGED! • 🎵 SYNCED PARADE OPTIMIZED! • 🎭 CHARACTER PERFORMANCE MAXIMIZED! • 🌟 SPECTACULAR STREET STIMULATION! • 🚀 COMMUNITY TURBO MODE! • 
+        </div>
+    </div>
+    
+    <div class="status-display" id="statusDisplay">
+        <div class="media-info" id="mediaInfo">
+            <div>🎵 <span id="currentTrackName">No media loaded</span></div>
+            <div><span class="media-type" id="currentMediaType">none</span></div>
+        </div>
+        <div class="progress-container">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <div class="performance-stats">
+        <div class="stat-item">
+            <span>🏙️ Party Energy:</span>
+            <span class="stat-value" id="neuralActivity">0%</span>
+        </div>
+        <div class="stat-item">
+            <span>⚡ Vibe Boost:</span>
+            <span class="stat-value" id="speedBoost">0x</span>
+        </div>
+        <div class="stat-item">
+            <span>🎉 Excitement:</span>
+            <span class="stat-value" id="excitement">MAXIMUM</span>
+        </div>
+        <div class="stat-item">
+            <span>🛒 Store Factor:</span>
+            <span class="stat-value" id="olympicFactor">∞</span>
+        </div>
+    </div>
+
+    <div class="neurology-boost">
+        <div>🏙️ CITY PARTY BOOST ACTIVE!</div>
+        <div style="font-size: 12px; margin-top: 5px;">
+            Enhanced social vibes, synced movements, 
+            endless entertainment cycles!
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="control-row">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept="audio/*,video/*,image/*" multiple>
+                <label for="fileInput" class="file-input-label">🎭 Load Party Media</label>
+            </div>
+            <button onclick="togglePlayback()" id="playBtn">🚀 START PARTY</button>
+            <button onclick="skipTrack()">⏭️ Next Vibe</button>
+            <button onclick="toggleStatus()">📊 Party Stats</button>
+        </div>
+        <div class="control-row">
+            <button onclick="setTheme('dance')" class="theme-btn" data-theme="dance">💃 Dance Chain</button>
+            <button onclick="setTheme('obstacles')" class="theme-btn" data-theme="obstacles">🚧 Street Obstacles</button>
+            <button onclick="setTheme('flips')" class="theme-btn" data-theme="flips">🤸 Breakdance Flips</button>
+            <button onclick="setTheme('block')" class="theme-btn" data-theme="block">🎪 Block Party</button>
+            <button onclick="triggerSpectacular()" class="spectacular-btn">✨ EPIC MODE</button>
+        </div>
+    </div>
+    
+    <audio id="mediaPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()"></audio>
+    <video id="videoPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()" playsinline></video>
+
+    <script>
+        // --- Three.js Globals ---
+        let scene, camera, renderer, controls;
+        let mainCharacter, boombox, friends = [], crowds = [], cars = [];
+        let store, street, skybox, sunLight, moonLight;
+        let videoPlayer, videoTexture, screenMesh;
+        let isVideoPlaying = false;
+        let themeElements = {};
+        let confettiParticles = [];
+        let pyroFireworks = [];
+        
+        // --- Application Globals ---
+        let playlist = [];
+        let currentTrack = 0;
+        let isPlaying = false;
+        let theme = 'dance';
+        let leadFriend = 0;
+        let manualTimeout = null;
+        let showStatus = false;
+        let epicMode = false;
+        let performanceMultiplier = 1;
+        let timeCycle = 0; // For day-night loop
+        
+        const streetLength = 200;
+        const numFriends = 5;
+        const numCrowds = 20;
+        const numCars = 10;
+        
+        // Re-Imagined Character Class
+        class PartyCharacter extends THREE.Group {
+            constructor(characterId, isMain = false) {
+                super();
+                this.characterId = characterId;
+                this.isMain = isMain;
+                this.color = new THREE.Color().setHSL(characterId / numFriends, 0.8, 0.6);
+                
+                // Body (dressed nice)
+                const bodyGeometry = new THREE.CylinderGeometry(2, 2, 6, 12);
+                const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                    color: isMain ? 0x4a4a4a : this.color.getHex(), // Main in suit gray
+                    shininess: 100
+                });
+                this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.body.position.y = 3;
+                this.add(this.body);
+                
+                // Head
+                const headGeometry = new THREE.SphereGeometry(2, 16, 16);
+                const headMaterial = new THREE.MeshPhongMaterial({ color: 0xffd700 });
+                this.head = new THREE.Mesh(headGeometry, headMaterial);
+                this.head.position.y = 7;
+                this.add(this.head);
+                
+                // Legs
+                const legGeometry = new THREE.CylinderGeometry(0.8, 1.2, 5);
+                const legMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+                this.leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+                this.rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+                this.leftLeg.position.set(-1, -0.5, 0);
+                this.rightLeg.position.set(1, -0.5, 0);
+                this.add(this.leftLeg);
+                this.add(this.rightLeg);
+                
+                if (isMain) {
+                    // Boombox
+                    const boomboxGeometry = new THREE.BoxGeometry(4, 2, 3);
+                    const boomboxMaterial = new THREE.MeshPhongMaterial({ color: 0xff4500, emissive: 0x440000 });
+                    this.boombox = new THREE.Mesh(boomboxGeometry, boomboxMaterial);
+                    this.boombox.position.set(0, 3, 3);
+                    this.add(this.boombox);
+                }
+                
+                this.danceOffset = Math.random() * 10;
+                this.vibePulse = 0;
+            }
+            
+            update(progress, isLead) {
+                if (isLead && isPlaying) {
+                    // Dance animation
+                    const danceSpeed = 0.02 * performanceMultiplier;
+                    const danceAngle = Math.sin(Date.now() * danceSpeed + this.danceOffset) * 0.8;
+                    this.leftLeg.rotation.x = -danceAngle;
+                    this.rightLeg.rotation.x = danceAngle;
+                    this.position.y = Math.abs(Math.sin(Date.now() * danceSpeed * 2)) * 1;
+                    
+                    // Boombox pulse if main
+                    if (this.isMain) {
+                        this.boombox.scale.setScalar(1 + Math.sin(this.vibePulse) * 0.2);
+                        this.boombox.material.emissive.setHex(0xff4500);
+                    }
+                } else {
+                    this.leftLeg.rotation.x = 0;
+                    this.rightLeg.rotation.x = 0;
+                    this.position.y = 0;
+                    if (this.isMain) this.boombox.material.emissive.setHex(0x220000);
+                }
+                
+                this.vibePulse += 0.1;
+            }
+        }
+        
+        // Crowd Person Class (simple)
+        class CrowdPerson extends THREE.Group {
+            constructor() {
+                super();
+                const body = new THREE.BoxGeometry(2, 6, 2);
+                const material = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff });
+                this.mesh = new THREE.Mesh(body, material);
+                this.mesh.position.y = 3;
+                this.add(this.mesh);
+                this.syncOffset = Math.random() * Math.PI * 2;
+            }
+            
+            update(progress, position) {
+                this.position.copy(position);
+                if (isPlaying) {
+                    this.rotation.y = Math.sin(progress * Math.PI * 2 + this.syncOffset) * 0.5;
+                    this.position.y = Math.abs(Math.sin(progress * 10)) * 2;
+                }
+            }
+        }
+        
+        // Car Class
+        class Car extends THREE.Group {
+            constructor(id) {
+                super();
+                const body = new THREE.BoxGeometry(8, 3, 4);
+                const material = new THREE.MeshPhongMaterial({ color: new THREE.Color().setHSL(id / numCars, 0.8, 0.5) });
+                this.mesh = new THREE.Mesh(body, material);
+                this.mesh.position.y = 1.5;
+                this.add(this.mesh);
+                this.baseZ = -streetLength / 2 + (id * streetLength / numCars);
+            }
+            
+            update(progress) {
+                if (isPlaying) {
+                    this.position.z = this.baseZ + (progress * streetLength * 2) % streetLength;
+                    this.rotation.y = Math.sin(progress * Math.PI * 4) * 0.1; // Sway sync
+                } else {
+                    this.position.z = this.baseZ + Math.random() * 10;
+                }
+            }
+        }
+        
+        // Confetti Particle
+        class Confetti {
+            constructor(position) {
+                const geometry = new THREE.PlaneGeometry(0.5, 0.5);
+                const material = new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff, side: THREE.DoubleSide });
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.mesh.position.copy(position);
+                this.velocity = new THREE.Vector3((Math.random() - 0.5) * 10, Math.random() * 15 + 5, (Math.random() - 0.5) * 10);
+                this.life = 100;
+                scene.add(this.mesh);
+            }
+            
+            update() {
+                this.mesh.position.add(this.velocity.clone().multiplyScalar(0.05));
+                this.velocity.y -= 0.2;
+                this.mesh.rotation.x += 0.1;
+                this.mesh.rotation.y += 0.1;
+                this.life--;
+                this.mesh.material.opacity = this.life / 100;
+                if (this.life <= 0) {
+                    scene.remove(this.mesh);
+                    return false;
+                }
+                return true;
+            }
+        }
+        
+        // Pyro Firework
+        class PyroFirework {
+            constructor(position) {
+                this.particles = [];
+                for (let i = 0; i < 50; i++) {
+                    const particle = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.5, 4, 4),
+                        new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff })
+                    );
+                    particle.position.copy(position);
+                    particle.velocity = new THREE.Vector3(
+                        (Math.random() - 0.5) * 20,
+                        Math.random() * 15 + 5,
+                        (Math.random() - 0.5) * 20
+                    );
+                    this.particles.push(particle);
+                    scene.add(particle);
+                }
+                this.life = 100;
+            }
+            
+            update() {
+                this.life--;
+                this.particles.forEach(p => {
+                    p.position.add(p.velocity.clone().multiplyScalar(0.1));
+                    p.velocity.y -= 0.5;
+                    p.material.opacity = this.life / 100;
+                });
+                if (this.life <= 0) {
+                    this.particles.forEach(p => scene.remove(p));
+                    return false;
+                }
+                return true;
+            }
+        }
+        
+        // --- Initialization ---
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb); // Day sky start
+            scene.fog = new THREE.Fog(0x87ceeb, 100, 500);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 20, 50);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0, 0);
+            
+            // Lighting: Sun and Moon
+            sunLight = new THREE.DirectionalLight(0xffd700, 1);
+            sunLight.position.set(50, 100, 50);
+            scene.add(sunLight);
+            
+            moonLight = new THREE.DirectionalLight(0xaaaaee, 0);
+            moonLight.position.set(-50, 100, -50);
+            scene.add(moonLight);
+            
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+            
+            // Brick Corner Store
+            const storeGeometry = new THREE.BoxGeometry(30, 20, 30);
+            const storeMaterial = new THREE.MeshPhongMaterial({ color: 0x8b4513 }); // Brick red
+            store = new THREE.Mesh(storeGeometry, storeMaterial);
+            store.position.set(0, 10, -20);
+            scene.add(store);
+            
+            // Front Door
+            const doorGeometry = new THREE.PlaneGeometry(10, 15);
+            const doorMaterial = new THREE.MeshPhongMaterial({ color: 0x228b22 });
+            const door = new THREE.Mesh(doorGeometry, doorMaterial);
+            door.position.set(0, 7.5, -4.9); // Front
+            scene.add(door);
+            
+            // Street
+            const streetGeometry = new THREE.PlaneGeometry(100, streetLength);
+            const streetMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            street = new THREE.Mesh(streetGeometry, streetMaterial);
+            street.rotation.x = -Math.PI / 2;
+            street.position.y = 0;
+            street.position.z = 50;
+            scene.add(street);
+            
+            // Main Character
+            mainCharacter = new PartyCharacter(0, true);
+            mainCharacter.position.set(0, 0, 0);
+            scene.add(mainCharacter);
+            
+            // Friends/Associates
+            for (let i = 1; i <= numFriends; i++) {
+                const friend = new PartyCharacter(i);
+                friend.position.set(-15 + i * 6, 0, -5); // To the side of door
+                friends.push(friend);
+                scene.add(friend);
+            }
+            
+            // Crowds (bystanders)
+            for (let i = 0; i < numCrowds; i++) {
+                const crowd = new CrowdPerson();
+                crowd.position.set((Math.random() - 0.5) * 50, 0, 20 + Math.random() * 100);
+                crowds.push(crowd);
+                scene.add(crowd);
+            }
+            
+            // Cars
+            for (let i = 0; i < numCars; i++) {
+                const car = new Car(i);
+                car.position.x = (Math.random() - 0.5) * 20;
+                car.position.y = 0;
+                cars.push(car);
+                scene.add(car);
+            }
+            
+            // Corner Show Screen (Moved Outside)
+            const screenGeometry = new THREE.PlaneGeometry(30, 16.875); // Larger 16:9
+            const screenMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            screenMesh = new THREE.Mesh(screenGeometry, screenMaterial);
+            screenMesh.position.set(0, 25, 0); // Above door, facing street
+            screenMesh.rotation.y = 0; // Face street directly
+            scene.add(screenMesh);
+            
+            // Handle file input
+            document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+            
+            // Initialize theme elements
+            createPartyThemeElements();
+            
+            // Start performance monitoring
+            startPerformanceMonitoring();
+            
+            animate();
+        }
+        
+        function createPartyThemeElements() {
+            // Dance Chain (relay)
+            const danceGroup = new THREE.Group();
+            themeElements['dance'] = danceGroup;
+            scene.add(danceGroup);
+            
+            // Street Obstacles (hurdles)
+            const obstaclesGroup = new THREE.Group();
+            for (let i = 0; i < 5; i++) {
+                const obstacle = new THREE.BoxGeometry(10, 5, 2);
+                const mat = new THREE.MeshPhongMaterial({ color: 0x808080 });
+                const mesh = new THREE.Mesh(obstacle, mat);
+                mesh.position.set(0, 2.5, 30 + i * 30);
+                obstaclesGroup.add(mesh);
+            }
+            themeElements['obstacles'] = obstaclesGroup;
+            scene.add(obstaclesGroup);
+            obstaclesGroup.visible = false;
+            
+            // Breakdance Flips (gymnastics)
+            const flipsGroup = new THREE.Group();
+            themeElements['flips'] = flipsGroup;
+            scene.add(flipsGroup);
+            flipsGroup.visible = false;
+            
+            // Block Party (carnival)
+            const blockGroup = new THREE.Group();
+            themeElements['block'] = blockGroup;
+            scene.add(blockGroup);
+            blockGroup.visible = false;
+        }
+        
+        function startPerformanceMonitoring() {
+            setInterval(updatePerformanceStats, 100);
+        }
+        
+        function updatePerformanceStats() {
+            const partyEnergy = document.getElementById('neuralActivity');
+            const vibeBoost = document.getElementById('speedBoost');
+            if (isPlaying) {
+                partyEnergy.textContent = Math.floor(Math.random() * 20 + 80) + '%';
+                vibeBoost.textContent = (performanceMultiplier * (1 + Math.random())).toFixed(1) + 'x';
+            } else {
+                partyEnergy.textContent = Math.floor(Math.random() * 30 + 10) + '%';
+                vibeBoost.textContent = '1.0x';
+            }
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            let player = getCurrentPlayer();
+            let mediaProgress = 0;
+            if (player && isPlaying && player.duration > 0) {
+                mediaProgress = player.currentTime / player.duration;
+                performanceMultiplier = 1 + mediaProgress * 2;
+            }
+            
+            // Day-Night Cycle
+            timeCycle += 0.001;
+            const dayProgress = (Math.sin(timeCycle) + 1) / 2;
+            scene.background.setRGB(dayProgress, dayProgress * 0.8, dayProgress * 0.9 + 0.1);
+            sunLight.intensity = dayProgress;
+            moonLight.intensity = 1 - dayProgress;
+            
+            // Update Main Character and Friends
+            mainCharacter.update(mediaProgress, true);
+            friends.forEach((friend, i) => {
+                friend.update(mediaProgress, i === leadFriend);
+            });
+            
+            // Update Crowds (sync parade)
+            crowds.forEach((crowd, i) => {
+                const pos = new THREE.Vector3(
+                    Math.sin(i / numCrowds * Math.PI * 2 + mediaProgress * 4) * 20,
+                    0,
+                    20 + Math.cos(i / numCrowds * Math.PI * 2 + mediaProgress * 4) * 50
+                );
+                crowd.update(mediaProgress, pos);
+            });
+            
+            // Update Cars (train-like)
+            cars.forEach(car => car.update(mediaProgress));
+            
+            // Effects
+            confettiParticles = confettiParticles.filter(c => c.update());
+            pyroFireworks = pyroFireworks.filter(p => p.update());
+            
+            if (isPlaying && Math.random() < 0.05 * performanceMultiplier) {
+                confettiParticles.push(new Confetti(new THREE.Vector3(0, 10, 0)));
+                if (epicMode) pyroFireworks.push(new PyroFirework(new THREE.Vector3(Math.random() * 20 - 10, 20, Math.random() * 20)));
+            }
+            
+            // Screen Pulse Effect
+            if (isPlaying && screenMesh.visible) {
+                screenMesh.scale.setScalar(1 + Math.sin(Date.now() * 0.002) * 0.1);
+            } else {
+                screenMesh.scale.setScalar(1);
+            }
+            
+            // Theme animations
+            updateThemeAnimations();
+            
+            if (isVideoPlaying && videoTexture) videoTexture.needsUpdate = true;
+            
+            renderer.render(scene, camera);
+        }
+        
+        function updateThemeAnimations() {
+            const time = Date.now() * 0.001;
+            // Expand as needed
+        }
+
+        // --- Media Handling ---
+        function handleFileSelect(event) {
+            playlist = [];
+            const files = event.target.files;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                let type = file.type.startsWith('audio/') ? 'audio' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : 'unknown';
+                if (type !== 'unknown') {
+                    playlist.push({ name: file.name.replace(/\.[^/.]+$/, ""), url: URL.createObjectURL(file), type });
+                }
+            }
+            if (playlist.length > 0) currentTrack = 0;
+            leadFriend = 0;
+            updateStatusDisplay();
+            showAdvantagePopup("🎉 PARTY MEDIA LOADED! VIBES OPTIMIZED!");
+        }
+
+        function togglePlayback() {
+            if (playlist.length === 0) return showAdvantagePopup("🎉 Load Party Media First!");
+            const playBtn = document.getElementById('playBtn');
+            if (isPlaying) {
+                pauseCurrentMedia();
+                isPlaying = false;
+                playBtn.textContent = '🚀 START PARTY';
+            } else {
+                playCurrentMedia();
+                isPlaying = true;
+                playBtn.textContent = '⏸️ PAUSE PARTY';
+                showAdvantagePopup("🏙️ PARTY MODE ACTIVATED! SYNC ENGAGED!");
+            }
+            updateStatusDisplay();
+        }
+        
+        function getCurrentPlayer() {
+            const media = playlist[currentTrack];
+            if (!media) return null;
+            return media.type === 'video' ? document.getElementById('videoPlayer') : media.type === 'audio' ? document.getElementById('mediaPlayer') : null;
+        }
+
+        function playCurrentMedia() {
+            if (playlist.length === 0) return;
+            const media = playlist[currentTrack];
+            const audio = document.getElementById('mediaPlayer');
+            const video = document.getElementById('videoPlayer');
+            audio.pause();
+            video.pause();
+            screenMesh.visible = false;
+            isVideoPlaying = false;
+            
+            if (media.type === 'video') {
+                video.src = media.url;
+                video.play();
+                if (!videoTexture) {
+                    videoTexture = new THREE.VideoTexture(video);
+                    screenMesh.material = new THREE.MeshBasicMaterial({ map: videoTexture });
+                }
+                screenMesh.visible = true;
+                isVideoPlaying = true;
+            } else if (media.type === 'audio') {
+                audio.src = media.url;
+                audio.play();
+                screenMesh.material = new THREE.MeshBasicMaterial({ color: 0x000000 }); // Black screen for audio
+                screenMesh.visible = true;
+            } else if (media.type === 'image') {
+                new THREE.TextureLoader().load(media.url, tex => {
+                    screenMesh.material = new THREE.MeshBasicMaterial({ map: tex });
+                    screenMesh.visible = true;
+                });
+                if (manualTimeout) clearTimeout(manualTimeout);
+                manualTimeout = setTimeout(playNextTrack, 7000);
+            }
+            updateStatusDisplay();
+        }
+
+        function pauseCurrentMedia() {
+            document.getElementById('mediaPlayer').pause();
+            document.getElementById('videoPlayer').pause();
+            if (manualTimeout) clearTimeout(manualTimeout);
+        }
+
+        function playNextTrack() {
+            if (playlist.length === 0) return;
+            currentTrack = (currentTrack + 1) % playlist.length;
+            leadFriend = (leadFriend + 1) % friends.length;
+            showAdvantagePopup("⚡ VIBE RELAY! NEXT FRIEND LEADS!");
+            if (isPlaying) playCurrentMedia();
+            updateStatusDisplay();
+        }
+
+        function skipTrack() {
+            playNextTrack();
+        }
+
+        function updateProgress() {
+            const progressFill = document.getElementById('progressFill');
+            const player = getCurrentPlayer();
+            if (player && player.duration > 0) {
+                progressFill.style.width = `${(player.currentTime / player.duration) * 100}%`;
+            } else {
+                progressFill.style.width = '0%';
+            }
+        }
+        
+        function toggleStatus() {
+            const status = document.getElementById('statusDisplay');
+            showStatus = !showStatus;
+            status.classList.toggle('show', showStatus);
+        }
+        
+        function updateStatusDisplay() {
+            const media = playlist[currentTrack];
+            document.getElementById('currentTrackName').textContent = media ? media.name : 'No party media';
+            const typeSpan = document.getElementById('currentMediaType');
+            typeSpan.textContent = media ? media.type : 'none';
+            typeSpan.className = media ? `media-type ${media.type}` : 'media-type';
+            const player = getCurrentPlayer();
+            if (player) player.ontimeupdate = updateProgress;
+        }
+        
+        function setTheme(newTheme) {
+            theme = newTheme;
+            for (const key in themeElements) themeElements[key].visible = false;
+            if (themeElements[newTheme]) themeElements[newTheme].visible = true;
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === newTheme);
+            });
+            const advantages = {
+                'dance': '💃 DANCE CHAIN: Sync moves passed along!',
+                'obstacles': '🚧 STREET OBSTACLES: Dodge and vibe!',
+                'flips': '🤸 BREAKDANCE FLIPS: Flip the party!',
+                'block': '🎪 BLOCK PARTY: Max chaos and fun!'
+            };
+            showAdvantagePopup(advantages[newTheme]);
+        }
+        
+        function triggerSpectacular() {
+            epicMode = !epicMode;
+            const btn = event.target;
+            btn.textContent = epicMode ? '🌟 EPIC ON' : '✨ EPIC MODE';
+            btn.classList.toggle('active', epicMode);
+            showAdvantagePopup(epicMode ? '✨ EPIC MODE! ALL VIBES MAXED!' : '⭐ Epic deactivated');
+        }
+        
+        function showAdvantagePopup(message) {
+            const popup = document.createElement('div');
+            popup.className = 'advantage-popup';
+            popup.textContent = message;
+            document.body.appendChild(popup);
+            setTimeout(() => document.body.removeChild(popup), 3000);
+        }
+
+        window.onload = init;
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
