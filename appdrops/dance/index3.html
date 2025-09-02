@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>P.O.P.S. CITY CORNER PARTY BOOMBOX</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            font-family: 'Arial Black', Arial, sans-serif;
+            color: white;
+            background: radial-gradient(circle at center, #1a1a2a 0%, #2a1a3a 50%, #3a1a4a 100%);
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #ff1744 0%, #ffd700 25%, #00e676 50%, #2196f3 75%, #e91e63 100%);
+            color: white;
+            text-align: center;
+            padding: 12px 0;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(255,215,0,0.8);
+            animation: party-pulse 2s ease-in-out infinite, rainbow-shift 4s linear infinite;
+            border-bottom: 3px solid #ffd700;
+        }
+        
+        @keyframes party-pulse {
+            0%, 100% { 
+                transform: scale(1); 
+                filter: brightness(1.2) saturate(1.5) drop-shadow(0 0 20px rgba(255,215,0,0.8)); 
+            }
+            50% { 
+                transform: scale(1.02); 
+                filter: brightness(1.5) saturate(2) drop-shadow(0 0 40px rgba(255,215,0,1)); 
+            }
+        }
+
+        @keyframes rainbow-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: clamp(14px, 4vw, 22px);
+            font-weight: 900;
+            text-shadow: 
+                3px 3px 0px #000,
+                0 0 20px rgba(255,215,0,0.8),
+                0 0 40px rgba(255,107,107,0.6);
+            letter-spacing: 2px;
+        }
+
+        .advantages-ticker, .status-display, .performance-stats, .neurology-boost, .controls {
+            position: fixed;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+
+        .advantages-ticker { top: 60px; left: 10px; right: 10px; }
+        .status-display { bottom: 100px; left: 10px; right: 10px; display: none; }
+        .status-display.show { display: block; }
+        .performance-stats { top: 100px; right: 10px; }
+        .neurology-boost { bottom: 150px; left: 10px; }
+        .controls { bottom: 10px; left: 10px; right: 10px; text-align: center; }
+
+        .progress-container {
+            width: 100%;
+            height: 10px;
+            background: #333;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #ffd700;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .file-input-wrapper {
+            display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #ff1744;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover { background: #1976d2; }
+        button.active { background: #ffd700; color: black; }
+        .theme-btn { background: #00e676; }
+        .theme-btn:hover { background: #00c853; }
+        .spectacular-btn { background: #e91e63; }
+        .spectacular-btn:hover { background: #c2185b; }
+        .view-btn, .boombox-btn { 
+            background: linear-gradient(45deg, #9c27b0, #673ab7); 
+        }
+        .view-btn:hover, .boombox-btn:hover { 
+            background: linear-gradient(45deg, #7b1fa2, #512da8); 
+        }
+
+        .advantage-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 215, 0, 0.9);
+            color: black;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 200;
+            font-size: 18px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div class="header">
+        <h1>🎉 P.O.P.S. CITY CORNER PARTY BOOMBOX 🏙️🎶🛒</h1>
+    </div>
+
+    <div class="advantages-ticker">
+        <div class="ticker-content" id="advantagesTicker">
+            🏙️ URBAN VIBE ACCELERATION! • 🎶 BOOMBOX BLAST 300%! • 🎉 PARTY ATMOSPHERE ENHANCES ENERGY! • 🛒 CORNER STORE GLORY ACTIVE! • ⚡ CITY LIGHTS ENGAGED! • 🎵 SYNCED PARADE OPTIMIZED! • 🎭 CHARACTER PERFORMANCE MAXIMIZED! • 🌟 SPECTACULAR STREET STIMULATION! • 🚀 COMMUNITY TURBO MODE! • 
+        </div>
+    </div>
+    
+    <div class="status-display" id="statusDisplay">
+        <div class="media-info" id="mediaInfo">
+            <div>🎵 <span id="currentTrackName">No media loaded</span></div>
+            <div><span class="media-type" id="currentMediaType">none</span></div>
+        </div>
+        <div class="progress-container">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <div class="performance-stats">
+        <div class="stat-item">
+            <span>🏙️ Party Energy:</span>
+            <span class="stat-value" id="neuralActivity">0%</span>
+        </div>
+        <div class="stat-item">
+            <span>⚡ Vibe Boost:</span>
+            <span class="stat-value" id="speedBoost">0x</span>
+        </div>
+        <div class="stat-item">
+            <span>🎉 Excitement:</span>
+            <span class="stat-value" id="excitement">MAXIMUM</span>
+        </div>
+        <div class="stat-item">
+            <span>🛒 Store Factor:</span>
+            <span class="stat-value" id="olympicFactor">∞</span>
+        </div>
+    </div>
+
+    <div class="neurology-boost">
+        <div>🏙️ CITY PARTY BOOST ACTIVE!</div>
+        <div style="font-size: 12px; margin-top: 5px;">
+            Enhanced social vibes, synced movements, 
+            endless entertainment cycles!
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="control-row">
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept="audio/*,video/*,image/*" multiple>
+                <label for="fileInput" class="file-input-label">🎭 Load Party Media</label>
+            </div>
+            <button onclick="togglePlayback()" id="playBtn">🚀 START PARTY</button>
+            <button onclick="skipTrack()">⏭️ Next Vibe</button>
+            <button onclick="toggleStatus()">📊 Party Stats</button>
+        </div>
+        <div class="control-row">
+            <button onclick="setTheme('dance')" class="theme-btn" data-theme="dance">💃 Dance Chain</button>
+            <button onclick="setTheme('obstacles')" class="theme-btn" data-theme="obstacles">🚧 Street Obstacles</button>
+            <button onclick="setTheme('flips')" class="theme-btn" data-theme="flips">🤸 Breakdance Flips</button>
+            <button onclick="setTheme('block')" class="theme-btn" data-theme="block">🎪 Block Party</button>
+            <button onclick="triggerSpectacular()" class="spectacular-btn">✨ EPIC MODE</button>
+        </div>
+        <div class="control-row">
+            <button onclick="setViewMode('orbit')" class="view-btn">🌀 Orbit View</button>
+            <button onclick="setViewMode('firstPerson')" class="view-btn">👀 First Person</button>
+            <button onclick="setViewMode('thirdPerson')" class="view-btn">👥 Third Person</button>
+            <button onclick="setViewMode('side')" class="view-btn">🛣️ Side View</button>
+            <button onclick="setViewMode('sky')" class="view-btn">☁️ Sky View</button>
+            <button onclick="setViewMode('rollerCoaster')" class="view-btn">🎢 Roller Coaster</button>
+        </div>
+        <div class="control-row">
+            <button onclick="toggleBoomboxAttachment()" class="boombox-btn" id="boomboxBtn">🎶 Attach Boombox</button>
+        </div>
+    </div>
+    
+    <audio id="mediaPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()"></audio>
+    <video id="videoPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()" playsinline></video>
+
+    <script>
+        // --- Three.js Globals ---
+        let scene, camera, renderer, controls, pointerLockControls, audioListener, audioContext;
+        let mainCharacter, boombox, friends = [], crowds = [], cars = [];
+        let store, street, skybox, sunLight, moonLight;
+        let videoPlayer, videoTexture, screenMesh;
+        let isVideoPlaying = false;
+        let themeElements = {};
+        let confettiParticles = [];
+        let pyroFireworks = [];
+        let viewMode = 'orbit';
+        let rollerCoasterTween;
+        let rollerCoasterPath;
+        let thirdPersonOffset = new THREE.Vector3(0, 5, -10);
+        let isBoomboxAttached = false;
+        
+        // --- Application Globals ---
+        let playlist = [];
+        let currentTrack = 0;
+        let isPlaying = false;
+        let theme = 'dance';
+        let leadFriend = 0;
+        let manualTimeout = null;
+        let showStatus = false;
+        let epicMode = false;
+        let performanceMultiplier = 1;
+        let timeCycle = 0;
+        
+        const streetLength = 200;
+        const numFriends = 5;
+        const numCrowds = 20;
+        const numCars = 10;
+        
+        // Generate Synthetic Sound
+        function createSynthSound(type) {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let buffer;
+            
+            if (type === 'tap') {
+                // Tap sound: short percussive sine wave
+                const sampleRate = audioContext.sampleRate;
+                const duration = 0.1;
+                buffer = audioContext.createBuffer(1, duration * sampleRate, sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < buffer.length; i++) {
+                    const t = i / sampleRate;
+                    const env = Math.exp(-10 * t); // Fast decay envelope
+                    data[i] = Math.sin(2 * Math.PI * 880 * t) * env * 0.5;
+                }
+            } else if (type === 'horn') {
+                // Horn sound: sawtooth with detune
+                const sampleRate = audioContext.sampleRate;
+                const duration = 0.3;
+                buffer = audioContext.createBuffer(1, duration * sampleRate, sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < buffer.length; i++) {
+                    const t = i / sampleRate;
+                    const env = Math.exp(-3 * t); // Slower decay
+                    const freq1 = 440;
+                    const freq2 = 445; // Slight detune
+                    data[i] = (Math.sin(2 * Math.PI * freq1 * t) + Math.sin(2 * Math.PI * freq2 * t)) * env * 0.4;
+                }
+            } else if (type === 'beat') {
+                // Boombox beat: bass-heavy sine wave
+                const sampleRate = audioContext.sampleRate;
+                const duration = 0.2;
+                buffer = audioContext.createBuffer(1, duration * sampleRate, sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < buffer.length; i++) {
+                    const t = i / sampleRate;
+                    const env = Math.exp(-8 * t); // Punchy envelope
+                    data[i] = Math.sin(2 * Math.PI * 120 * t) * env * 0.6;
+                }
+            }
+            
+            return buffer;
+        }
+
+        // Enhanced Character Class with Better Aesthetics
+        class PartyCharacter extends THREE.Group {
+            constructor(characterId, isMain = false) {
+                super();
+                this.characterId = characterId;
+                this.isMain = isMain;
+                this.color = new THREE.Color().setHSL(characterId / numFriends, 0.9, 0.6);
+                
+                // Enhanced Body with better proportions
+                const bodyGeometry = new THREE.CylinderGeometry(1.5, 2.2, 6, 16);
+                const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                    color: isMain ? 0x2c3e50 : this.color.getHex(),
+                    shininess: 100,
+                    specular: 0x444444
+                });
+                this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.body.position.y = 3;
+                this.add(this.body);
+                
+                // Enhanced Head with better material
+                const headGeometry = new THREE.SphereGeometry(1.8, 20, 20);
+                const headMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xfdbcb4,
+                    shininess: 80,
+                    specular: 0x333333
+                });
+                this.head = new THREE.Mesh(headGeometry, headMaterial);
+                this.head.position.y = 7.5;
+                this.add(this.head);
+                
+                // Enhanced Legs with better proportions
+                const legGeometry = new THREE.CylinderGeometry(0.6, 1, 5, 12);
+                const legMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x34495e,
+                    shininess: 50
+                });
+                this.leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+                this.rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+                this.leftLeg.position.set(-0.8, -0.5, 0);
+                this.rightLeg.position.set(0.8, -0.5, 0);
+                this.add(this.leftLeg);
+                this.add(this.rightLeg);
+                
+                // Enhanced Arms
+                const armGeometry = new THREE.CylinderGeometry(0.4, 0.6, 4, 12);
+                const armMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xfdbcb4,
+                    shininess: 80
+                });
+                this.leftArm = new THREE.Mesh(armGeometry, armMaterial);
+                this.rightArm = new THREE.Mesh(armGeometry, armMaterial);
+                this.leftArm.position.set(-2.5, 4, 0);
+                this.rightArm.position.set(2.5, 4, 0);
+                this.add(this.leftArm);
+                this.add(this.rightArm);
+                
+                if (isMain) {
+                    // Enhanced Boombox with details
+                    const boomboxGroup = new THREE.Group();
+                    
+                    // Main body
+                    const boomboxGeometry = new THREE.BoxGeometry(5, 3, 2);
+                    const boomboxMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0xff4500, 
+                        emissive: 0x441100,
+                        shininess: 120
+                    });
+                    const boomboxBody = new THREE.Mesh(boomboxGeometry, boomboxMaterial);
+                    boomboxGroup.add(boomboxBody);
+                    
+                    // Speakers
+                    const speakerGeometry = new THREE.CylinderGeometry(0.8, 0.8, 0.3, 16);
+                    const speakerMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0x222222,
+                        emissive: 0x111111
+                    });
+                    const leftSpeaker = new THREE.Mesh(speakerGeometry, speakerMaterial);
+                    const rightSpeaker = new THREE.Mesh(speakerGeometry, speakerMaterial);
+                    leftSpeaker.position.set(-1.5, 0, 1.2);
+                    rightSpeaker.position.set(1.5, 0, 1.2);
+                    leftSpeaker.rotation.x = Math.PI / 2;
+                    rightSpeaker.rotation.x = Math.PI / 2;
+                    boomboxGroup.add(leftSpeaker);
+                    boomboxGroup.add(rightSpeaker);
+                    
+                    // Antenna
+                    const antennaGeometry = new THREE.CylinderGeometry(0.05, 0.05, 4);
+                    const antennaMaterial = new THREE.MeshPhongMaterial({ color: 0x888888 });
+                    const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+                    antenna.position.set(-2, 3.5, 0);
+                    antenna.rotation.z = Math.PI / 6;
+                    boomboxGroup.add(antenna);
+                    
+                    this.boombox = boomboxGroup;
+                    this.boombox.position.set(0, 3, 1.5);
+                    this.add(this.boombox);
+
+                    // Boombox Sound
+                    this.boomboxSound = new THREE.Audio(audioListener);
+                    this.boomboxSound.setBuffer(createSynthSound('beat'));
+                    this.boomboxSound.setVolume(0.3);
+                    this.boomboxSound.setLoop(false);
+                    this.add(this.boomboxSound);
+                }
+                
+                this.danceOffset = Math.random() * 10;
+                this.vibePulse = 0;
+                this.baseY = this.position.y;
+                this.lastSoundTime = 0;
+            }
+            
+            update(progress, isLead) {
+                if (isLead && isPlaying) {
+                    const danceSpeed = 0.015 * performanceMultiplier;
+                    const time = Date.now() * danceSpeed;
+                    
+                    // Enhanced dance animations
+                    const danceAngle = Math.sin(time + this.danceOffset) * 0.6;
+                    const armSwing = Math.sin(time * 2 + this.danceOffset) * 0.8;
+                    
+                    this.leftLeg.rotation.x = -danceAngle;
+                    this.rightLeg.rotation.x = danceAngle;
+                    this.leftArm.rotation.z = armSwing;
+                    this.rightArm.rotation.z = -armSwing;
+                    
+                    // Bouncing motion
+                    this.position.y = this.baseY + Math.abs(Math.sin(time * 3)) * 1.2;
+                    
+                    // Head bob
+                    this.head.rotation.x = Math.sin(time * 4) * 0.2;
+                    
+                    // Body sway
+                    this.body.rotation.y = Math.sin(time * 1.5) * 0.3;
+                    
+                    if (this.isMain && this.boombox && !isBoomboxAttached) {
+                        // Enhanced boombox effects
+                        this.boombox.scale.setScalar(1 + Math.sin(this.vibePulse * 2) * 0.15);
+                        this.boombox.rotation.y = Math.sin(time) * 0.2;
+                        
+                        // Speaker pulse
+                        this.boombox.children.forEach((child, index) => {
+                            if (index === 1 || index === 2) { // speakers
+                                child.scale.setScalar(1 + Math.sin(this.vibePulse * 3 + index) * 0.3);
+                            }
+                        });
+
+                        // Boombox sound sync
+                        if (this.boomboxSound && theme in {'dance':1, 'obstacles':1, 'flips':1, 'block':1}) {
+                            const soundTrigger = Math.sin(time * 3);
+                            if (soundTrigger > 0.9 && Date.now() - this.lastSoundTime > 500) {
+                                this.boomboxSound.setPlaybackRate(0.8 + Math.random() * 0.4);
+                                this.boomboxSound.play();
+                                this.lastSoundTime = Date.now();
+                            }
+                        }
+                    }
+                } else {
+                    // Return to rest position
+                    this.leftLeg.rotation.x = 0;
+                    this.rightLeg.rotation.x = 0;
+                    this.leftArm.rotation.z = 0;
+                    this.rightArm.rotation.z = 0;
+                    this.position.y = this.baseY;
+                    this.head.rotation.x = 0;
+                    this.body.rotation.y = 0;
+                    
+                    if (this.isMain && this.boombox && !isBoomboxAttached) {
+                        this.boombox.scale.setScalar(1);
+                        this.boombox.rotation.y = 0;
+                        this.boombox.children.forEach((child, index) => {
+                            if (index === 1 || index === 2) {
+                                child.scale.setScalar(1);
+                            }
+                        });
+                    }
+                }
+                
+                this.vibePulse += 0.1;
+            }
+        }
+        
+        // Enhanced Crowd Person
+        class CrowdPerson extends THREE.Group {
+            constructor() {
+                super();
+                
+                // Random appearance
+                const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0xf9ca24, 0xf0932b, 0xeb4d4b, 0x6c5ce7, 0xa29bfe];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                // Body
+                const bodyGeometry = new THREE.CylinderGeometry(1, 1.5, 5, 12);
+                const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                    color: randomColor,
+                    shininess: 60
+                });
+                this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.body.position.y = 2.5;
+                this.add(this.body);
+                
+                // Head
+                const headGeometry = new THREE.SphereGeometry(1, 16, 16);
+                const headMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xfdbcb4,
+                    shininess: 80
+                });
+                this.head = new THREE.Mesh(headGeometry, headMaterial);
+                this.head.position.y = 6;
+                this.add(this.head);
+                
+                this.syncOffset = Math.random() * Math.PI * 2;
+                this.baseY = 0;
+                this.lastSoundTime = 0;
+
+                // Toe tap sound
+                this.toeSound = new THREE.Audio(audioListener);
+                this.toeSound.setBuffer(createSynthSound('tap'));
+                this.toeSound.setVolume(0.2);
+                this.toeSound.setLoop(false);
+                this.add(this.toeSound);
+            }
+            
+            update(progress, position) {
+                this.position.copy(position);
+                if (isPlaying && theme in {'dance':1, 'obstacles':1, 'flips':1, 'block':1}) {
+                    this.rotation.y = Math.sin(progress * Math.PI * 2 + this.syncOffset) * 0.5;
+                    this.position.y = this.baseY + Math.abs(Math.sin(progress * 10)) * 2;
+                    
+                    // Synchronized toe tap sound
+                    if (this.toeSound) {
+                        const soundTrigger = Math.sin(progress * 10);
+                        if (soundTrigger > 0.9 && Date.now() - this.lastSoundTime > 500) {
+                            this.toeSound.setPlaybackRate(0.8 + Math.random() * 0.4);
+                            this.toeSound.play();
+                            this.lastSoundTime = Date.now();
+                        }
+                    }
+                } else {
+                    this.rotation.y = 0;
+                    this.position.y = this.baseY;
+                }
+            }
+        }
+        
+        // Car Class
+        class Car extends THREE.Group {
+            constructor(id) {
+                super();
+                const body = new THREE.BoxGeometry(8, 3, 4);
+                const material = new THREE.MeshPhongMaterial({ color: new THREE.Color().setHSL(id / numCars, 0.8, 0.5) });
+                this.mesh = new THREE.Mesh(body, material);
+                this.mesh.position.y = 1.5;
+                this.add(this.mesh);
+                this.baseZ = -streetLength / 2 + (id * streetLength / numCars);
+                this.lastSoundTime = 0;
+
+                // Car horn sound
+                this.hornSound = new THREE.Audio(audioListener);
+                this.hornSound.setBuffer(createSynthSound('horn'));
+                this.hornSound.setVolume(0.4);
+                this.hornSound.setLoop(false);
+                this.add(this.hornSound);
+            }
+            
+            update(progress) {
+                if (isPlaying && theme in {'dance':1, 'obstacles':1, 'flips':1, 'block':1}) {
+                    this.position.z = this.baseZ + (progress * streetLength * 2) % streetLength;
+                    this.rotation.y = Math.sin(progress * Math.PI * 4) * 0.1;
+                    
+                    // Synchronized car horn sound
+                    if (this.hornSound) {
+                        const soundTrigger = Math.sin(progress * Math.PI * 4);
+                        if (soundTrigger > 0.9 && Date.now() - this.lastSoundTime > 1000) {
+                            this.hornSound.setPlaybackRate(0.8 + Math.random() * 0.2);
+                            this.hornSound.play();
+                            this.lastSoundTime = Date.now();
+                        }
+                    }
+                } else {
+                    this.position.z = this.baseZ + Math.random() * 10;
+                    this.rotation.y = 0;
+                }
+            }
+        }
+        
+        // Confetti Particle
+        class Confetti {
+            constructor(position) {
+                const geometry = new THREE.PlaneGeometry(0.5, 0.5);
+                const material = new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff, side: THREE.DoubleSide });
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.mesh.position.copy(position);
+                this.velocity = new THREE.Vector3((Math.random() - 0.5) * 10, Math.random() * 15 + 5, (Math.random() - 0.5) * 10);
+                this.life = 100;
+                scene.add(this.mesh);
+            }
+            
+            update() {
+                this.mesh.position.add(this.velocity.clone().multiplyScalar(0.05));
+                this.velocity.y -= 0.2;
+                this.mesh.rotation.x += 0.1;
+                this.mesh.rotation.y += 0.1;
+                this.life--;
+                this.mesh.material.opacity = this.life / 100;
+                if (this.life <= 0) {
+                    scene.remove(this.mesh);
+                    return false;
+                }
+                return true;
+            }
+        }
+        
+        // Pyro Firework
+        class PyroFirework {
+            constructor(position) {
+                this.particles = [];
+                for (let i = 0; i < 50; i++) {
+                    const particle = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.5, 4, 4),
+                        new THREE.MeshBasicMaterial({ color: Math.random() * 0xffffff })
+                    );
+                    particle.position.copy(position);
+                    particle.velocity = new THREE.Vector3(
+                        (Math.random() - 0.5) * 20,
+                        Math.random() * 15 + 5,
+                        (Math.random() - 0.5) * 20
+                    );
+                    this.particles.push(particle);
+                    scene.add(particle);
+                }
+                this.life = 100;
+            }
+            
+            update() {
+                this.life--;
+                this.particles.forEach(p => {
+                    p.position.add(p.velocity.clone().multiplyScalar(0.1));
+                    p.velocity.y -= 0.5;
+                    p.material.opacity = this.life / 100;
+                });
+                if (this.life <= 0) {
+                    this.particles.forEach(p => scene.remove(p));
+                    return false;
+                }
+                return true;
+            }
+        }
+        
+        // --- Initialization ---
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb);
+            scene.fog = new THREE.Fog(0x87ceeb, 100, 500);
+            
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 20, 50);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0, 0);
+            
+            pointerLockControls = new THREE.PointerLockControls(camera, renderer.domElement);
+            pointerLockControls.enabled = false;
+            
+            // Audio Listener
+            audioListener = new THREE.AudioListener();
+            camera.add(audioListener);
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Roller Coaster Path
+            rollerCoasterPath = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(0, 20, 50),
+                new THREE.Vector3(50, 40, 0),
+                new THREE.Vector3(0, 20, -50),
+                new THREE.Vector3(-50, 40, 0),
+                new THREE.Vector3(0, 20, 50)
+            ], true);
+            
+            // Lighting: Sun and Moon
+            sunLight = new THREE.DirectionalLight(0xffd700, 1);
+            sunLight.position.set(50, 100, 50);
+            scene.add(sunLight);
+            
+            moonLight = new THREE.DirectionalLight(0xaaaaee, 0);
+            moonLight.position.set(-50, 100, -50);
+            scene.add(moonLight);
+            
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+            
+            // Brick Corner Store
+            const storeGeometry = new THREE.BoxGeometry(30, 20, 30);
+            const storeMaterial = new THREE.MeshPhongMaterial({ color: 0x8b4513 });
+            store = new THREE.Mesh(storeGeometry, storeMaterial);
+            store.position.set(0, 10, -20);
+            scene.add(store);
+            
+            // Front Door
+            const doorGeometry = new THREE.PlaneGeometry(10, 15);
+            const doorMaterial = new THREE.MeshPhongMaterial({ color: 0x228b22 });
+            const door = new THREE.Mesh(doorGeometry, doorMaterial);
+            door.position.set(0, 7.5, -4.9);
+            scene.add(door);
+            
+            // Street
+            const streetGeometry = new THREE.PlaneGeometry(100, streetLength);
+            const streetMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            street = new THREE.Mesh(streetGeometry, streetMaterial);
+            street.rotation.x = -Math.PI / 2;
+            street.position.y = 0;
+            street.position.z = 50;
+            scene.add(street);
+            
+            // Main Character
+            mainCharacter = new PartyCharacter(0, true);
+            mainCharacter.position.set(0, 0, 0);
+            scene.add(mainCharacter);
+            
+            // Friends/Associates
+            for (let i = 1; i <= numFriends; i++) {
+                const friend = new PartyCharacter(i);
+                friend.position.set(-15 + i * 6, 0, -5);
+                friends.push(friend);
+                scene.add(friend);
+            }
+            
+            // Crowds (bystanders)
+            for (let i = 0; i < numCrowds; i++) {
+                const crowd = new CrowdPerson();
+                crowd.position.set((Math.random() - 0.5) * 50, 0, 20 + Math.random() * 100);
+                crowds.push(crowd);
+                scene.add(crowd);
+            }
+            
+            // Cars
+            for (let i = 0; i < numCars; i++) {
+                const car = new Car(i);
+                car.position.x = (Math.random() - 0.5) * 20;
+                car.position.y = 0;
+                cars.push(car);
+                scene.add(car);
+            }
+            
+            // Corner Show Screen
+            const screenGeometry = new THREE.PlaneGeometry(30, 16.875);
+            const screenMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            screenMesh = new THREE.Mesh(screenGeometry, screenMaterial);
+            screenMesh.position.set(0, 25, 0);
+            screenMesh.rotation.y = 0;
+            scene.add(screenMesh);
+            
+            // Handle file input
+            document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+            
+            // Initialize theme elements
+            createPartyThemeElements();
+            
+            // Start performance monitoring
+            startPerformanceMonitoring();
+            
+            // Set default view mode
+            setViewMode('orbit');
+            
+            // Keyboard controls for first person
+            window.addEventListener('keydown', (e) => { keyboard[e.keyCode] = true; });
+            window.addEventListener('keyup', (e) => { keyboard[e.keyCode] = false; });
+            
+            animate();
+        }
+        
+        function createPartyThemeElements() {
+            const danceGroup = new THREE.Group();
+            themeElements['dance'] = danceGroup;
+            scene.add(danceGroup);
+            
+            const obstaclesGroup = new THREE.Group();
+            for (let i = 0; i < 5; i++) {
+                const obstacle = new THREE.BoxGeometry(10, 5, 2);
+                const mat = new THREE.MeshPhongMaterial({ color: 0x808080 });
+                const mesh = new THREE.Mesh(obstacle, mat);
+                mesh.position.set(0, 2.5, 30 + i * 30);
+                obstaclesGroup.add(mesh);
+            }
+            themeElements['obstacles'] = obstaclesGroup;
+            scene.add(obstaclesGroup);
+            obstaclesGroup.visible = false;
+            
+            const flipsGroup = new THREE.Group();
+            themeElements['flips'] = flipsGroup;
+            scene.add(flipsGroup);
+            flipsGroup.visible = false;
+            
+            const blockGroup = new THREE.Group();
+            themeElements['block'] = blockGroup;
+            scene.add(blockGroup);
+            blockGroup.visible = false;
+        }
+        
+        function startPerformanceMonitoring() {
+            setInterval(updatePerformanceStats, 100);
+        }
+        
+        function updatePerformanceStats() {
+            const partyEnergy = document.getElementById('neuralActivity');
+            const vibeBoost = document.getElementById('speedBoost');
+            if (isPlaying) {
+                partyEnergy.textContent = Math.floor(Math.random() * 20 + 80) + '%';
+                vibeBoost.textContent = (performanceMultiplier * (1 + Math.random())).toFixed(1) + 'x';
+            } else {
+                partyEnergy.textContent = Math.floor(Math.random() * 30 + 10) + '%';
+                vibeBoost.textContent = '1.0x';
+            }
+        }
+
+        // Toggle Boombox Attachment
+        function toggleBoomboxAttachment() {
+            isBoomboxAttached = !isBoomboxAttached;
+            const btn = document.getElementById('boomboxBtn');
+            btn.textContent = isBoomboxAttached ? '🎶 Release Boombox' : '🎶 Attach Boombox';
+            btn.classList.toggle('active', isBoomboxAttached);
+            showAdvantagePopup(isBoomboxAttached ? '🎶 BOOMBOX ATTACHED TO YOU!' : '🎶 BOOMBOX RETURNED TO PARTY!');
+
+            if (isBoomboxAttached) {
+                // Attach boombox to camera
+                mainCharacter.remove(mainCharacter.boombox);
+                camera.add(mainCharacter.boombox);
+                mainCharacter.boombox.position.set(0, -2, -5); // Position in front of camera
+                mainCharacter.boombox.rotation.set(0, 0, 0); // Reset rotation for camera
+                mainCharacter.remove(mainCharacter.boomboxSound);
+                mainCharacter.boombox.add(mainCharacter.boomboxSound);
+            } else {
+                // Return boombox to main character
+                camera.remove(mainCharacter.boombox);
+                mainCharacter.add(mainCharacter.boombox);
+                mainCharacter.boombox.position.set(0, 3, 1.5); // Original position
+                mainCharacter.boombox.add(mainCharacter.boomboxSound);
+            }
+        }
+
+        // View Mode Handling
+        let keyboard = {};
+        function setViewMode(mode) {
+            viewMode = mode;
+            if (rollerCoasterTween) rollerCoasterTween.stop();
+            if (mode === 'orbit') {
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                controls.enabled = true;
+                camera.position.set(0, 20, 50);
+                controls.target.set(0, 0, 0);
+            } else if (mode === 'firstPerson') {
+                controls.enabled = false;
+                pointerLockControls.enabled = true;
+                pointerLockControls.lock();
+                camera.position.set(mainCharacter.position.x, mainCharacter.position.y + 7, mainCharacter.position.z);
+            } else if (mode === 'thirdPerson') {
+                controls.enabled = false;
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                camera.position.copy(mainCharacter.position.clone().add(thirdPersonOffset));
+                camera.lookAt(mainCharacter.position);
+            } else if (mode === 'side') {
+                controls.enabled = false;
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                camera.position.set(50, 10, 0);
+                camera.lookAt(0, 0, 0);
+            } else if (mode === 'sky') {
+                controls.enabled = false;
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                camera.position.set(0, 100, 0);
+                camera.lookAt(0, 0, 0);
+            } else if (mode === 'rollerCoaster') {
+                controls.enabled = false;
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                startRollerCoaster();
+            }
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.onclick.toString().includes(`'${mode}'`));
+            });
+            showAdvantagePopup(`🎥 View Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
+        }
+
+        function startRollerCoaster() {
+            const duration = 10000;
+            const progress = { t: 0 };
+            rollerCoasterTween = new TWEEN.Tween(progress)
+                .to({ t: 1 }, duration)
+                .repeat(Infinity)
+                .onUpdate(() => {
+                    const point = rollerCoasterPath.getPointAt(progress.t);
+                    camera.position.copy(point);
+                    camera.lookAt(0, 0, 0);
+                })
+                .start();
+        }
+
+        // --- Animation Loop ---
+        function animate(time) {
+            requestAnimationFrame(animate);
+            TWEEN.update(time);
+            
+            let player = getCurrentPlayer();
+            let mediaProgress = 0;
+            if (player && isPlaying && player.duration > 0) {
+                mediaProgress = player.currentTime / player.duration;
+                performanceMultiplier = 1 + mediaProgress * 2;
+            }
+            
+            // Day-Night Cycle
+            timeCycle += 0.001;
+            const dayProgress = (Math.sin(timeCycle) + 1) / 2;
+            scene.background.setRGB(dayProgress, dayProgress * 0.8, dayProgress * 0.9 + 0.1);
+            sunLight.intensity = dayProgress;
+            moonLight.intensity = 1 - dayProgress;
+            
+            // Update Main Character and Friends
+            mainCharacter.update(mediaProgress, true);
+            friends.forEach((friend, i) => {
+                friend.update(mediaProgress, i === leadFriend);
+            });
+            
+            // Update Crowds (sync parade)
+            crowds.forEach((crowd, i) => {
+                const pos = new THREE.Vector3(
+                    Math.sin(i / numCrowds * Math.PI * 2 + mediaProgress * 4) * 20,
+                    0,
+                    20 + Math.cos(i / numCrowds * Math.PI * 2 + mediaProgress * 4) * 50
+                );
+                crowd.update(mediaProgress, pos);
+            });
+            
+            // Update Cars (train-like)
+            cars.forEach(car => car.update(mediaProgress));
+            
+            // Update Boombox when attached to camera
+            if (isBoomboxAttached && mainCharacter.boombox && isPlaying) {
+                const danceSpeed = 0.015 * performanceMultiplier;
+                const time = Date.now() * danceSpeed;
+                mainCharacter.boombox.scale.setScalar(1 + Math.sin(mainCharacter.vibePulse * 2) * 0.15);
+                mainCharacter.boombox.rotation.y = Math.sin(time) * 0.2;
+                mainCharacter.boombox.children.forEach((child, index) => {
+                    if (index === 1 || index === 2) { // speakers
+                        child.scale.setScalar(1 + Math.sin(mainCharacter.vibePulse * 3 + index) * 0.3);
+                    }
+                });
+                if (mainCharacter.boomboxSound && theme in {'dance':1, 'obstacles':1, 'flips':1, 'block':1}) {
+                    const soundTrigger = Math.sin(time * 3);
+                    if (soundTrigger > 0.9 && Date.now() - mainCharacter.lastSoundTime > 500) {
+                        mainCharacter.boomboxSound.setPlaybackRate(0.8 + Math.random() * 0.4);
+                        mainCharacter.boomboxSound.play();
+                        mainCharacter.lastSoundTime = Date.now();
+                    }
+                }
+                mainCharacter.vibePulse += 0.1;
+            }
+            
+            // Effects
+            confettiParticles = confettiParticles.filter(c => c.update());
+            pyroFireworks = pyroFireworks.filter(p => p.update());
+            
+            if (isPlaying && Math.random() < 0.05 * performanceMultiplier) {
+                confettiParticles.push(new Confetti(new THREE.Vector3(0, 10, 0)));
+                if (epicMode) pyroFireworks.push(new PyroFirework(new THREE.Vector3(Math.random() * 20 - 10, 20, Math.random() * 20)));
+            }
+            
+            // Screen Pulse Effect
+            if (isPlaying && screenMesh.visible) {
+                screenMesh.scale.setScalar(1 + Math.sin(Date.now() * 0.002) * 0.1);
+            } else {
+                screenMesh.scale.setScalar(1);
+            }
+            
+            // Update View Mode
+            if (viewMode === 'thirdPerson') {
+                const targetPos = mainCharacter.position.clone().add(new THREE.Vector3(0, 5, 0));
+                camera.position.lerp(mainCharacter.position.clone().add(thirdPersonOffset), 0.1);
+                camera.lookAt(targetPos);
+            } else if (viewMode === 'firstPerson' && pointerLockControls.isLocked) {
+                const moveSpeed = 0.1;
+                const direction = new THREE.Vector3();
+                pointerLockControls.getDirection(direction);
+                if (keyboard[87]) pointerLockControls.moveForward(moveSpeed); // W
+                if (keyboard[83]) pointerLockControls.moveForward(-moveSpeed); // S
+                if (keyboard[65]) pointerLockControls.moveRight(-moveSpeed); // A
+                if (keyboard[68]) pointerLockControls.moveRight(moveSpeed); // D
+            }
+            
+            // Theme animations
+            updateThemeAnimations();
+            
+            if (isVideoPlaying && videoTexture) videoTexture.needsUpdate = true;
+            
+            renderer.render(scene, camera);
+        }
+        
+        function updateThemeAnimations() {
+            const time = Date.now() * 0.001;
+            // Expand as needed
+        }
+
+        // --- Media Handling ---
+        function handleFileSelect(event) {
+            playlist = [];
+            const files = event.target.files;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                let type = file.type.startsWith('audio/') ? 'audio' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : 'unknown';
+                if (type !== 'unknown') {
+                    playlist.push({ name: file.name.replace(/\.[^/.]+$/, ""), url: URL.createObjectURL(file), type });
+                }
+            }
+            if (playlist.length > 0) currentTrack = 0;
+            leadFriend = 0;
+            updateStatusDisplay();
+            showAdvantagePopup("🎉 PARTY MEDIA LOADED! VIBES OPTIMIZED!");
+        }
+
+        function togglePlayback() {
+            if (playlist.length === 0) return showAdvantagePopup("🎉 Load Party Media First!");
+            const playBtn = document.getElementById('playBtn');
+            if (isPlaying) {
+                pauseCurrentMedia();
+                isPlaying = false;
+                playBtn.textContent = '🚀 START PARTY';
+            } else {
+                playCurrentMedia();
+                isPlaying = true;
+                playBtn.textContent = '⏸️ PAUSE PARTY';
+                showAdvantagePopup("🏙️ PARTY MODE ACTIVATED! SYNC ENGAGED!");
+            }
+            updateStatusDisplay();
+        }
+        
+        function getCurrentPlayer() {
+            const media = playlist[currentTrack];
+            if (!media) return null;
+            return media.type === 'video' ? document.getElementById('videoPlayer') : media.type === 'audio' ? document.getElementById('mediaPlayer') : null;
+        }
+
+        function playCurrentMedia() {
+            if (playlist.length === 0) return;
+            const media = playlist[currentTrack];
+            const audio = document.getElementById('mediaPlayer');
+            const video = document.getElementById('videoPlayer');
+            audio.pause();
+            video.pause();
+            screenMesh.visible = false;
+            isVideoPlaying = false;
+            
+            if (media.type === 'video') {
+                video.src = media.url;
+                video.play();
+                if (!videoTexture) {
+                    videoTexture = new THREE.VideoTexture(video);
+                    screenMesh.material = new THREE.MeshBasicMaterial({ map: videoTexture });
+                }
+                screenMesh.visible = true;
+                isVideoPlaying = true;
+            } else if (media.type === 'audio') {
+                audio.src = media.url;
+                audio.play();
+                screenMesh.material = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                screenMesh.visible = true;
+            } else if (media.type === 'image') {
+                new THREE.TextureLoader().load(media.url, tex => {
+                    screenMesh.material = new THREE.MeshBasicMaterial({ map: tex });
+                    screenMesh.visible = true;
+                });
+                if (manualTimeout) clearTimeout(manualTimeout);
+                manualTimeout = setTimeout(playNextTrack, 7000);
+            }
+            updateStatusDisplay();
+        }
+
+        function pauseCurrentMedia() {
+            document.getElementById('mediaPlayer').pause();
+            document.getElementById('videoPlayer').pause();
+            if (manualTimeout) clearTimeout(manualTimeout);
+        }
+
+        function playNextTrack() {
+            if (playlist.length === 0) return;
+            currentTrack = (currentTrack + 1) % playlist.length;
+            leadFriend = (leadFriend + 1) % friends.length;
+            showAdvantagePopup("⚡ VIBE RELAY! NEXT FRIEND LEADS!");
+            if (isPlaying) playCurrentMedia();
+            updateStatusDisplay();
+        }
+
+        function skipTrack() {
+            playNextTrack();
+        }
+
+        function updateProgress() {
+            const progressFill = document.getElementById('progressFill');
+            const player = getCurrentPlayer();
+            if (player && player.duration > 0) {
+                progressFill.style.width = `${(player.currentTime / player.duration) * 100}%`;
+            } else {
+                progressFill.style.width = '0%';
+            }
+        }
+        
+        function toggleStatus() {
+            const status = document.getElementById('statusDisplay');
+            showStatus = !showStatus;
+            status.classList.toggle('show', showStatus);
+        }
+        
+        function updateStatusDisplay() {
+            const media = playlist[currentTrack];
+            document.getElementById('currentTrackName').textContent = media ? media.name : 'No party media';
+            const typeSpan = document.getElementById('currentMediaType');
+            typeSpan.textContent = media ? media.type : 'none';
+            typeSpan.className = media ? `media-type ${media.type}` : 'media-type';
+            const player = getCurrentPlayer();
+            if (player) player.ontimeupdate = updateProgress;
+        }
+        
+        function setTheme(newTheme) {
+            theme = newTheme;
+            for (const key in themeElements) themeElements[key].visible = false;
+            if (themeElements[newTheme]) themeElements[newTheme].visible = true;
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === newTheme);
+            });
+            const advantages = {
+                'dance': '💃 DANCE CHAIN: Sync moves passed along!',
+                'obstacles': '🚧 STREET OBSTACLES: Dodge and vibe!',
+                'flips': '🤸 BREAKDANCE FLIPS: Flip the party!',
+                'block': '🎪 BLOCK PARTY: Max chaos and fun!'
+            };
+            showAdvantagePopup(advantages[newTheme]);
+        }
+        
+        function triggerSpectacular() {
+            epicMode = !epicMode;
+            const btn = event.target;
+            btn.textContent = epicMode ? '🌟 EPIC ON' : '✨ EPIC MODE';
+            btn.classList.toggle('active', epicMode);
+            showAdvantagePopup(epicMode ? '✨ EPIC MODE! ALL VIBES MAXED!' : '⭐ Epic deactivated');
+        }
+        
+        function showAdvantagePopup(message) {
+            const popup = document.createElement('div');
+            popup.className = 'advantage-popup';
+            popup.textContent = message;
+            document.body.appendChild(popup);
+            setTimeout(() => document.body.removeChild(popup), 3000);
+        }
+
+        window.onload = init;
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
