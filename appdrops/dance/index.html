@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>P.O.P.S. CITY CORNER PARTY BOOMBOX</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>        
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
 
     <style>
         * { box-sizing: border-box; }
@@ -68,7 +70,6 @@
                 3px 3px 0px #000,
                 0 0 20px rgba(255,215,0,0.8),
                 0 0 40px rgba(255,107,107,0.6);
-            animation: text-explosion 3s ease-in-out infinite;
             letter-spacing: 2px;
         }
 
@@ -144,6 +145,12 @@
         .theme-btn:hover { background: #00c853; }
         .spectacular-btn { background: #e91e63; }
         .spectacular-btn:hover { background: #c2185b; }
+        .view-btn, .boombox-btn { 
+            background: linear-gradient(45deg, #9c27b0, #673ab7); 
+        }
+        .view-btn:hover, .boombox-btn:hover { 
+            background: linear-gradient(45deg, #7b1fa2, #512da8); 
+        }
 
         .advantage-popup {
             position: fixed;
@@ -228,6 +235,19 @@
             <button onclick="setTheme('block')" class="theme-btn" data-theme="block">🎪 Block Party</button>
             <button onclick="triggerSpectacular()" class="spectacular-btn">✨ EPIC MODE</button>
         </div>
+        <div class="control-row">
+            <button onclick="setViewMode('orbit')" class="view-btn">🌀 Orbit View</button>
+            <button onclick="setViewMode('firstPerson')" class="view-btn">👀 First Person</button>
+            <button onclick="setViewMode('thirdPerson')" class="view-btn">👥 Third Person</button>
+            <button onclick="setViewMode('side')" class="view-btn">🛣️ Side View</button>
+            <button onclick="setViewMode('sky')" class="view-btn">☁️ Sky View</button>
+            <button onclick="setViewMode('rollerCoaster')" class="view-btn">🎢 Roller Coaster</button>
+        </div>
+        <div class="control-row">
+            <button onclick="toggleBoomboxAttachment()" class="boombox-btn" id="boomboxBtn">🎶 Attach Boombox</button>
+             <button onclick="toggleFullscreen()">📺 Fullscreen Media</button>
+
+        </div>
     </div>
     
     <audio id="mediaPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()"></audio>
@@ -235,7 +255,7 @@
 
     <script>
         // --- Three.js Globals ---
-        let scene, camera, renderer, controls;
+        let scene, camera, renderer, controls, pointerLockControls, audioListener, audioContext;
         let mainCharacter, boombox, friends = [], crowds = [], cars = [];
         let store, street, skybox, sunLight, moonLight;
         let videoPlayer, videoTexture, screenMesh;
@@ -243,6 +263,11 @@
         let themeElements = {};
         let confettiParticles = [];
         let pyroFireworks = [];
+        let viewMode = 'orbit';
+        let rollerCoasterTween;
+        let rollerCoasterPath;
+        let thirdPersonOffset = new THREE.Vector3(0, 5, -10);
+        let isBoomboxAttached = false;
         
         // --- Application Globals ---
         let playlist = [];
@@ -254,107 +279,303 @@
         let showStatus = false;
         let epicMode = false;
         let performanceMultiplier = 1;
-        let timeCycle = 0; // For day-night loop
+        let timeCycle = 0;
         
         const streetLength = 200;
         const numFriends = 5;
         const numCrowds = 20;
         const numCars = 10;
+
+
         
-        // Re-Imagined Character Class
+        // Generate Synthetic Sound
+        function createSynthSound(type) {
+            if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let buffer;
+            
+            if (type === 'tap') {
+                // Tap sound: short percussive sine wave
+                const sampleRate = audioContext.sampleRate;
+                const duration = 0.1;
+                buffer = audioContext.createBuffer(1, duration * sampleRate, sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < buffer.length; i++) {
+                    const t = i / sampleRate;
+                    const env = Math.exp(-10 * t); // Fast decay envelope
+                    data[i] = Math.sin(2 * Math.PI * 880 * t) * env * 0.5;
+                }
+            } else if (type === 'horn') {
+                // Horn sound: sawtooth with detune
+                const sampleRate = audioContext.sampleRate;
+                const duration = 0.3;
+                buffer = audioContext.createBuffer(1, duration * sampleRate, sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < buffer.length; i++) {
+                    const t = i / sampleRate;
+                    const env = Math.exp(-3 * t); // Slower decay
+                    const freq1 = 440;
+                    const freq2 = 445; // Slight detune
+                    data[i] = (Math.sin(2 * Math.PI * freq1 * t) + Math.sin(2 * Math.PI * freq2 * t)) * env * 0.4;
+                }
+            } else if (type === 'beat') {
+                // Boombox beat: bass-heavy sine wave
+                const sampleRate = audioContext.sampleRate;
+                const duration = 0.2;
+                buffer = audioContext.createBuffer(1, duration * sampleRate, sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < buffer.length; i++) {
+                    const t = i / sampleRate;
+                    const env = Math.exp(-8 * t); // Punchy envelope
+                    data[i] = Math.sin(2 * Math.PI * 120 * t) * env * 0.6;
+                }
+            }
+            
+            return buffer;
+        }
+
+        // Enhanced Character Class with Better Aesthetics
         class PartyCharacter extends THREE.Group {
             constructor(characterId, isMain = false) {
                 super();
                 this.characterId = characterId;
                 this.isMain = isMain;
-                this.color = new THREE.Color().setHSL(characterId / numFriends, 0.8, 0.6);
+                this.color = new THREE.Color().setHSL(characterId / numFriends, 0.9, 0.6);
                 
-                // Body (dressed nice)
-                const bodyGeometry = new THREE.CylinderGeometry(2, 2, 6, 12);
+                // Enhanced Body
+                const bodyGeometry = new THREE.CylinderGeometry(1.5, 2.2, 6, 16);
                 const bodyMaterial = new THREE.MeshPhongMaterial({ 
-                    color: isMain ? 0x4a4a4a : this.color.getHex(), // Main in suit gray
-                    shininess: 100
+                    color: isMain ? 0x2c3e50 : this.color.getHex(),
+                    shininess: 100,
+                    specular: 0x444444
                 });
                 this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
                 this.body.position.y = 3;
                 this.add(this.body);
                 
-                // Head
-                const headGeometry = new THREE.SphereGeometry(2, 16, 16);
-                const headMaterial = new THREE.MeshPhongMaterial({ color: 0xffd700 });
+                // Enhanced Head
+                const headGeometry = new THREE.SphereGeometry(1.8, 20, 20);
+                const headMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xfdbcb4,
+                    shininess: 80,
+                    specular: 0x333333
+                });
                 this.head = new THREE.Mesh(headGeometry, headMaterial);
-                this.head.position.y = 7;
+                this.head.position.y = 7.5;
                 this.add(this.head);
                 
-                // Legs
-                const legGeometry = new THREE.CylinderGeometry(0.8, 1.2, 5);
-                const legMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+                // Enhanced Legs
+                const legGeometry = new THREE.CylinderGeometry(0.6, 1, 5, 12);
+                const legMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0x34495e,
+                    shininess: 50
+                });
                 this.leftLeg = new THREE.Mesh(legGeometry, legMaterial);
                 this.rightLeg = new THREE.Mesh(legGeometry, legMaterial);
-                this.leftLeg.position.set(-1, -0.5, 0);
-                this.rightLeg.position.set(1, -0.5, 0);
+                this.leftLeg.position.set(-0.8, -0.5, 0);
+                this.rightLeg.position.set(0.8, -0.5, 0);
                 this.add(this.leftLeg);
                 this.add(this.rightLeg);
                 
+                // Enhanced Arms
+                const armGeometry = new THREE.CylinderGeometry(0.4, 0.6, 4, 12);
+                const armMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xfdbcb4,
+                    shininess: 80
+                });
+                this.leftArm = new THREE.Mesh(armGeometry, armMaterial);
+                this.rightArm = new THREE.Mesh(armGeometry, armMaterial);
+                this.leftArm.position.set(-2.5, 4, 0);
+                this.rightArm.position.set(2.5, 4, 0);
+                this.add(this.leftArm);
+                this.add(this.rightArm);
+                
                 if (isMain) {
-                    // Boombox
-                    const boomboxGeometry = new THREE.BoxGeometry(4, 2, 3);
-                    const boomboxMaterial = new THREE.MeshPhongMaterial({ color: 0xff4500, emissive: 0x440000 });
-                    this.boombox = new THREE.Mesh(boomboxGeometry, boomboxMaterial);
-                    this.boombox.position.set(0, 3, 3);
+                    // Enhanced Boombox with details
+                    this.boombox = new THREE.Group();
+                    
+                    // Main body
+                    const boomboxGeometry = new THREE.BoxGeometry(5, 3, 2);
+                    const boomboxMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0xff4500, 
+                        emissive: 0x441100,
+                        shininess: 120
+                    });
+                    const boomboxBody = new THREE.Mesh(boomboxGeometry, boomboxMaterial);
+                    this.boombox.add(boomboxBody);
+                    
+                    // Speakers
+                    const speakerGeometry = new THREE.CylinderGeometry(0.8, 0.8, 0.3, 16);
+                    const speakerMaterial = new THREE.MeshPhongMaterial({ 
+                        color: 0x222222,
+                        emissive: 0x111111
+                    });
+                    const leftSpeaker = new THREE.Mesh(speakerGeometry, speakerMaterial);
+                    const rightSpeaker = new THREE.Mesh(speakerGeometry, speakerMaterial);
+                    leftSpeaker.position.set(-1.5, 0, 1.2);
+                    rightSpeaker.position.set(1.5, 0, 1.2);
+                    leftSpeaker.rotation.x = Math.PI / 2;
+                    rightSpeaker.rotation.x = Math.PI / 2;
+                    this.boombox.add(leftSpeaker);
+                    this.boombox.add(rightSpeaker);
+                    
+                    // Antenna
+                    const antennaGeometry = new THREE.CylinderGeometry(0.05, 0.05, 4);
+                    const antennaMaterial = new THREE.MeshPhongMaterial({ color: 0x888888 });
+                    const antenna = new THREE.Mesh(antennaGeometry, antennaMaterial);
+                    antenna.position.set(-2, 3.5, 0);
+                    antenna.rotation.z = Math.PI / 6;
+                    this.boombox.add(antenna);
+                    
+                    this.boombox.position.set(0, 3, 1.5);
                     this.add(this.boombox);
                 }
                 
                 this.danceOffset = Math.random() * 10;
                 this.vibePulse = 0;
+                this.baseY = this.position.y;
             }
             
             update(progress, isLead) {
                 if (isLead && isPlaying) {
-                    // Dance animation
-                    const danceSpeed = 0.02 * performanceMultiplier;
-                    const danceAngle = Math.sin(Date.now() * danceSpeed + this.danceOffset) * 0.8;
+                    const danceSpeed = 0.015 * performanceMultiplier;
+                    const time = Date.now() * danceSpeed;
+                    
+                    // Enhanced dance animations
+                    const danceAngle = Math.sin(time + this.danceOffset) * 0.6;
+                    const armSwing = Math.sin(time * 2 + this.danceOffset) * 0.8;
+                    
                     this.leftLeg.rotation.x = -danceAngle;
                     this.rightLeg.rotation.x = danceAngle;
-                    this.position.y = Math.abs(Math.sin(Date.now() * danceSpeed * 2)) * 1;
+                    this.leftArm.rotation.z = armSwing;
+                    this.rightArm.rotation.z = -armSwing;
                     
-                    // Boombox pulse if main
-                    if (this.isMain) {
-                        this.boombox.scale.setScalar(1 + Math.sin(this.vibePulse) * 0.2);
-                        this.boombox.material.emissive.setHex(0xff4500);
+                    // Bouncing motion
+                    this.position.y = this.baseY + Math.abs(Math.sin(time * 3)) * 1.2;
+                    
+                    // Head bob
+                    this.head.rotation.x = Math.sin(time * 4) * 0.2;
+                    
+                    // Body sway
+                    this.body.rotation.y = Math.sin(time * 1.5) * 0.3;
+                    
+                    if (this.isMain && this.boombox) {
+                        // Enhanced boombox effects
+                        this.boombox.scale.setScalar(1 + Math.sin(this.vibePulse * 2) * 0.15);
+                        this.boombox.rotation.y = Math.sin(time) * 0.2;
+                        
+                        // Speaker pulse
+                        this.boombox.children.forEach((child, index) => {
+                            if (index === 1 || index === 2) { // speakers
+                                child.scale.setScalar(1 + Math.sin(this.vibePulse * 3 + index) * 0.3);
+                            }
+                        });
                     }
                 } else {
+                    // Return to rest position
                     this.leftLeg.rotation.x = 0;
                     this.rightLeg.rotation.x = 0;
-                    this.position.y = 0;
-                    if (this.isMain) this.boombox.material.emissive.setHex(0x220000);
+                    this.leftArm.rotation.z = 0;
+                    this.rightArm.rotation.z = 0;
+                    this.position.y = this.baseY;
+                    this.head.rotation.x = 0;
+                    this.body.rotation.y = 0;
+                    
+                    if (this.isMain && this.boombox) {
+                        this.boombox.scale.setScalar(1);
+                        this.boombox.rotation.y = 0;
+                        this.boombox.children.forEach((child, index) => {
+                            if (index === 1 || index === 2) {
+                                child.scale.setScalar(1);
+                            }
+                        });
+                    }
                 }
                 
                 this.vibePulse += 0.1;
             }
         }
         
-        // Crowd Person Class (simple)
+        
+       // Enhanced Crowd Person with Music Reactivity
         class CrowdPerson extends THREE.Group {
             constructor() {
                 super();
-                const body = new THREE.BoxGeometry(2, 6, 2);
-                const material = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff });
-                this.mesh = new THREE.Mesh(body, material);
-                this.mesh.position.y = 3;
-                this.add(this.mesh);
+                
+                // Random appearance
+                const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0xf9ca24, 0xf0932b, 0xeb4d4b, 0x6c5ce7, 0xa29bfe];
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                
+                // Body
+                const bodyGeometry = new THREE.CylinderGeometry(1, 1.5, 5, 12);
+                const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                    color: randomColor,
+                    shininess: 60
+                });
+                this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                this.body.position.y = 2.5;
+                this.add(this.body);
+                
+                // Head
+                const headGeometry = new THREE.SphereGeometry(1, 16, 16);
+                const headMaterial = new THREE.MeshPhongMaterial({ 
+                    color: 0xfdbcb4,
+                    shininess: 80
+                });
+                this.head = new THREE.Mesh(headGeometry, headMaterial);
+                this.head.position.y = 6;
+                this.add(this.head);
+                
+                // Arms for dancing
+                const armGeometry = new THREE.CylinderGeometry(0.3, 0.4, 3, 8);
+                const armMaterial = new THREE.MeshPhongMaterial({ color: 0xfdbcb4 });
+                this.leftArm = new THREE.Mesh(armGeometry, armMaterial);
+                this.rightArm = new THREE.Mesh(armGeometry, armMaterial);
+                this.leftArm.position.set(-1.5, 3.5, 0);
+                this.rightArm.position.set(1.5, 3.5, 0);
+                this.add(this.leftArm);
+                this.add(this.rightArm);
+                
                 this.syncOffset = Math.random() * Math.PI * 2;
+                this.baseY = 0;
+                this.danceEnergy = 0.3 + Math.random() * 0.7;
+                this.beatSensitivity = 0.2 + Math.random() * 0.6;
             }
             
-            update(progress, position) {
+            update(progress, position, audioData = null) {
                 this.position.copy(position);
-                if (isPlaying) {
-                    this.rotation.y = Math.sin(progress * Math.PI * 2 + this.syncOffset) * 0.5;
-                    this.position.y = Math.abs(Math.sin(progress * 10)) * 2;
+                
+                if (isPlaying && audioData) {
+                    const time = Date.now() * 0.001;
+                    const bassReactive = Math.max(0, (audioData.bassLevel - 0.2) * this.beatSensitivity);
+                    const midReactive = Math.max(0, (audioData.midLevel - 0.1) * this.danceEnergy);
+                    
+                    // Crowd dancing with music
+                    this.rotation.y = Math.sin(time * (1 + bassReactive) + this.syncOffset) * (0.5 + midReactive * 0.3);
+                    this.position.y = this.baseY + Math.abs(Math.sin(time * (2 + bassReactive * 2) + this.syncOffset)) * (2 + bassReactive * 3);
+                    
+                    // Arm movements
+                    this.leftArm.rotation.z = Math.sin(time * 2 + this.syncOffset) * (0.6 + bassReactive * 0.4);
+                    this.rightArm.rotation.z = -Math.sin(time * 2 + this.syncOffset + Math.PI/3) * (0.6 + bassReactive * 0.4);
+                    
+                    // Head bob
+                    this.head.rotation.x = Math.sin(time * 3 + this.syncOffset) * (0.1 + midReactive * 0.2);
+                    
+                    // Body pulse on beats
+                    if (audioData.isBeat) {
+                        this.body.scale.setScalar(1 + 0.1 * this.beatSensitivity);
+                        setTimeout(() => {
+                            this.body.scale.setScalar(1);
+                        }, 150);
+                    }
+                } else {
+                    // Gentle sway when no music
+                    this.rotation.y = Math.sin(progress * Math.PI * 2 + this.syncOffset) * 0.2;
+                    this.position.y = this.baseY + Math.abs(Math.sin(progress * 5 + this.syncOffset)) * 0.5;
+                    this.leftArm.rotation.z *= 0.9;
+                    this.rightArm.rotation.z *= 0.9;
                 }
             }
         }
-        
         // Car Class
         class Car extends THREE.Group {
             constructor(id) {
@@ -365,14 +586,33 @@
                 this.mesh.position.y = 1.5;
                 this.add(this.mesh);
                 this.baseZ = -streetLength / 2 + (id * streetLength / numCars);
+                this.lastSoundTime = 0;
+
+                // Car horn sound
+                this.hornSound = new THREE.Audio(audioListener);
+                this.hornSound.setBuffer(createSynthSound('horn'));
+                this.hornSound.setVolume(0.4);
+                this.hornSound.setLoop(false);
+                this.add(this.hornSound);
             }
             
             update(progress) {
-                if (isPlaying) {
+                if (isPlaying && theme in {'dance':1, 'obstacles':1, 'flips':1, 'block':1}) {
                     this.position.z = this.baseZ + (progress * streetLength * 2) % streetLength;
-                    this.rotation.y = Math.sin(progress * Math.PI * 4) * 0.1; // Sway sync
+                    this.rotation.y = Math.sin(progress * Math.PI * 4) * 0.1;
+                    
+                    // Synchronized car horn sound
+                    if (this.hornSound) {
+                        const soundTrigger = Math.sin(progress * Math.PI * 4);
+                        if (soundTrigger > 0.9 && Date.now() - this.lastSoundTime > 1000) {
+                            this.hornSound.setPlaybackRate(0.8 + Math.random() * 0.2);
+                            this.hornSound.play();
+                            this.lastSoundTime = Date.now();
+                        }
+                    }
                 } else {
                     this.position.z = this.baseZ + Math.random() * 10;
+                    this.rotation.y = 0;
                 }
             }
         }
@@ -443,7 +683,7 @@
         // --- Initialization ---
         function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x87ceeb); // Day sky start
+            scene.background = new THREE.Color(0x87ceeb);
             scene.fog = new THREE.Fog(0x87ceeb, 100, 500);
             
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -456,6 +696,23 @@
             
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.target.set(0, 0, 0);
+            
+            pointerLockControls = new THREE.PointerLockControls(camera, renderer.domElement);
+            pointerLockControls.enabled = false;
+            
+            // Audio Listener
+            audioListener = new THREE.AudioListener();
+            camera.add(audioListener);
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Roller Coaster Path
+            rollerCoasterPath = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(0, 20, 50),
+                new THREE.Vector3(50, 40, 0),
+                new THREE.Vector3(0, 20, -50),
+                new THREE.Vector3(-50, 40, 0),
+                new THREE.Vector3(0, 20, 50)
+            ], true);
             
             // Lighting: Sun and Moon
             sunLight = new THREE.DirectionalLight(0xffd700, 1);
@@ -471,7 +728,7 @@
             
             // Brick Corner Store
             const storeGeometry = new THREE.BoxGeometry(30, 20, 30);
-            const storeMaterial = new THREE.MeshPhongMaterial({ color: 0x8b4513 }); // Brick red
+            const storeMaterial = new THREE.MeshPhongMaterial({ color: 0x8b4513 });
             store = new THREE.Mesh(storeGeometry, storeMaterial);
             store.position.set(0, 10, -20);
             scene.add(store);
@@ -480,7 +737,7 @@
             const doorGeometry = new THREE.PlaneGeometry(10, 15);
             const doorMaterial = new THREE.MeshPhongMaterial({ color: 0x228b22 });
             const door = new THREE.Mesh(doorGeometry, doorMaterial);
-            door.position.set(0, 7.5, -4.9); // Front
+            door.position.set(0, 7.5, -4.9);
             scene.add(door);
             
             // Street
@@ -500,7 +757,7 @@
             // Friends/Associates
             for (let i = 1; i <= numFriends; i++) {
                 const friend = new PartyCharacter(i);
-                friend.position.set(-15 + i * 6, 0, -5); // To the side of door
+                friend.position.set(-15 + i * 6, 0, -5);
                 friends.push(friend);
                 scene.add(friend);
             }
@@ -522,12 +779,12 @@
                 scene.add(car);
             }
             
-            // Corner Show Screen (Moved Outside)
-            const screenGeometry = new THREE.PlaneGeometry(30, 16.875); // Larger 16:9
+            // Corner Show Screen
+            const screenGeometry = new THREE.PlaneGeometry(30, 16.875);
             const screenMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
             screenMesh = new THREE.Mesh(screenGeometry, screenMaterial);
-            screenMesh.position.set(0, 25, 0); // Above door, facing street
-            screenMesh.rotation.y = 0; // Face street directly
+            screenMesh.position.set(0, 25, 0);
+            screenMesh.rotation.y = 0;
             scene.add(screenMesh);
             
             // Handle file input
@@ -539,16 +796,21 @@
             // Start performance monitoring
             startPerformanceMonitoring();
             
+            // Set default view mode
+            setViewMode('orbit');
+            
+            // Keyboard controls for first person
+            window.addEventListener('keydown', (e) => { keyboard[e.keyCode] = true; });
+            window.addEventListener('keyup', (e) => { keyboard[e.keyCode] = false; });
+            
             animate();
         }
         
         function createPartyThemeElements() {
-            // Dance Chain (relay)
             const danceGroup = new THREE.Group();
             themeElements['dance'] = danceGroup;
             scene.add(danceGroup);
             
-            // Street Obstacles (hurdles)
             const obstaclesGroup = new THREE.Group();
             for (let i = 0; i < 5; i++) {
                 const obstacle = new THREE.BoxGeometry(10, 5, 2);
@@ -561,13 +823,11 @@
             scene.add(obstaclesGroup);
             obstaclesGroup.visible = false;
             
-            // Breakdance Flips (gymnastics)
             const flipsGroup = new THREE.Group();
             themeElements['flips'] = flipsGroup;
             scene.add(flipsGroup);
             flipsGroup.visible = false;
             
-            // Block Party (carnival)
             const blockGroup = new THREE.Group();
             themeElements['block'] = blockGroup;
             scene.add(blockGroup);
@@ -590,9 +850,95 @@
             }
         }
 
+        // Toggle Boombox Attachment
+        function toggleBoomboxAttachment() {
+            isBoomboxAttached = !isBoomboxAttached;
+            const btn = document.getElementById('boomboxBtn');
+            btn.textContent = isBoomboxAttached ? '🎶 Release Boombox' : '🎶 Attach Boombox';
+            btn.classList.toggle('active', isBoomboxAttached);
+            showAdvantagePopup(isBoomboxAttached ? '🎶 BOOMBOX ATTACHED TO YOU!' : '🎶 BOOMBOX RETURNED TO PARTY!');
+
+            if (isBoomboxAttached) {
+                // Attach boombox to camera
+                mainCharacter.remove(mainCharacter.boombox);
+                camera.add(mainCharacter.boombox);
+                mainCharacter.boombox.position.set(0, -2, -5); // Position in front of camera
+                mainCharacter.boombox.rotation.set(0, 0, 0); // Reset rotation for camera
+                mainCharacter.remove(mainCharacter.boomboxSound);
+                mainCharacter.boombox.add(mainCharacter.boomboxSound);
+            } else {
+                // Return boombox to main character
+                camera.remove(mainCharacter.boombox);
+                mainCharacter.add(mainCharacter.boombox);
+                mainCharacter.boombox.position.set(0, 3, 1.5); // Original position
+                mainCharacter.boombox.add(mainCharacter.boomboxSound);
+            }
+        }
+
+        // View Mode Handling
+        let keyboard = {};
+        function setViewMode(mode) {
+            viewMode = mode;
+            if (rollerCoasterTween) rollerCoasterTween.stop();
+            if (mode === 'orbit') {
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                controls.enabled = true;
+                camera.position.set(0, 20, 50);
+                controls.target.set(0, 0, 0);
+            } else if (mode === 'firstPerson') {
+                controls.enabled = false;
+                pointerLockControls.enabled = true;
+                pointerLockControls.lock();
+                camera.position.set(mainCharacter.position.x, mainCharacter.position.y + 7, mainCharacter.position.z);
+            } else if (mode === 'thirdPerson') {
+                controls.enabled = false;
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                camera.position.copy(mainCharacter.position.clone().add(thirdPersonOffset));
+                camera.lookAt(mainCharacter.position);
+            } else if (mode === 'side') {
+                controls.enabled = false;
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                camera.position.set(50, 10, 0);
+                camera.lookAt(0, 0, 0);
+            } else if (mode === 'sky') {
+                controls.enabled = false;
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                camera.position.set(0, 100, 0);
+                camera.lookAt(0, 0, 0);
+            } else if (mode === 'rollerCoaster') {
+                controls.enabled = false;
+                pointerLockControls.unlock();
+                pointerLockControls.enabled = false;
+                startRollerCoaster();
+            }
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.onclick.toString().includes(`'${mode}'`));
+            });
+            showAdvantagePopup(`🎥 View Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
+        }
+
+        function startRollerCoaster() {
+            const duration = 10000;
+            const progress = { t: 0 };
+            rollerCoasterTween = new TWEEN.Tween(progress)
+                .to({ t: 1 }, duration)
+                .repeat(Infinity)
+                .onUpdate(() => {
+                    const point = rollerCoasterPath.getPointAt(progress.t);
+                    camera.position.copy(point);
+                    camera.lookAt(0, 0, 0);
+                })
+                .start();
+        }
+
         // --- Animation Loop ---
-        function animate() {
+        function animate(time) {
             requestAnimationFrame(animate);
+            TWEEN.update(time);
             
             let player = getCurrentPlayer();
             let mediaProgress = 0;
@@ -627,6 +973,28 @@
             // Update Cars (train-like)
             cars.forEach(car => car.update(mediaProgress));
             
+            // Update Boombox when attached to camera
+            if (isBoomboxAttached && mainCharacter.boombox && isPlaying) {
+                const danceSpeed = 0.015 * performanceMultiplier;
+                const time = Date.now() * danceSpeed;
+                mainCharacter.boombox.scale.setScalar(1 + Math.sin(mainCharacter.vibePulse * 2) * 0.15);
+                mainCharacter.boombox.rotation.y = Math.sin(time) * 0.2;
+                mainCharacter.boombox.children.forEach((child, index) => {
+                    if (index === 1 || index === 2) { // speakers
+                        child.scale.setScalar(1 + Math.sin(mainCharacter.vibePulse * 3 + index) * 0.3);
+                    }
+                });
+                if (mainCharacter.boomboxSound && theme in {'dance':1, 'obstacles':1, 'flips':1, 'block':1}) {
+                    const soundTrigger = Math.sin(time * 3);
+                    if (soundTrigger > 0.9 && Date.now() - mainCharacter.lastSoundTime > 500) {
+                        mainCharacter.boomboxSound.setPlaybackRate(0.8 + Math.random() * 0.4);
+                        mainCharacter.boomboxSound.play();
+                        mainCharacter.lastSoundTime = Date.now();
+                    }
+                }
+                mainCharacter.vibePulse += 0.1;
+            }
+            
             // Effects
             confettiParticles = confettiParticles.filter(c => c.update());
             pyroFireworks = pyroFireworks.filter(p => p.update());
@@ -643,6 +1011,21 @@
                 screenMesh.scale.setScalar(1);
             }
             
+            // Update View Mode
+            if (viewMode === 'thirdPerson') {
+                const targetPos = mainCharacter.position.clone().add(new THREE.Vector3(0, 5, 0));
+                camera.position.lerp(mainCharacter.position.clone().add(thirdPersonOffset), 0.1);
+                camera.lookAt(targetPos);
+            } else if (viewMode === 'firstPerson' && pointerLockControls.isLocked) {
+                const moveSpeed = 0.1;
+                const direction = new THREE.Vector3();
+                pointerLockControls.getDirection(direction);
+                if (keyboard[87]) pointerLockControls.moveForward(moveSpeed); // W
+                if (keyboard[83]) pointerLockControls.moveForward(-moveSpeed); // S
+                if (keyboard[65]) pointerLockControls.moveRight(-moveSpeed); // A
+                if (keyboard[68]) pointerLockControls.moveRight(moveSpeed); // D
+            }
+            
             // Theme animations
             updateThemeAnimations();
             
@@ -653,7 +1036,32 @@
         
         function updateThemeAnimations() {
             const time = Date.now() * 0.001;
-            // Expand as needed
+            if (theme === 'dance') {
+                friends.forEach((friend, i) => {
+                    friend.position.x = -15 + i * 6 + Math.sin(time + i) * 2;
+                    friend.position.z = -5 + Math.cos(time + i) * 2;
+                });
+            } else if (theme === 'obstacles') {
+                themeElements['obstacles'].children.forEach((obstacle, i) => {
+                    obstacle.position.y = 2.5 + Math.sin(time + i) * 1;
+                });
+                friends.forEach((friend, i) => {
+                    friend.position.z = 30 + i * 30 + Math.sin(time) * 5;
+                });
+            } else if (theme === 'flips') {
+                friends.forEach(friend => {
+                    friend.rotation.x = Math.sin(time * 2) * Math.PI;
+                    friend.position.y = Math.abs(Math.sin(time * 2)) * 5;
+                });
+            } else if (theme === 'block') {
+                friends.forEach((friend, i) => {
+                    friend.position.x = Math.sin(time + i) * 10;
+                    friend.position.z = Math.cos(time + i) * 10;
+                });
+                if (Math.random() < 0.1) {
+                    confettiParticles.push(new Confetti(new THREE.Vector3(Math.random() * 20 - 10, 10, Math.random() * 20)));
+                }
+            }
         }
 
         // --- Media Handling ---
@@ -717,7 +1125,7 @@
             } else if (media.type === 'audio') {
                 audio.src = media.url;
                 audio.play();
-                screenMesh.material = new THREE.MeshBasicMaterial({ color: 0x000000 }); // Black screen for audio
+                screenMesh.material = new THREE.MeshBasicMaterial({ color: 0x000000 });
                 screenMesh.visible = true;
             } else if (media.type === 'image') {
                 new THREE.TextureLoader().load(media.url, tex => {
@@ -806,6 +1214,29 @@
             document.body.appendChild(popup);
             setTimeout(() => document.body.removeChild(popup), 3000);
         }
+
+        function toggleFullscreen() {
+            const elem = renderer.domElement;
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable fullscreen mode: ${err.message}`);
+                });
+                // Zoom camera to screen
+                controls.target.copy(screenMesh.position);
+                camera.position.set(screenMesh.position.x, screenMesh.position.y, screenMesh.position.z + 30);
+                controls.update();
+                showAdvantagePopup("📺 Fullscreen Media Activated!");
+            } else {
+                document.exitFullscreen();
+                // Reset camera
+                controls.target.set(0, 0, 0);
+                camera.position.set(0, 20, 50);
+                controls.update();
+                showAdvantagePopup("📺 Exited Fullscreen");
+            }
+        }
+
+        
 
         window.onload = init;
         window.addEventListener('resize', () => {
