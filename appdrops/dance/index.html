@@ -83,7 +83,7 @@
         }
 
         .advantages-ticker { top: 60px; left: 10px; right: 10px; }
-        .status-display { bottom: 100px; left: 10px; right: 10px; display: none; }
+        .status-display { top: 0px; left: 10px; right: 10px; display: none; }
         .status-display.show { display: block; }
         .performance-stats { top: 100px; right: 10px; }
         .neurology-boost { bottom: 150px; left: 10px; }
@@ -171,15 +171,9 @@
 <body>
     <div id="canvas-container"></div>
     
-    <div class="header">
-        <h1>🎉 P.O.P.S. CITY CORNER PARTY BOOMBOX 🏙️🎶🛒</h1>
-    </div>
+  
 
-    <div class="advantages-ticker">
-        <div class="ticker-content" id="advantagesTicker">
-            🏙️ URBAN VIBE ACCELERATION! • 🎶 BOOMBOX BLAST 300%! • 🎉 PARTY ATMOSPHERE ENHANCES ENERGY! • 🛒 CORNER STORE GLORY ACTIVE! • ⚡ CITY LIGHTS ENGAGED! • 🎵 SYNCED PARADE OPTIMIZED! • 🎭 CHARACTER PERFORMANCE MAXIMIZED! • 🌟 SPECTACULAR STREET STIMULATION! • 🚀 COMMUNITY TURBO MODE! • 
-        </div>
-    </div>
+ 
     
     <div class="status-display" id="statusDisplay">
         <div class="media-info" id="mediaInfo">
@@ -210,13 +204,7 @@
         </div>
     </div>
 
-    <div class="neurology-boost">
-        <div>🏙️ CITY PARTY BOOST ACTIVE!</div>
-        <div style="font-size: 12px; margin-top: 5px;">
-            Enhanced social vibes, synced movements, 
-            endless entertainment cycles!
-        </div>
-    </div>
+    
     
     <div class="controls">
         <div class="control-row">
@@ -234,6 +222,8 @@
             <button onclick="setTheme('flips')" class="theme-btn" data-theme="flips">🤸 Breakdance Flips</button>
             <button onclick="setTheme('block')" class="theme-btn" data-theme="block">🎪 Block Party</button>
             <button onclick="triggerSpectacular()" class="spectacular-btn">✨ EPIC MODE</button>
+             <button onclick="toggleBoomboxAttachment()" class="boombox-btn" id="boomboxBtn">🎶 Attach Boombox</button>
+
         </div>
         <div class="control-row">
             <button onclick="setViewMode('orbit')" class="view-btn">🌀 Orbit View</button>
@@ -242,12 +232,11 @@
             <button onclick="setViewMode('side')" class="view-btn">🛣️ Side View</button>
             <button onclick="setViewMode('sky')" class="view-btn">☁️ Sky View</button>
             <button onclick="setViewMode('rollerCoaster')" class="view-btn">🎢 Roller Coaster</button>
-        </div>
-        <div class="control-row">
-            <button onclick="toggleBoomboxAttachment()" class="boombox-btn" id="boomboxBtn">🎶 Attach Boombox</button>
              <button onclick="toggleFullscreen()">📺 Fullscreen Media</button>
 
+        
         </div>
+        
     </div>
     
     <audio id="mediaPlayer" onended="playNextTrack()" ontimeupdate="updateProgress()"></audio>
@@ -282,9 +271,9 @@
         let timeCycle = 0;
         
         const streetLength = 200;
-        const numFriends = 5;
-        const numCrowds = 20;
-        const numCars = 10;
+        const numFriends = 10;
+        const numCrowds = 40;
+        const numCars = 20;
 
 
         
